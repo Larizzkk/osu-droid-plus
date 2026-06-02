@@ -162,13 +162,13 @@ class InputPreference(context: Context, attrs: AttributeSet?, defStyleAttr: Int,
             attributes,
             R.styleable.Preference_layout,
             R.styleable.Preference_android_layout,
-            ru.nsu.ccfit.zuev.osuplus.R.layout.settings_preference_input
+            ru.nsu.ccfit.zuev.osuplusplus.R.layout.settings_preference_input
         )
 
         attributes.recycle()
 
-        if (layout != ru.nsu.ccfit.zuev.osuplus.R.layout.settings_preference_input && layout != ru.nsu.ccfit.zuev.osuplus.R.layout.settings_preference_input_bottom) {
-            layoutResource = ru.nsu.ccfit.zuev.osuplus.R.layout.settings_preference_input
+        if (layout != ru.nsu.ccfit.zuev.osuplusplus.R.layout.settings_preference_input && layout != ru.nsu.ccfit.zuev.osuplusplus.R.layout.settings_preference_input_bottom) {
+            layoutResource = ru.nsu.ccfit.zuev.osuplusplus.R.layout.settings_preference_input
         }
     }
 
@@ -234,7 +234,7 @@ class InputPreference(context: Context, attrs: AttributeSet?, defStyleAttr: Int,
     override fun onBindViewHolder(holder: PreferenceViewHolder) {
         super.onBindViewHolder(holder)
 
-        input = holder.findViewById(ru.nsu.ccfit.zuev.osuplus.R.id.input)!! as EditText
+        input = holder.findViewById(ru.nsu.ccfit.zuev.osuplusplus.R.id.input)!! as EditText
         input.setText(value)
         input.onTextInputBind()
         input.imeOptions = IME_ACTION_DONE

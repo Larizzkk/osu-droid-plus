@@ -66,11 +66,11 @@ import kotlinx.coroutines.JobKt;
 import ru.nsu.ccfit.zuev.audio.BassSoundProvider;
 import ru.nsu.ccfit.zuev.audio.Status;
 import ru.nsu.ccfit.zuev.osu.Config;
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm;
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
 import ru.nsu.ccfit.zuev.osu.LibraryManager;
 import ru.nsu.ccfit.zuev.osu.RankedStatus;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.Utils;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper;
@@ -115,6 +115,12 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
     private ScrollBar scrollbar;
     private boolean allowAutomaticPlaybackRestart = true;
     private ValueAnimator musicVolumeAnimator;
+
+    private Rectangle kiaiFlashOverlay;
+    private long lastKiaiBeatPosition = 0;
+    private int kiaiBeatCount = 0;
+    private float kiaiFlashAlpha = 0;
+    private ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground triangleBg;
 
     private Job calculationJob,
                 musicLoadingJob,
@@ -184,6 +190,9 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
     }
 
     public void reload() {
+        if (triangleBg != null) {
+            triangleBg.clearAll();
+        }
         frontLayer = new UIContainer();
         backLayer = new Entity();
         scene.unregisterUpdateHandler(this);
@@ -705,6 +714,17 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
             scene.registerTouchArea(scoringSwitcher);
             frontLayer.attachChild(scoringSwitcher);
         }
+
+        // Kiai flash overlay
+        kiaiFlashOverlay = new Rectangle(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+        kiaiFlashOverlay.setColor(1, 1, 1);
+        kiaiFlashOverlay.setAlpha(0);
+        kiaiFlashOverlay.setIgnoreUpdate(true);
+        backLayer.attachChild(kiaiFlashOverlay);
+
+        // Triangle background animation
+        triangleBg = new ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground();
+        backLayer.attachChild(triangleBg);
     }
 
     public void loadFilterFragment() {
@@ -834,6 +854,44 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
                     allowAutomaticPlaybackRestart = false;
                     playMusic(selectedBeatmap.getAudioPath(), selectedBeatmap.getPreviewTime());
                 }
+            }
+        }
+
+        // Kiai flash effect - smooth sine wave pulse synced to beatmap BPM
+        if (kiaiFlashOverlay != null) {
+            boolean menuFlashEnabled = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("menuKiaiFlash", true);
+            if (!menuFlashEnabled) {
+                kiaiFlashOverlay.setAlpha(0);
+            } else {
+                var songService = GlobalManager.getInstance().getSongService();
+                if (songService != null && songService.getStatus() == Status.PLAYING) {
+                    int currentPos = songService.getPosition();
+                    float bpm = 150f;
+                    if (selectedBeatmap != null) {
+                        float commonBpm = selectedBeatmap.getMostCommonBPM();
+                        if (commonBpm > 0) bpm = commonBpm;
+                    }
+                    int beatInterval = Math.max(100, Math.round(60000f / bpm));
+                    long currentBeat = currentPos / beatInterval;
+                    if (currentBeat != lastKiaiBeatPosition) {
+                        kiaiBeatCount++;
+                        lastKiaiBeatPosition = currentBeat;
+                    }
+                    // Flash every 2nd beat
+                    if (kiaiBeatCount % 2 == 0) {
+                        float beatPhase = (float)(currentPos % beatInterval) / beatInterval;
+                        float pulse = (float)(Math.sin(beatPhase * Math.PI));
+                        kiaiFlashAlpha = pulse * 0.06f;
+                        if (triangleBg != null) triangleBg.setKiai(true);
+                    } else {
+                        kiaiFlashAlpha -= pSecondsElapsed * 3.0f;
+                        if (kiaiFlashAlpha < 0) kiaiFlashAlpha = 0;
+                    }
+                } else {
+                    kiaiFlashAlpha -= pSecondsElapsed * 2.0f;
+                    if (kiaiFlashAlpha < 0) kiaiFlashAlpha = 0;
+                }
+                kiaiFlashOverlay.setAlpha(kiaiFlashAlpha);
             }
         }
 
@@ -1295,7 +1353,28 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
 
         resetMusicEffects();
         startMusicVolumeAnimation(0.5f);
-        GlobalManager.getInstance().getMainScene().show();
+
+        // Fade out then switch to main menu
+        Rectangle fadeRect = new Rectangle(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+        fadeRect.setColor(0, 0, 0);
+        fadeRect.setAlpha(0);
+        scene.attachChild(fadeRect);
+
+        final float[] elapsed = {0};
+        scene.registerUpdateHandler(new org.anddev.andengine.engine.handler.IUpdateHandler() {
+            @Override
+            public void onUpdate(float dt) {
+                elapsed[0] += dt;
+                float t = Math.min(1, elapsed[0] / 0.2f);
+                fadeRect.setAlpha(t);
+                if (t >= 1) {
+                    scene.unregisterUpdateHandler(this);
+                    GlobalManager.getInstance().getMainScene().show();
+                }
+            }
+            @Override
+            public void reset() {}
+        });
     }
 
     private void resetMultiplayerRoomBeatmap() {

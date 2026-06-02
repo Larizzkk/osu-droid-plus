@@ -9,7 +9,7 @@ import com.reco1l.andengine.ui.UIBadge
 import com.reco1l.framework.Color4
 import com.rian.framework.RollingDoubleCounter
 import kotlin.math.abs
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 /**
  * A [UIBadge] for displaying star ratings. Automatically adjusts its styling according to the rating.

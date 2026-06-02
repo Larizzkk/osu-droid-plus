@@ -1,9 +1,9 @@
 package ru.nsu.ccfit.zuev.osu;
 
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
-
-public class BuildType {
-    public static boolean hasOnlineAccess() {
-        return BuildConfig.BUILD_TYPE.matches("(release|pre_release)");
-    }
+/**
+ * Delegating BuildType class that forwards to osuplusplus.BuildType
+ * This maintains backward compatibility for code that imports from osu package
+ */
+public class BuildType extends ru.nsu.ccfit.zuev.osuplusplus.BuildType {
+    // All methods are inherited from osuplusplus.BuildType
 }

@@ -11,7 +11,7 @@ import java.io.File;
 import com.un4seen.bass.BASS;
 
 import ru.nsu.ccfit.zuev.audio.Status;
-import ru.nsu.ccfit.zuev.osu.MainActivity;
+import ru.nsu.ccfit.zuev.osuplusplus.MainActivity;
 
 
 public class SongService extends Service {
@@ -228,3 +228,4 @@ public class SongService extends Service {
     }
 
 }
+

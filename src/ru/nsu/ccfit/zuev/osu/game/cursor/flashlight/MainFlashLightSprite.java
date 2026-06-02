@@ -5,7 +5,7 @@ import com.reco1l.andengine.modifier.UniversalModifier;
 
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 
 
 public class MainFlashLightSprite extends FlashlightAreaSizedSprite {

@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.modmenu
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.edlplan.framework.easing.Easing
 import com.osudroid.beatmaps.BeatmapCache
@@ -18,6 +19,7 @@ import com.osudroid.multiplayer.Multiplayer
 import com.osudroid.ui.v2.ModsIndicator
 import com.osudroid.ui.v2.StarRatingBadge
 import com.osudroid.utils.updateThread
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.ui.UITextButton
 import com.reco1l.toolkt.kotlin.*
@@ -32,7 +34,7 @@ import com.rian.osu.utils.ModUtils
 import java.io.IOException
 import kotlinx.coroutines.*
 import ru.nsu.ccfit.zuev.osu.*
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm.*
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm.*
 import ru.nsu.ccfit.zuev.osu.helper.*
 import java.util.LinkedList
 import java.util.concurrent.CancellationException
@@ -571,9 +573,21 @@ object ModMenu : UIScene() {
             background!!.colorTo(if (isRanked) Color4(0xFF83DF6B) else Theme.current.accentColor * 0.15f, 0.1f)
         }
 
-        modToggles.fastForEach {
-            it.hasIncompatibility =
-                if (!it.isSelected) enabledMods.any { m -> !it.mod.isCompatibleWith(m) } else false
+        val unrestricted = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("unrestrictedMods", false)
+        modToggles.fastForEach { toggle ->
+            toggle.hasIncompatibility =
+                if (!toggle.isSelected) {
+                    enabledMods.any { m ->
+                        if (unrestricted) {
+                            // Only automation mods are incompatible with each other
+                            toggle.mod.type == com.rian.osu.mods.ModType.Automation &&
+                            m.type == com.rian.osu.mods.ModType.Automation &&
+                            !toggle.mod.isCompatibleWith(m)
+                        } else {
+                            !toggle.mod.isCompatibleWith(m)
+                        }
+                    }
+                } else false
         }
 
         scoreMultiplierBadge.updateValue(1f, ModUtils.calculateScoreMultiplier(enabledMods))
@@ -596,7 +610,27 @@ object ModMenu : UIScene() {
         if (mod in enabledMods) {
             return
         }
-        enabledMods.put(mod)
+
+        val unrestricted = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("unrestrictedMods", false)
+        if (unrestricted) {
+            // When unrestricted, only remove incompatible Automation mods
+            val autoMods = enabledMods.filter { (_, m) -> m.type == com.rian.osu.mods.ModType.Automation }
+            for ((_, m) in autoMods) {
+                if (!mod.isCompatibleWith(m)) {
+                    enabledMods.remove(m::class)
+                }
+            }
+            // Check if any existing non-automation mod is incompatible with the new automation mod
+            if (mod.type == com.rian.osu.mods.ModType.Automation) {
+                val toRemove = enabledMods.filter { (_, m) -> !mod.isCompatibleWith(m) }.toList()
+                for ((cls, _) in toRemove) {
+                    enabledMods.remove(cls)
+                }
+            }
+            enabledMods.putWithoutIncompatibilityCheck(mod)
+        } else {
+            enabledMods.put(mod)
+        }
 
         modToggles.fastForEach { button ->
 
@@ -678,5 +712,3 @@ object ModMenu : UIScene() {
     //endregion
 
 }
-
-

@@ -115,13 +115,13 @@ import ru.nsu.ccfit.zuev.audio.Status;
 import ru.nsu.ccfit.zuev.audio.effect.Metronome;
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.Utils;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper.SliderPath;
 import ru.nsu.ccfit.zuev.osu.game.cursor.flashlight.FlashLightEntity;
-import ru.nsu.ccfit.zuev.osu.game.cursor.main.AutoCursor;
-import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorEntity;
+import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.main.AutoCursor;
+import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.main.CursorEntity;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
 import ru.nsu.ccfit.zuev.osu.menu.PauseMenu;
@@ -140,6 +140,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private final int maximumActiveCursorCount = 3;
     private final UIEngine engine;
     private Cursor[] cursors = new Cursor[CursorCount];
+    private ru.nsu.ccfit.zuev.osuplusplus.ScreenShake screenShake;
+    private ru.nsu.ccfit.zuev.osuplusplus.ReplayControlOverlay replayOverlay;
+    private boolean replayOverlayVisible = false;
     public String audioFilePath = null;
     private UIScene scene;
     private UIScene bgScene, mgScene, fgScene;
@@ -195,11 +198,25 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private SliderPath[] sliderPaths = null;
     private LinePath[] sliderRenderPaths = null;
     private int sliderIndex = 0;
+
+    // Kiai effects
+    private int particleBeginTime = 0;
+    private boolean particleEnabled = false;
+    private boolean isContinuousKiai = false;
+    private final org.anddev.andengine.entity.particle.ParticleSystem[] particleSystem = new org.anddev.andengine.entity.particle.ParticleSystem[2];
+    private org.anddev.andengine.entity.primitive.Rectangle kiaiFlashOverlay;
+    private float kiaiFlashAlpha = 0f;
+    private boolean kiaiFlashTriggered = false;
+    private boolean wasKiaiFlash = false;
+    private float kiaiFlashTimer = 0f;
+    private ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground triangleBg;
     private UISprite unrankedSprite;
     private final ArrayList<IModApplicableToTrackRate> rateAdjustingMods = new ArrayList<>();
 
     @Nullable
     private Job storyboardLoadingJob;
+
+
     private StoryboardSprite storyboardSprite;
     private ProxySprite storyboardOverlayProxy;
 
@@ -1113,7 +1130,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         distToNextObject = 0;
 
         // TODO passive objects
-        if ((replaying || Config.isShowCursor()) && !GameHelper.isAutoplay() && !GameHelper.isAutopilot()) {
+        // Create cursor trail if particles enabled, regardless of cursor visibility
+        if (Config.isUseParticles() && !GameHelper.isAutoplay() && !GameHelper.isAutopilot()) {
             cursorSprites = new CursorEntity[cursorCount];
             for (int i = 0; i < cursorCount; i++) {
                 cursorSprites[i] = new CursorEntity();
@@ -1141,6 +1159,35 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             comboBurst = new ComboBurst(Config.getRES_WIDTH(), Config.getRES_HEIGHT());
             comboBurst.attachAll(bgScene);
         }
+
+        initializeParticleSystems();
+
+        // Initialize screen shake
+        screenShake = new ru.nsu.ccfit.zuev.osuplusplus.ScreenShake(engine.getCamera());
+
+        // Initialize replay control overlay
+        if (replaying || GameHelper.isAutoplay()) {
+            replayOverlay = new ru.nsu.ccfit.zuev.osuplusplus.ReplayControlOverlay();
+            replayOverlay.build();
+            replayOverlay.setTotalDuration(totalLength < Integer.MAX_VALUE ? totalLength / 1000f : 120f);
+            replayOverlay.setOnSpeedChangeListener(speed -> {
+                GameHelper.setSpeedMultiplier(speed);
+                GlobalManager.getInstance().getSongService().setSpeed(speed);
+            });
+            replayOverlay.setOnSeekListener(time -> seekReplay(time));
+            replayOverlay.hide();
+            fgScene.attachChild(replayOverlay);
+        }
+
+        // Initialize kiai flash overlay
+        kiaiFlashOverlay = new org.anddev.andengine.entity.primitive.Rectangle(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+        kiaiFlashOverlay.setColor(1f, 1f, 1f, 0f);
+        kiaiFlashOverlay.setVisible(false);
+        fgScene.attachChild(kiaiFlashOverlay);
+
+        // Triangle background
+        triangleBg = new ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground();
+        bgScene.attachChild(triangleBg);
 
         var position = new PointF(Config.getRES_WIDTH() - 130, 130);
         float timeOffset = 0;
@@ -1496,6 +1543,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.update(dt);
+            autoCursor.updateMovement(dt);
         } else if (cursorSprites != null) {
             for (int i = 0; i < cursorSprites.length; i++) {
                 var sprite = cursorSprites[i];
@@ -1584,6 +1632,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setBeatLength(activeTimingPoint.msPerBeat / 1000);
         GameHelper.setKiai(activeEffectPoint.isKiai);
         GameHelper.setCurrentBeatTime(Math.max(0, elapsedTime - activeTimingPoint.time / 1000) % GameHelper.getBeatLength());
+
+        updateKiaiEffects();
+        updateKiaiFlash(dt);
+
+        if (screenShake != null) screenShake.update(dt);
+
+        // Update replay overlay time
+        if (replaying && replayOverlay != null && replayOverlay.isVisible()) {
+            replayOverlay.updateTime(elapsedTime);
+        }
 
         if (!isGameOver) {
 
@@ -1843,6 +1901,20 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             expiredObjects.clear();
             breakPeriods = null;
             cursorSprites = null;
+            if (particleSystem != null) {
+                for (var particleSpout : particleSystem) {
+                    if (particleSpout != null) {
+                        particleSpout.setParticlesSpawnEnabled(false);
+                        particleSpout.clearUpdateHandlers();
+                        particleSpout.detachSelf();
+                    }
+                }
+            }
+            if (kiaiFlashOverlay != null) {
+                kiaiFlashOverlay.detachSelf();
+                kiaiFlashOverlay = null;
+            }
+
             this.playableBeatmap = null;
             performanceCalculationParameters = null;
             droidTimedDifficultyAttributes = null;
@@ -2039,6 +2111,103 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 skipBtn = null;
             }
         });
+    }
+
+    /**
+     * Seek the replay/autoplay to a specific time (in seconds).
+     * Resets game state so objects reappear on backward seek
+     * and replay cursor events play correctly on forward seek.
+     */
+    public void seekReplay(float targetTimeSeconds) {
+        if (!replaying && !GameHelper.isAutoplay()) return;
+        if (objects == null || playableBeatmap == null) return;
+        // Safety: don't seek if timing points aren't initialized yet
+        if (timingControlPoints == null || timingControlPoints.length == 0) return;
+        if (effectControlPoints == null || effectControlPoints.length == 0) return;
+
+        float oldTime = elapsedTime;
+        elapsedTime = Math.max(0, Math.min(targetTimeSeconds, totalLength < Integer.MAX_VALUE ? totalLength / 1000f : 120f));
+
+        double elapsedTimeMs = Math.ceil(elapsedTime * 1000);
+        int musicSeekTime = Math.max(0, (int) (elapsedTimeMs - totalOffset * getRateAt(elapsedTimeMs) * 1000));
+
+        // Seek music
+        var songService = GlobalManager.getInstance().getSongService();
+        if (songService != null) {
+            if (elapsedTime >= getRateAdjustedOffset() && !musicStarted) {
+                songService.play();
+                songService.setVolume(Config.getBgmVolume());
+                musicStarted = true;
+            }
+            songService.seekTo(musicSeekTime);
+        }
+
+        // ---- Reset game state so objects reappear ----
+
+        // Clear active/expired objects so they get re-added from the objects array
+        activeObjects.clear();
+        expiredObjects.clear();
+
+        // Reset object index to the first object that should be active at the new time
+        objectIndex = 0;
+        for (int i = 0; i < objects.length; i++) {
+            float objStartTime = (float) objects[i].startTime / 1000f;
+            if (objStartTime > elapsedTime - 0.5f) {
+                objectIndex = i;
+                break;
+            }
+        }
+        // If all objects are in the past, set to end
+        if (objectIndex >= objects.length) {
+            objectIndex = objects.length;
+        }
+
+        // Reset object tracking state
+        lastObjectId = -1;
+        judgeableObject = null;
+        leadOut = 0;
+
+        // Reset replay cursor indices so replay events replay from the new position
+        if (replaying && replay != null) {
+            for (int i = 0; i < replay.cursorIndex.length; i++) {
+                replay.cursorIndex[i] = 0;
+            }
+        }
+
+        // Reset timing control points to match the new time
+        while (timingControlPointIndex > 0 && timingControlPoints[timingControlPointIndex].time > elapsedTime * 1000) {
+            timingControlPointIndex--;
+        }
+        while (timingControlPointIndex + 1 < timingControlPoints.length &&
+               timingControlPoints[timingControlPointIndex + 1].time <= elapsedTime * 1000) {
+            timingControlPointIndex++;
+        }
+        if (timingControlPoints != null && timingControlPoints.length > 0) {
+            activeTimingPoint = timingControlPoints[timingControlPointIndex];
+        }
+
+        while (effectControlPointIndex > 0 && effectControlPoints[effectControlPointIndex].time > elapsedTime * 1000) {
+            effectControlPointIndex--;
+        }
+        while (effectControlPointIndex + 1 < effectControlPoints.length &&
+               effectControlPoints[effectControlPointIndex + 1].time <= elapsedTime * 1000) {
+            effectControlPointIndex++;
+        }
+        if (effectControlPoints != null && effectControlPoints.length > 0) {
+            activeEffectPoint = effectControlPoints[effectControlPointIndex];
+        }
+
+        // Reset miss tracking so combo isn't broken incorrectly
+        comboWasMissed = false;
+        comboWas100 = false;
+
+        // Reset the auto cursor to prevent it from jumping to old positions
+        if (autoCursor != null) {
+            autoCursor.setPosition(Config.getRES_WIDTH() / 2f, Config.getRES_HEIGHT() / 2f);
+            autoCursor.setAutoplayStyle(autoCursor.getAutoplayStyle());
+        }
+
+        android.util.Log.d("GameScene", "Seek replay: " + oldTime + "s → " + elapsedTime + "s (music: " + musicSeekTime + "ms, objectIndex: " + objectIndex + ")");
     }
 
     private void onExit() {
@@ -2256,6 +2425,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         float accuracy = Math.abs(acc);
+
+        // Screen shake on hit (gentle for accurate, stronger for shaky hits)
+        if (screenShake != null && accuracy < 0.05f) {
+            screenShake.shake(1.5f, 0.08f);
+        } else if (screenShake != null) {
+            screenShake.shake(0.5f, 0.05f);
+        }
+
         boolean writeReplay = replay != null && !replaying;
         if (writeReplay) {
             short sacc = (short) (acc * 1000);
@@ -2501,7 +2678,18 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 : 0;
         int eventTime = (int) (elapsedTime * 1000 + offset);
 
-        if (replaying || isGameOver) {
+        if (replaying) {
+            if (replayOverlay != null && event.isActionDown()) {
+                if (replayOverlay.handleTouch(event.getX(), event.getY())) {
+                    return true;
+                }
+                replayOverlay.toggle();
+                return true;
+            }
+            return true;
+        }
+
+        if (isGameOver) {
             return false;
         }
 
@@ -3501,5 +3689,146 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     private float getRateAdjustedOffset() {
         return totalOffset * GameHelper.getSpeedMultiplier();
+    }
+
+    private void initializeParticleSystems() {
+        // Check if kiai particles are enabled
+        if (!ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("kiaiParticles", true)) {
+            android.util.Log.d("GameScene", "Kiai particles disabled in settings");
+            return;
+        }
+
+        try {
+            var starRegion = ru.nsu.ccfit.zuev.osuplusplus.ResourceManager.getInstance().getTexture("sliderscorepoint");
+            if (starRegion == null) {
+                // Fallback: try to load sliderscorepoint from assets
+                starRegion = ru.nsu.ccfit.zuev.osuplusplus.ResourceManager.getInstance().loadTexture(
+                    "sliderscorepoint", "gfx/sliderscorepoint.png", false);
+            }
+            if (starRegion == null) {
+                android.util.Log.w("GameScene", "Sliderscorepoint texture not found for particle systems");
+                return;
+            }
+
+            // Left particle system
+            particleSystem[0] = new org.anddev.andengine.entity.particle.ParticleSystem(
+                new org.anddev.andengine.entity.particle.emitter.PointParticleEmitter(-40, (float) (Config.getRES_HEIGHT() * 3) / 4),
+                32, 48, 128, starRegion);
+            particleSystem[0].setBlendFunction(javax.microedition.khronos.opengles.GL10.GL_SRC_ALPHA, javax.microedition.khronos.opengles.GL10.GL_ONE_MINUS_SRC_ALPHA);
+
+            particleSystem[0].addParticleInitializer(new org.anddev.andengine.entity.particle.initializer.VelocityInitializer(150, 430, -480, -520));
+            particleSystem[0].addParticleInitializer(new org.anddev.andengine.entity.particle.initializer.AccelerationInitializer(10, 30));
+            particleSystem[0].addParticleInitializer(new org.anddev.andengine.entity.particle.initializer.RotationInitializer(0.0f, 360.0f));
+
+            particleSystem[0].addParticleModifier(new org.anddev.andengine.entity.particle.modifier.ScaleModifier(0.5f, 2.0f, 0.0f, 1.0f));
+            particleSystem[0].addParticleModifier(new org.anddev.andengine.entity.particle.modifier.AlphaModifier(1.0f, 0.0f, 0.0f, 1.0f));
+            particleSystem[0].addParticleModifier(new org.anddev.andengine.entity.particle.modifier.ExpireModifier(1.0f));
+
+            particleSystem[0].setParticlesSpawnEnabled(false);
+            bgScene.attachChild(particleSystem[0]);
+
+            // Right particle system
+            particleSystem[1] = new org.anddev.andengine.entity.particle.ParticleSystem(
+                new org.anddev.andengine.entity.particle.emitter.PointParticleEmitter(Config.getRES_WIDTH(), (float) (Config.getRES_HEIGHT() * 3) / 4),
+                32, 48, 128, starRegion);
+            particleSystem[1].setBlendFunction(javax.microedition.khronos.opengles.GL10.GL_SRC_ALPHA, javax.microedition.khronos.opengles.GL10.GL_ONE_MINUS_SRC_ALPHA);
+
+            particleSystem[1].addParticleInitializer(new org.anddev.andengine.entity.particle.initializer.VelocityInitializer(-150, -430, -480, -520));
+            particleSystem[1].addParticleInitializer(new org.anddev.andengine.entity.particle.initializer.AccelerationInitializer(-10, 30));
+            particleSystem[1].addParticleInitializer(new org.anddev.andengine.entity.particle.initializer.RotationInitializer(0.0f, 360.0f));
+
+            particleSystem[1].addParticleModifier(new org.anddev.andengine.entity.particle.modifier.ScaleModifier(0.5f, 2.0f, 0.0f, 1.0f));
+            particleSystem[1].addParticleModifier(new org.anddev.andengine.entity.particle.modifier.AlphaModifier(1.0f, 0.0f, 0.0f, 1.0f));
+            particleSystem[1].addParticleModifier(new org.anddev.andengine.entity.particle.modifier.ExpireModifier(1.0f));
+
+            particleSystem[1].setParticlesSpawnEnabled(false);
+            bgScene.attachChild(particleSystem[1]);
+
+        } catch (Exception e) {
+            android.util.Log.e("GameScene", "Failed to initialize particle systems: " + e.getMessage());
+        }
+    }
+
+    private void updateKiaiEffects() {
+        try {
+            boolean kiaiParticlesEnabled = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("kiaiParticles", true);
+
+            if (kiaiParticlesEnabled && !isContinuousKiai && activeEffectPoint.isKiai && particleSystem[0] != null && particleSystem[1] != null) {
+                for (var particleSpout : particleSystem) {
+                    particleSpout.setParticlesSpawnEnabled(true);
+                }
+                particleBeginTime = (int)(elapsedTime * 1000);
+                particleEnabled = true;
+            }
+
+            // Triangle kiai boost on kiai start
+            if (!isContinuousKiai && activeEffectPoint.isKiai) {
+                if (triangleBg != null) triangleBg.setKiai(true);
+                if (screenShake != null) screenShake.shake(2f, 0.15f);
+            }
+
+            isContinuousKiai = activeEffectPoint.isKiai;
+
+            if (kiaiParticlesEnabled && particleEnabled && (elapsedTime * 1000 - particleBeginTime > 2000)) {
+                for (var particleSpout : particleSystem) {
+                    if (particleSpout != null) {
+                        particleSpout.setParticlesSpawnEnabled(false);
+                    }
+                }
+                particleEnabled = false;
+            }
+        } catch (Exception e) {
+            android.util.Log.e("GameScene", "Error updating kiai effects: " + e.getMessage());
+        }
+    }
+
+    private void updateKiaiFlash(float dt) {
+        if (kiaiFlashOverlay == null) return;
+
+        try {
+            boolean kiaiFlashEnabled = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("kiaiFlash", true);
+            if (!kiaiFlashEnabled) {
+                kiaiFlashOverlay.setVisible(false);
+                kiaiFlashOverlay.setAlpha(0f);
+                return;
+            }
+
+            boolean isKiai = activeEffectPoint != null && activeEffectPoint.isKiai;
+
+            // ONE flash per kiai section: trigger only when kiai STARTS
+            if (isKiai && !wasKiaiFlash && !kiaiFlashTriggered) {
+                kiaiFlashTriggered = true;
+                kiaiFlashTimer = 0f;
+                kiaiFlashAlpha = 0f;
+                kiaiFlashOverlay.setColor(1f, 1f, 1f);
+                kiaiFlashOverlay.setVisible(true);
+            }
+
+            // Reset for next kiai section
+            if (!isKiai) {
+                kiaiFlashTriggered = false;
+            }
+
+            wasKiaiFlash = isKiai;
+
+            // Fade in then fade out — one shot
+            if (kiaiFlashTriggered && kiaiFlashTimer < 0.55f) {
+                kiaiFlashTimer += dt;
+
+                if (kiaiFlashTimer < 0.15f) {
+                    kiaiFlashAlpha = (kiaiFlashTimer / 0.15f) * 0.2f;
+                } else {
+                    float fadeOut = (kiaiFlashTimer - 0.15f) / 0.4f;
+                    kiaiFlashAlpha = (1f - fadeOut) * 0.2f;
+                }
+
+                kiaiFlashOverlay.setAlpha(kiaiFlashAlpha);
+            } else {
+                kiaiFlashOverlay.setVisible(false);
+                kiaiFlashOverlay.setAlpha(0f);
+            }
+        } catch (Exception e) {
+            android.util.Log.e("GameScene", "Error updating kiai flash: " + e.getMessage());
+        }
     }
 }

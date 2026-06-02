@@ -14,7 +14,7 @@ import com.osudroid.utils.updateThread
 import com.reco1l.andengine.component.*
 import com.reco1l.toolkt.kotlin.*
 import org.anddev.andengine.input.touch.TouchEvent
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 class HUDElementOverlay(private val element: HUDElement) : UIConstraintContainer() {
 

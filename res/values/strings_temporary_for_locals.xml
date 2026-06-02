@@ -28,6 +28,59 @@
     <string name="multiplayer_room_not_available_beatmap">Not available</string>
     <string name="multiplayer_room_start_game">Start game!</string>
     <string name="multiplayer_room_force_start_game">Force start game! (%d/%d)</string>
+    
+    <!-- Kiai flash brightness settings -->
+    <string name="opt_kiai_flash_brightness_title">Kiai Flash Brightness</string>
+    <string name="opt_kiai_flash_brightness_summary">Adjust the brightness of kiai flash effects (5-100%)</string>
+    
+    <!-- Autoplay movement settings -->
+    <string name="opt_category_autoplay_movement">Autoplay Movement</string>
+    <string name="opt_autoplay_movement_type_title">Movement Type</string>
+    <string name="opt_autoplay_movement_type_summary">Choose the movement pattern for autoplay cursor</string>
+    <string name="opt_autoplay_movement_speed_title">Movement Speed</string>
+    <string name="opt_autoplay_movement_speed_summary">Adjust how fast the autoplay cursor moves between objects</string>
+    <string name="opt_autoplay_movement_smoothness_title">Movement Smoothness</string>
+    <string name="opt_autoplay_movement_smoothness_summary">Adjust the smoothness of cursor movements</string>
+    <string name="opt_autoplay_movement_predictive_title">Predictive Movement</string>
+    <string name="opt_autoplay_movement_predictive_summary">Enable predictive movement for more realistic cursor behavior</string>
+    <string name="opt_autoplay_movement_humanize_title">Humanize Movement</string>
+    <string name="opt_autoplay_movement_humanize_summary">Add slight variations to make movement more human-like</string>
+    <string name="opt_autoplay_movement_humanize_amount_title">Humanize Amount</string>
+    <string name="opt_autoplay_movement_humanize_amount_summary">How much random variation to add to cursor movement</string>
+    <string name="opt_autoplay_movement_show_cursor_title">Show Autoplay Cursor</string>
+    <string name="opt_autoplay_movement_show_cursor_summary">Display cursor during autoplay gameplay</string>
+    <string name="autoplay_movement_category">Autoplay Movement</string>
+    <string name="autoplay_movement_type">Movement Type</string>
+    <string name="autoplay_movement_type_summary">Choose cursor movement style for autoplay</string>
+    
+    <!-- Glow Effects Settings -->
+    <string name="opt_category_glow_effects">Glow Effects</string>
+    <string name="opt_cursor_glow_title">Cursor Glow</string>
+    <string name="opt_cursor_glow_summary">Enable glow effect around cursor</string>
+    <string name="opt_trail_glow_title">Trail Glow</string>
+    <string name="opt_trail_glow_summary">Enable glow effect on cursor trail</string>
+    <string name="opt_object_glow_title">Object Glow</string>
+    <string name="opt_object_glow_summary">Enable glow effect on hit objects</string>
+    <string name="opt_additive_blending_title">Additive Blending</string>
+    <string name="opt_additive_blending_summary">Use additive blending for glow effects</string>
+    <string name="opt_glow_intensity_title">Glow Intensity</string>
+    <string name="opt_glow_intensity_summary">Adjust the intensity of glow effects</string>
+    <string name="opt_glow_end_scale_title">Glow End Scale</string>
+    <string name="opt_glow_end_scale_summary">Scale factor for glow at trail end</string>
+    <string name="opt_inner_length_mult_title">Inner Trail Length</string>
+    <string name="opt_inner_length_mult_summary">Relative inner trail length when glow is enabled</string>
+    
+    <!-- Trail Settings -->
+    <string name="opt_category_trail_settings">Trail Settings</string>
+    <string name="opt_trail_size_title">Trail Size</string>
+    <string name="opt_trail_size_summary">Adjust the size of cursor trail</string>
+    <string name="opt_trail_width_title">Trail Width</string>
+    <string name="opt_trail_width_summary">Adjust the width of cursor trail</string>
+    
+    <!-- Category Names -->
+    <string name="opt_category_cursor">Cursor</string>
+    <string name="opt_category_trail">Trail</string>
+    
     <string name="multiplayer_room_must_select_beatmap">You must select a beatmap first.</string>
     <string name="multiplayer_room_at_least_one_player_per_team">At least 1 player per team is needed to start a match!</string>
     <string name="multiplayer_room_at_least_two_players_beatmap">At least 2 players need to have the beatmap!</string>
@@ -48,10 +101,9 @@
     <string name="multiplayer_room_kicked_message">You\'ve been kicked by room host.</string>
     <string name="multiplayer_room_kicked_close">Close</string>
     <string name="multiplayer_room_player_menu_view_profile">View profile</string>
-    <string name="multiplayer_room_player_menu_mute">Mute</string>
-    <string name="multiplayer_room_player_menu_unmute">Unmute</string>
-    <string name="multiplayer_room_player_menu_transfer_host">Transfer host</string>
     <string name="multiplayer_room_player_menu_kick">Kick</string>
+    <string name="multiplayer_room_player_menu_set_team">Set team</string>
+    <string name="multiplayer_room_player_menu_set_host">Set host</string>
     <string name="multiplayer_room_player_kick_dialog_title">Kick player %s</string>
     <string name="multiplayer_room_player_kick_dialog_message">Are you sure?</string>
     <string name="multiplayer_room_player_transfer_dialog_title">Transfer host to %s</string>
@@ -107,5 +159,18 @@
     <string name="opt_offset_calibration_feedback_early">Early</string>
     <string name="opt_offset_calibration_feedback_tap_count">taps</string>
 
+    <!-- Trail Configuration Strings -->
+    <string name="opt_trail_implementation_title">Trail Implementation</string>
+    <string name="opt_trail_implementation_summary">Choose trail rendering method</string>
+    <string name="opt_trail_length_title">Trail Length</string>
+    <string name="opt_trail_length_summary">Duration of trail effect in seconds</string>
+    <string name="opt_trail_style_title">Trail Style</string>
+    <string name="opt_trail_style_summary">Visual style of trail (Advanced only)</string>
+    <string name="opt_trail_spacing_title">Trail Spacing</string>
+    <string name="opt_trail_spacing_summary">Distance between trail points</string>
+
+    <string name="multiplayer_room_player_menu_mute">Mute</string>
+    <string name="multiplayer_room_player_menu_unmute">Unmute</string>
+    <string name="multiplayer_room_player_menu_transfer_host">Transfer host</string>
 
 </resources>

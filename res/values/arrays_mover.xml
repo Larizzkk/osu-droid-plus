@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <!-- Mover Names and Values -->
+    <string-array name="mover_names">
+        <item>Linear</item>
+        <item>Bezier</item>
+        <item>Spline</item>
+        <item>Circular</item>
+        <item>Axis</item>
+        <item>ExGon</item>
+        <item>Aggressive</item>
+        <item>Momentum</item>
+        <item>Pippi</item>
+        <item>Flower</item>
+    </string-array>
+    
+    <string-array name="mover_values">
+        <item>linear</item>
+        <item>bezier</item>
+        <item>spline</item>
+        <item>circular</item>
+        <item>axis</item>
+        <item>exgon</item>
+        <item>aggressive</item>
+        <item>momentum</item>
+        <item>pippi</item>
+        <item>flower</item>
+    </string-array>
+    
+    <!-- Spinner Names and Values -->
+    <string-array name="spinner_names">
+        <item>Circle</item>
+        <item>Square</item>
+        <item>Triangle</item>
+        <item>Heart</item>
+        <item>Cube</item>
+    </string-array>
+    
+    <string-array name="spinner_values">
+        <item>circle</item>
+        <item>square</item>
+        <item>triangle</item>
+        <item>heart</item>
+        <item>cube</item>
+    </string-array>
+    
+        
+</resources>

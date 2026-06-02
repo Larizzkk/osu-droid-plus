@@ -26,6 +26,13 @@
                 android:title="@string/opt_spinner_style_title" />
 
         <CheckBoxPreference
+                android:defaultValue="true"
+                android:key="removeUnsupportedSkinElements"
+                android:summary="Remove unsupported game mode elements (@2x, @mania, @catch, @taiko) from skin loading"
+                android:title="Remove Unsupported Skin Elements"
+                app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
                 android:defaultValue="false"
                 android:key="skin"
                 android:summary="@string/opt_skin_summary"
@@ -58,11 +65,38 @@
             android:key="particles"
             android:summary="@string/opt_particles_summary"
             android:title="@string/opt_particles_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference" />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="trailLength"
+            android:max="500"
+            android:summary="@string/opt_trail_length_summary"
+            android:title="@string/opt_trail_length_title"
+            app:min="0"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar" />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="30"
+            android:key="kiaiFlashBrightness"
+            android:max="100"
+            android:summary="@string/opt_kiai_flash_brightness_summary"
+            android:title="@string/opt_kiai_flash_brightness_title"
+            app:min="5"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom" />
 
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/opt_category_animations">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="kiaiStarFountains"
+            android:summary="Enable star fountain effects during kiai sections"
+            android:title="Kiai Star Fountains"
+            app:layout="@layout/settings_preference" />
 
         <CheckBoxPreference
             android:defaultValue="true"

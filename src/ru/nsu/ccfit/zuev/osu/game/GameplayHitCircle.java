@@ -18,14 +18,15 @@ import org.anddev.andengine.entity.scene.Scene;
 import java.util.ArrayList;
 
 import ru.nsu.ccfit.zuev.osu.Config;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.scoring.ResultType;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 
 public class GameplayHitCircle extends GameObject {
 
-    private final UISprite approachCircle;
+    private UISprite approachCircle;
     private Color4 comboColor = new Color4();
+    private float circleBaseScale = 1f;
     private GameObjectListener listener;
     private Scene scene;
     private HitCircle beatmapCircle;
@@ -70,6 +71,7 @@ public class GameplayHitCircle extends GameObject {
         this.comboColor = comboColor;
 
         float scale = beatmapCircle.getScreenSpaceGameplayScale();
+        circleBaseScale = scale;
         float fadeInDuration = (float) beatmapCircle.timeFadeIn / 1000f;
 
         // Initializing sprites
@@ -262,8 +264,16 @@ public class GameplayHitCircle extends GameObject {
                 var b = Math.min(1, comboColor.getBlue() + (1 - comboColor.getBlue()) * kiaiModifier);
                 kiai = true;
                 circlePiece.setCircleColor(r, g, b);
+                // Beat-synced scale pulse on hit circle during kiai
+                if (ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("hitCirclePulse", true)) {
+                    float pulseScale = circleBaseScale * (1f + kiaiModifier * 0.15f);
+                    circlePiece.setScale(pulseScale);
+                }
             } else if (kiai) {
                 circlePiece.setCircleColor(comboColor);
+                if (ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("hitCirclePulse", true)) {
+                    circlePiece.setScale(circleBaseScale);
+                }
                 kiai = false;
             }
         }

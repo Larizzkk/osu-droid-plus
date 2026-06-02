@@ -31,6 +31,8 @@ import org.anddev.andengine.engine.Engine;
 import org.anddev.andengine.entity.modifier.FadeInModifier;
 import org.anddev.andengine.entity.modifier.ParallelEntityModifier;
 import org.anddev.andengine.entity.modifier.ScaleModifier;
+import org.anddev.andengine.entity.modifier.SequenceEntityModifier;
+import org.anddev.andengine.entity.modifier.AlphaModifier;
 import org.anddev.andengine.entity.primitive.Rectangle;
 import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.entity.scene.background.SpriteBackground;
@@ -47,9 +49,9 @@ import java.util.Locale;
 
 import ru.nsu.ccfit.zuev.audio.serviceAudio.SongService;
 import ru.nsu.ccfit.zuev.osu.Config;
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm;
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import com.osudroid.data.BeatmapInfo;
 
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
@@ -58,7 +60,7 @@ import ru.nsu.ccfit.zuev.osu.game.GameScene;
 import ru.nsu.ccfit.zuev.osu.menu.SongMenu;
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager;
 import ru.nsu.ccfit.zuev.osu.online.OnlineScoring;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 
 public class ScoringScene {
     private final Engine engine;
@@ -621,6 +623,21 @@ public class ScoringScene {
                 scene.registerTouchArea(selector);
             }
         }
+
+        // White flash overlay that fades out when ranking appears
+        var flashRect = new org.anddev.andengine.entity.primitive.Rectangle(
+            0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+        flashRect.setColor(1f, 1f, 1f);
+        flashRect.setAlpha(1f);
+        flashRect.setIgnoreUpdate(true);
+        if (scene != null) {
+            scene.attachChild(flashRect);
+            flashRect.registerEntityModifier(
+                new org.anddev.andengine.entity.modifier.SequenceEntityModifier(
+                    new org.anddev.andengine.entity.modifier.AlphaModifier(0.3f, 1f, 0f)
+                )
+            );
+        }
     }
 
     public void back() {
@@ -639,9 +656,33 @@ public class ScoringScene {
             return;
         }
         replayMusic();
-        GlobalManager.getInstance().getEngine().setScene(GlobalManager.getInstance().getSongMenu().getScene());
         GlobalManager.getInstance().getSongMenu().updateScore();
         setReplayID(-1);
+
+        // Fade out then switch to song menu
+        Rectangle fadeRect = new Rectangle(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+        fadeRect.setColor(0, 0, 0);
+        fadeRect.setAlpha(0);
+        scene.attachChild(fadeRect);
+
+        final float[] elapsed = {0};
+        scene.registerUpdateHandler(new org.anddev.andengine.engine.handler.IUpdateHandler() {
+            @Override
+            public void onUpdate(float dt) {
+                elapsed[0] += dt;
+                float t = Math.min(1, elapsed[0] / 0.2f);
+                fadeRect.setAlpha(t);
+                if (t >= 1) {
+                    scene.unregisterUpdateHandler(this);
+                    var engine = GlobalManager.getInstance().getEngine();
+                    if (engine != null) {
+                        engine.setScene(GlobalManager.getInstance().getSongMenu().getScene());
+                    }
+                }
+            }
+            @Override
+            public void reset() {}
+        });
     }
 
     public Scene getScene() {

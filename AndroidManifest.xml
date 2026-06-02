@@ -91,7 +91,7 @@
         </activity>
 
         <activity
-            android:name="ru.nsu.ccfit.zuev.osu.PermissionActivity"
+            android:name="ru.nsu.ccfit.zuev.osuplusplus.PermissionActivity"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
             android:launchMode="singleInstance"
@@ -101,7 +101,7 @@
             tools:ignore="LockedOrientationActivity"/>
 
         <activity
-            android:name="ru.nsu.ccfit.zuev.osu.MainActivity"
+            android:name="ru.nsu.ccfit.zuev.osuplusplus.MainActivity"
             android:theme="@style/AppTheme"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
             android:launchMode="singleInstance"

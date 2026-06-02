@@ -1,0 +1,879 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:title="@string/mover_settings_title">
+
+    <!-- General Movement Settings -->
+    <PreferenceCategory android:title="@string/mover_general_settings">
+        
+        <!-- Mover Selection -->
+        <ListPreference
+            android:key="mover_list"
+            android:title="@string/mover_list_title"
+            android:summary="@string/mover_list_summary"
+            android:entries="@array/mover_names"
+            android:entryValues="@array/mover_values"
+            android:defaultValue="flower"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Spinner Selection -->
+        <ListPreference
+            android:key="spinner_list"
+            android:title="@string/spinner_list_title"
+            android:summary="@string/spinner_list_summary"
+            android:entries="@array/spinner_names"
+            android:entryValues="@array/spinner_values"
+            android:defaultValue="circle"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Do Spinners Together -->
+        <SwitchPreferenceCompat
+            android:key="do_spinners_together"
+            android:title="@string/do_spinners_together_title"
+            android:summary="@string/do_spinners_together_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Spinner Radius -->
+        <SeekBarPreference
+            android:key="spinner_radius"
+            android:title="@string/spinner_radius_title"
+            android:summary="@string/spinner_radius_summary"
+            android:defaultValue="100"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Battle Mode -->
+        <SwitchPreferenceCompat
+            android:key="battle_mode"
+            android:title="@string/battle_mode_title"
+            android:summary="@string/battle_mode_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Dance -->
+        <SwitchPreferenceCompat
+            android:key="slider_dance"
+            android:title="@string/slider_dance_title"
+            android:summary="@string/slider_dance_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Random Slider Dance -->
+        <SwitchPreferenceCompat
+            android:key="random_slider_dance"
+            android:title="@string/random_slider_dance_title"
+            android:summary="@string/random_slider_dance_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- TAG Slider Dance -->
+        <SwitchPreferenceCompat
+            android:key="tag_slider_dance"
+            android:title="@string/tag_slider_dance_title"
+            android:summary="@string/tag_slider_dance_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Combo Tag -->
+        <SwitchPreferenceCompat
+            android:key="combo_tag"
+            android:title="@string/combo_tag_title"
+            android:summary="@string/combo_tag_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Bezier Settings -->
+    <PreferenceCategory android:title="@string/bezier_settings">
+        
+        <!-- Aggressiveness -->
+        <SeekBarPreference
+            android:key="bezier_aggressiveness"
+            android:title="@string/bezier_aggressiveness_title"
+            android:summary="@string/bezier_aggressiveness_summary"
+            android:defaultValue="60"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Aggressiveness -->
+        <SeekBarPreference
+            android:key="bezier_slider_aggressiveness"
+            android:title="@string/bezier_slider_aggressiveness_title"
+            android:summary="@string/bezier_slider_aggressiveness_summary"
+            android:defaultValue="3"
+            android:max="50"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="bezier_enable_slider_movement"
+            android:title="@string/bezier_enable_slider_movement_title"
+            android:summary="@string/bezier_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="bezier_slider_angle_offset"
+            android:title="@string/bezier_slider_angle_offset_title"
+            android:summary="@string/bezier_slider_angle_offset_summary"
+            android:defaultValue="22"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="bezier_slider_distance_mult"
+            android:title="@string/bezier_slider_distance_mult_title"
+            android:summary="@string/bezier_slider_distance_mult_summary"
+            android:defaultValue="80"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Flower Settings -->
+    <PreferenceCategory android:title="@string/flower_settings">
+        
+        <!-- Angle Offset -->
+        <SeekBarPreference
+            android:key="flower_angle_offset"
+            android:title="@string/flower_angle_offset_title"
+            android:summary="@string/flower_angle_offset_summary"
+            android:defaultValue="90"
+            android:max="360"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Distance Multiplier -->
+        <SeekBarPreference
+            android:key="flower_distance_mult"
+            android:title="@string/flower_distance_mult_title"
+            android:summary="@string/flower_distance_mult_summary"
+            android:defaultValue="666"
+            android:max="3000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Stream Angle Offset -->
+        <SeekBarPreference
+            android:key="flower_stream_angle_offset"
+            android:title="@string/flower_stream_angle_offset_title"
+            android:summary="@string/flower_stream_angle_offset_summary"
+            android:defaultValue="90"
+            android:max="360"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Long Jump -->
+        <SeekBarPreference
+            android:key="flower_long_jump"
+            android:title="@string/flower_long_jump_title"
+            android:summary="@string/flower_long_jump_summary"
+            android:defaultValue="-1"
+            android:min="-1"
+            android:max="1000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Long Jump Multiplier -->
+        <SeekBarPreference
+            android:key="flower_long_jump_mult"
+            android:title="@string/flower_long_jump_mult_title"
+            android:summary="@string/flower_long_jump_mult_summary"
+            android:defaultValue="700"
+            android:max="3000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Long Jump On Equal Pos -->
+        <SwitchPreferenceCompat
+            android:key="flower_long_jump_on_equal_pos"
+            android:title="@string/flower_long_jump_on_equal_pos_title"
+            android:summary="@string/flower_long_jump_on_equal_pos_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="flower_enable_slider_movement"
+            android:title="@string/flower_enable_slider_movement_title"
+            android:summary="@string/flower_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="flower_slider_angle_offset"
+            android:title="@string/flower_slider_angle_offset_title"
+            android:summary="@string/flower_slider_angle_offset_summary"
+            android:defaultValue="45"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="flower_slider_distance_mult"
+            android:title="@string/flower_slider_distance_mult_title"
+            android:summary="@string/flower_slider_distance_mult_summary"
+            android:defaultValue="140"
+            android:max="300"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Circular Settings -->
+    <PreferenceCategory android:title="@string/circular_settings">
+        
+        <!-- Radius Multiplier -->
+        <SeekBarPreference
+            android:key="circular_radius_multiplier"
+            android:title="@string/circular_radius_multiplier_title"
+            android:summary="@string/circular_radius_multiplier_summary"
+            android:defaultValue="1000"
+            android:max="3000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Stream Trigger -->
+        <SeekBarPreference
+            android:key="circular_stream_trigger"
+            android:title="@string/circular_stream_trigger_title"
+            android:summary="@string/circular_stream_trigger_summary"
+            android:defaultValue="130"
+            android:max="500"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="pippi_enable_slider_movement"
+            android:title="@string/pippi_enable_slider_movement_title"
+            android:summary="@string/pippi_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="pippi_slider_angle_offset"
+            android:title="@string/pippi_slider_angle_offset_title"
+            android:summary="@string/pippi_slider_angle_offset_summary"
+            android:defaultValue="15"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="pippi_slider_distance_mult"
+            android:title="@string/pippi_slider_distance_mult_title"
+            android:summary="@string/pippi_slider_distance_mult_summary"
+            android:defaultValue="60"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Spline Settings -->
+    <PreferenceCategory android:title="@string/spline_settings">
+        
+        <!-- Rotational Force -->
+        <SwitchPreferenceCompat
+            android:key="spline_rotational_force"
+            android:title="@string/spline_rotational_force_title"
+            android:summary="@string/spline_rotational_force_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Stream Half Circle -->
+        <SwitchPreferenceCompat
+            android:key="spline_stream_half_circle"
+            android:title="@string/spline_stream_half_circle_title"
+            android:summary="@string/spline_stream_half_circle_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Stream Wobble -->
+        <SwitchPreferenceCompat
+            android:key="spline_stream_wobble"
+            android:title="@string/spline_stream_wobble_title"
+            android:summary="@string/spline_stream_wobble_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Wobble Scale -->
+        <SeekBarPreference
+            android:key="spline_wobble_scale"
+            android:title="@string/spline_wobble_scale_title"
+            android:summary="@string/spline_wobble_scale_summary"
+            android:defaultValue="670"
+            android:max="2000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="spline_enable_slider_movement"
+            android:title="@string/spline_enable_slider_movement_title"
+            android:summary="@string/spline_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="spline_slider_angle_offset"
+            android:title="@string/spline_slider_angle_offset_title"
+            android:summary="@string/spline_slider_angle_offset_summary"
+            android:defaultValue="36"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="spline_slider_distance_mult"
+            android:title="@string/spline_slider_distance_mult_title"
+            android:summary="@string/spline_slider_distance_mult_summary"
+            android:defaultValue="80"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Momentum Settings -->
+    <PreferenceCategory android:title="@string/momentum_settings">
+        
+        <!-- Skip Stack Angles -->
+        <SwitchPreferenceCompat
+            android:key="momentum_skip_stack_angles"
+            android:title="@string/momentum_skip_stack_angles_title"
+            android:summary="@string/momentum_skip_stack_angles_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Stream Restrict -->
+        <SwitchPreferenceCompat
+            android:key="momentum_stream_restrict"
+            android:title="@string/momentum_stream_restrict_title"
+            android:summary="@string/momentum_stream_restrict_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Duration Multiplier -->
+        <SeekBarPreference
+            android:key="momentum_duration_mult"
+            android:title="@string/momentum_duration_mult_title"
+            android:summary="@string/momentum_duration_mult_summary"
+            android:defaultValue="2000"
+            android:max="8000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Duration Trigger -->
+        <SeekBarPreference
+            android:key="momentum_duration_trigger"
+            android:title="@string/momentum_duration_trigger_title"
+            android:summary="@string/momentum_duration_trigger_summary"
+            android:defaultValue="500"
+            android:max="4000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Stream Multiplier -->
+        <SeekBarPreference
+            android:key="momentum_stream_mult"
+            android:title="@string/momentum_stream_mult_title"
+            android:summary="@string/momentum_stream_mult_summary"
+            android:defaultValue="700"
+            android:min="-10000"
+            android:max="10000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Restrict Angle -->
+        <SeekBarPreference
+            android:key="momentum_restrict_angle"
+            android:title="@string/momentum_restrict_angle_title"
+            android:summary="@string/momentum_restrict_angle_summary"
+            android:defaultValue="90"
+            android:max="180"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Restrict Area -->
+        <SeekBarPreference
+            android:key="momentum_restrict_area"
+            android:title="@string/momentum_restrict_area_title"
+            android:summary="@string/momentum_restrict_area_summary"
+            android:defaultValue="40"
+            android:max="180"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Restrict Invert -->
+        <SwitchPreferenceCompat
+            android:key="momentum_restrict_invert"
+            android:title="@string/momentum_restrict_invert_title"
+            android:summary="@string/momentum_restrict_invert_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Distance Multiplier -->
+        <SeekBarPreference
+            android:key="momentum_distance_mult"
+            android:title="@string/momentum_distance_mult_title"
+            android:summary="@string/momentum_distance_mult_summary"
+            android:defaultValue="600"
+            android:min="-4000"
+            android:max="4000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Distance Multiplier Out -->
+        <SeekBarPreference
+            android:key="momentum_distance_mult_out"
+            android:title="@string/momentum_distance_mult_out_title"
+            android:summary="@string/momentum_distance_mult_out_summary"
+            android:defaultValue="450"
+            android:min="-4000"
+            android:max="4000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="momentum_enable_slider_movement"
+            android:title="@string/momentum_enable_slider_movement_title"
+            android:summary="@string/momentum_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="momentum_slider_angle_offset"
+            android:title="@string/momentum_slider_angle_offset_title"
+            android:summary="@string/momentum_slider_angle_offset_summary"
+            android:defaultValue="30"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="momentum_slider_distance_mult"
+            android:title="@string/momentum_slider_distance_mult_title"
+            android:summary="@string/momentum_slider_distance_mult_summary"
+            android:defaultValue="110"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Max Angle Change -->
+        <SeekBarPreference
+            android:key="momentum_slider_max_angle_change"
+            android:title="@string/momentum_slider_max_angle_change_title"
+            android:summary="@string/momentum_slider_max_angle_change_summary"
+            android:defaultValue="60"
+            android:max="180"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- ExGon Settings -->
+    <PreferenceCategory android:title="@string/exgon_settings">
+        
+        <!-- Delay -->
+        <SeekBarPreference
+            android:key="exgon_delay"
+            android:title="@string/exgon_delay_title"
+            android:summary="@string/exgon_delay_summary"
+            android:defaultValue="50"
+            android:max="500"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="exgon_enable_slider_movement"
+            android:title="@string/exgon_enable_slider_movement_title"
+            android:summary="@string/exgon_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset Range -->
+        <SeekBarPreference
+            android:key="exgon_slider_angle_offset_range"
+            android:title="@string/exgon_slider_angle_offset_range_title"
+            android:summary="@string/exgon_slider_angle_offset_range_summary"
+            android:defaultValue="45"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="exgon_slider_distance_mult"
+            android:title="@string/exgon_slider_distance_mult_title"
+            android:summary="@string/exgon_slider_distance_mult_summary"
+            android:defaultValue="70"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Linear Settings -->
+    <PreferenceCategory android:title="@string/linear_settings">
+        
+        <!-- Wait For Preempt -->
+        <SwitchPreferenceCompat
+            android:key="linear_wait_for_preempt"
+            android:title="@string/linear_wait_for_preempt_title"
+            android:summary="@string/linear_wait_for_preempt_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Reaction Time -->
+        <SeekBarPreference
+            android:key="linear_reaction_time"
+            android:title="@string/linear_reaction_time_title"
+            android:summary="@string/linear_reaction_time_summary"
+            android:defaultValue="100"
+            android:max="500"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Choppy Long Objects -->
+        <SwitchPreferenceCompat
+            android:key="linear_choppy_long_objects"
+            android:title="@string/linear_choppy_long_objects_title"
+            android:summary="@string/linear_choppy_long_objects_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Pippi Settings -->
+    <PreferenceCategory android:title="@string/pippi_settings">
+        
+        <!-- Rotation Speed -->
+        <SeekBarPreference
+            android:key="pippi_rotation_speed"
+            android:title="@string/pippi_rotation_speed_title"
+            android:summary="@string/pippi_rotation_speed_summary"
+            android:defaultValue="1600"
+            android:max="6000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Radius Multiplier -->
+        <SeekBarPreference
+            android:key="pippi_radius_multiplier"
+            android:title="@string/pippi_radius_multiplier_title"
+            android:summary="@string/pippi_radius_multiplier_summary"
+            android:defaultValue="980"
+            android:max="2000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Spinner Radius -->
+        <SeekBarPreference
+            android:key="pippi_spinner_radius"
+            android:title="@string/pippi_spinner_radius_title"
+            android:summary="@string/pippi_spinner_radius_summary"
+            android:defaultValue="100"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Cursor Settings -->
+    <PreferenceCategory android:title="@string/cursor_settings">
+        
+        <!-- Trail Style -->
+        <ListPreference
+            android:key="cursor_trail_style"
+            android:title="@string/cursor_trail_style_title"
+            android:summary="@string/cursor_trail_style_summary"
+            android:entries="@array/trail_style_names"
+            android:entryValues="@array/trail_style_values"
+            android:defaultValue="1"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Style 23 Speed -->
+        <SeekBarPreference
+            android:key="cursor_style23_speed"
+            android:title="@string/cursor_style23_speed_title"
+            android:summary="@string/cursor_style23_speed_summary"
+            android:defaultValue="180"
+            android:min="-1000"
+            android:max="1000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Style 4 Shift -->
+        <SeekBarPreference
+            android:key="cursor_style4_shift"
+            android:title="@string/cursor_style4_shift_title"
+            android:summary="@string/cursor_style4_shift_summary"
+            android:defaultValue="500"
+            android:min="-360000"
+            android:max="360000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Trail Scale -->
+        <SeekBarPreference
+            android:key="cursor_trail_scale"
+            android:title="@string/cursor_trail_scale_title"
+            android:summary="@string/cursor_trail_scale_summary"
+            android:defaultValue="1000"
+            android:max="3000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Trail End Scale -->
+        <SeekBarPreference
+            android:key="cursor_trail_end_scale"
+            android:title="@string/cursor_trail_end_scale_title"
+            android:summary="@string/cursor_trail_end_scale_summary"
+            android:defaultValue="400"
+            android:max="3000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Trail Density -->
+        <SeekBarPreference
+            android:key="cursor_trail_density"
+            android:title="@string/cursor_trail_density_title"
+            android:summary="@string/cursor_trail_density_summary"
+            android:defaultValue="1000"
+            android:min="1"
+            android:max="3000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Trail Max Length -->
+        <SeekBarPreference
+            android:key="cursor_trail_max_length"
+            android:title="@string/cursor_trail_max_length_title"
+            android:summary="@string/cursor_trail_max_length_summary"
+            android:defaultValue="2000"
+            android:max="10000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Trail Remove Speed -->
+        <SeekBarPreference
+            android:key="cursor_trail_remove_speed"
+            android:title="@string/cursor_trail_remove_speed_title"
+            android:summary="@string/cursor_trail_remove_speed_summary"
+            android:defaultValue="1000"
+            android:max="5000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Trail Glow -->
+        <SwitchPreferenceCompat
+            android:key="cursor_enable_trail_glow"
+            android:title="@string/cursor_enable_trail_glow_title"
+            android:summary="@string/cursor_enable_trail_glow_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Cursor Size -->
+        <SeekBarPreference
+            android:key="cursor_size"
+            android:title="@string/cursor_size_title"
+            android:summary="@string/cursor_size_summary"
+            android:defaultValue="12"
+            android:max="50"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Enable Rainbow -->
+        <SwitchPreferenceCompat
+            android:key="cursor_enable_rainbow"
+            android:title="@string/cursor_enable_rainbow_title"
+            android:summary="@string/cursor_enable_rainbow_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Rainbow Speed -->
+        <SeekBarPreference
+            android:key="cursor_rainbow_speed"
+            android:title="@string/cursor_rainbow_speed_title"
+            android:summary="@string/cursor_rainbow_speed_summary"
+            android:defaultValue="8"
+            android:max="20"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Flash To The Beat -->
+        <SwitchPreferenceCompat
+            android:key="cursor_flash_to_the_beat"
+            android:title="@string/cursor_flash_to_the_beat_title"
+            android:summary="@string/cursor_flash_to_the_beat_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Flash Amplitude -->
+        <SeekBarPreference
+            android:key="cursor_flash_amplitude"
+            android:title="@string/cursor_flash_amplitude_title"
+            android:summary="@string/cursor_flash_amplitude_summary"
+            android:defaultValue="0"
+            android:max="1000"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Cursor Expand -->
+        <SwitchPreferenceCompat
+            android:key="cursor_expand"
+            android:title="@string/cursor_expand_title"
+            android:summary="@string/cursor_expand_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Scale To The Beat -->
+        <SwitchPreferenceCompat
+            android:key="cursor_scale_to_the_beat"
+            android:title="@string/cursor_scale_to_the_beat_title"
+            android:summary="@string/cursor_scale_to_the_beat_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Show Cursors On Breaks -->
+        <SwitchPreferenceCompat
+            android:key="cursor_show_cursors_on_breaks"
+            android:title="@string/cursor_show_cursors_on_breaks_title"
+            android:summary="@string/cursor_show_cursors_on_breaks_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Bounce On Edges -->
+        <SwitchPreferenceCompat
+            android:key="cursor_bounce_on_edges"
+            android:title="@string/cursor_bounce_on_edges_title"
+            android:summary="@string/cursor_bounce_on_edges_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Additive Blending -->
+        <SwitchPreferenceCompat
+            android:key="cursor_additive_blending"
+            android:title="@string/cursor_additive_blending_title"
+            android:summary="@string/cursor_additive_blending_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Cursor Ripples -->
+        <SwitchPreferenceCompat
+            android:key="cursor_ripples"
+            android:title="@string/cursor_ripples_title"
+            android:summary="@string/cursor_ripples_summary"
+            android:defaultValue="false"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Smoke Enabled -->
+        <SwitchPreferenceCompat
+            android:key="cursor_smoke_enabled"
+            android:title="@string/cursor_smoke_enabled_title"
+            android:summary="@string/cursor_smoke_enabled_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Enhanced Cursor Settings -->
+    <PreferenceCategory android:title="@string/enhanced_cursor_settings">
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="enhanced_cursor_enable_slider_movement"
+            android:title="@string/enhanced_cursor_enable_slider_movement_title"
+            android:summary="@string/enhanced_cursor_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="enhanced_cursor_slider_angle_offset"
+            android:title="@string/enhanced_cursor_slider_angle_offset_title"
+            android:summary="@string/enhanced_cursor_slider_angle_offset_summary"
+            android:defaultValue="45"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="enhanced_cursor_slider_distance_mult"
+            android:title="@string/enhanced_cursor_slider_distance_mult_title"
+            android:summary="@string/enhanced_cursor_slider_distance_mult_summary"
+            android:defaultValue="120"
+            android:max="300"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Segments -->
+        <SeekBarPreference
+            android:key="enhanced_cursor_slider_segments"
+            android:title="@string/enhanced_cursor_slider_segments_title"
+            android:summary="@string/enhanced_cursor_slider_segments_summary"
+            android:defaultValue="8"
+            android:max="20"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Half Circle Settings -->
+    <PreferenceCategory android:title="@string/half_circle_settings">
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="half_circle_enable_slider_movement"
+            android:title="@string/half_circle_enable_slider_movement_title"
+            android:summary="@string/half_circle_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="half_circle_slider_angle_offset"
+            android:title="@string/half_circle_slider_angle_offset_title"
+            android:summary="@string/half_circle_slider_angle_offset_summary"
+            android:defaultValue="60"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="half_circle_slider_distance_mult"
+            android:title="@string/half_circle_slider_distance_mult_title"
+            android:summary="@string/half_circle_slider_distance_mult_summary"
+            android:defaultValue="140"
+            android:max="300"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Axis Settings -->
+    <PreferenceCategory android:title="@string/axis_settings">
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="axis_enable_slider_movement"
+            android:title="@string/axis_enable_slider_movement_title"
+            android:summary="@string/axis_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Probe Offset -->
+        <SeekBarPreference
+            android:key="axis_slider_probe_offset"
+            android:title="@string/axis_slider_probe_offset_title"
+            android:summary="@string/axis_slider_probe_offset_summary"
+            android:defaultValue="40"
+            android:max="100"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+    <!-- Aggressive Settings -->
+    <PreferenceCategory android:title="@string/aggressive_settings">
+        
+        <!-- Enable Slider Movement -->
+        <SwitchPreferenceCompat
+            android:key="aggressive_enable_slider_movement"
+            android:title="@string/aggressive_enable_slider_movement_title"
+            android:summary="@string/aggressive_enable_slider_movement_summary"
+            android:defaultValue="true"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Angle Offset -->
+        <SeekBarPreference
+            android:key="aggressive_slider_angle_offset"
+            android:title="@string/aggressive_slider_angle_offset_title"
+            android:summary="@string/aggressive_slider_angle_offset_summary"
+            android:defaultValue="60"
+            android:max="90"
+            app:layout="@layout/settings_preference" />
+        
+        <!-- Slider Distance Multiplier -->
+        <SeekBarPreference
+            android:key="aggressive_slider_distance_mult"
+            android:title="@string/aggressive_slider_distance_mult_title"
+            android:summary="@string/aggressive_slider_distance_mult_summary"
+            android:defaultValue="120"
+            android:max="200"
+            app:layout="@layout/settings_preference" />
+        
+    </PreferenceCategory>
+
+</PreferenceScreen>

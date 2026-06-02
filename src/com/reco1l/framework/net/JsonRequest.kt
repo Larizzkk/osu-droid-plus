@@ -8,7 +8,7 @@ import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
 
 sealed class JsonRequest<T : Any>(url: HttpUrl) : WebRequest(url) {
 

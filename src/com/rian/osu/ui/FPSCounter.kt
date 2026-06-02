@@ -6,7 +6,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import org.anddev.andengine.entity.text.ChangeableText
 import org.anddev.andengine.opengl.font.Font
-import ru.nsu.ccfit.zuev.osu.GlobalManager.getInstance as getGlobal
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager.getInstance as getGlobal
 
 /**
  * Represents an FPS counter.

@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.multi
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.osudroid.resources.R.string
 import com.osudroid.multiplayer.*

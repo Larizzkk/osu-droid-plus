@@ -14,11 +14,11 @@ import com.osudroid.data.DatabaseManager
 import com.reco1l.osu.ui.MessageDialog
 import com.reco1l.toolkt.android.cornerRadius
 import com.reco1l.toolkt.android.dp
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.menu.IPropsMenu
 import ru.nsu.ccfit.zuev.osu.menu.BeatmapSetItem
 import ru.nsu.ccfit.zuev.osu.menu.SongMenu
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import kotlin.math.abs
 
 /// Converted to Kotlin ///
@@ -182,3 +182,5 @@ class BeatmapPropertiesFragment : BaseFragment(), IPropsMenu {
         DatabaseManager.beatmapOptionsTable.update(beatmapOptions!!)
     }
 }
+
+

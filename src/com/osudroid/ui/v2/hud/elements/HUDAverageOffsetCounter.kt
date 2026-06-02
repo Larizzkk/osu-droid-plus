@@ -2,7 +2,7 @@ package com.osudroid.ui.v2.hud.elements
 
 import com.reco1l.andengine.text.UIText
 import com.osudroid.ui.v2.hud.HUDElement
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.game.GameScene
 import kotlin.math.roundToInt
 

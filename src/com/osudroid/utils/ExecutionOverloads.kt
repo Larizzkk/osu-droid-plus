@@ -9,7 +9,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.future.future
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import com.reco1l.toolkt.kotlin.async as toolktAsync
 import com.reco1l.toolkt.kotlin.delayed as toolktDelayed
 import com.reco1l.toolkt.kotlin.runSafe as toolktRunSafe

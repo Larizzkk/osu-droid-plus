@@ -8,7 +8,7 @@ import com.reco1l.andengine.ui.*
 import com.reco1l.framework.*
 import com.reco1l.framework.math.*
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 @Suppress("LeakingThis")
 open class FormSlider(initialValue: Float = 0f) : FormControl<Float, UISlider>(initialValue) {

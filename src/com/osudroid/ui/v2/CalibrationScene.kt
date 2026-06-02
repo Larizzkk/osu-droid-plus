@@ -44,10 +44,10 @@ import kotlin.math.roundToInt
 import org.anddev.andengine.input.touch.TouchEvent
 import ru.nsu.ccfit.zuev.audio.Status
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.GlobalManager
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
-import ru.nsu.ccfit.zuev.osuplus.R.string
+import ru.nsu.ccfit.zuev.osuplusplus.R.string
 
 object CalibrationScene : UIScene() {
     internal var OFFSET_MIN = -500

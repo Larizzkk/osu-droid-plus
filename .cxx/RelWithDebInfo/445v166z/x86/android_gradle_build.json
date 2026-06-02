@@ -1,0 +1,38 @@
+{
+  "buildFiles": [
+    "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\src\\main\\cpp\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Android\\SDK\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\.cxx\\RelWithDebInfo\\445v166z\\x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Android\\SDK\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\.cxx\\RelWithDebInfo\\445v166z\\x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "osudroid_native::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "x86",
+      "artifactName": "osudroid_native",
+      "output": "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\build\\intermediates\\cxx\\RelWithDebInfo\\445v166z\\obj\\x86\\libosudroid_native.so",
+      "runtimeFiles": []
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "C:\\Android\\SDK\\ndk\\22.1.7171670\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang.exe",
+      "cppCompilerExecutable": "C:\\Android\\SDK\\ndk\\22.1.7171670\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

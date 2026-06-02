@@ -24,8 +24,8 @@ import com.rian.osu.mods.ModPrecise
 import com.rian.osu.utils.CircleSizeCalculator
 import com.rian.osu.utils.ModUtils
 import kotlin.math.roundToInt
-import ru.nsu.ccfit.zuev.osu.GlobalManager
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 /**
  * A [UIScene] containing a [UIModal] that shows the attributes of a beatmap, adjusted for the given mods.

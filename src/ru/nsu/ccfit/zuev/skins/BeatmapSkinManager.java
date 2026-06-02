@@ -5,7 +5,7 @@ import com.reco1l.framework.Color4;
 import java.io.File;
 
 import ru.nsu.ccfit.zuev.osu.Config;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.helper.FileUtils;
 
 public class BeatmapSkinManager {

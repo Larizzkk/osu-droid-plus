@@ -14,12 +14,11 @@ buildscript {
         classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.3'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
-        classpath "androidx.room:room-gradle-plugin:$room_version"
     }
 }
 
 plugins {
-    id 'com.google.devtools.ksp' version '2.0.10-1.0.24'
+    id 'com.google.devtools.ksp' version '2.1.10-1.0.29'
 }
 
 allprojects {
@@ -54,10 +53,9 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
 apply plugin: 'kotlin-android'
 apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
-apply plugin: 'androidx.room'
 
 android {
-    namespace 'ru.nsu.ccfit.zuev.osuplus'
+    namespace 'ru.nsu.ccfit.zuev.osuplusplus'
     compileSdk 34
     ndkVersion '22.1.7171670'
 
@@ -77,10 +75,6 @@ android {
         }
     }
 
-    room {
-        schemaDirectory "$projectDir/schemas"
-    }
-
     signingConfigs {
         debug {
             storeFile file('debug.jks')
@@ -90,20 +84,16 @@ android {
         }
 
         release {
-            try {
-                storeFile file(localProperties.get("RELEASE_KEYSTORE", "debug.jks"))
-                storePassword localProperties.get('RELEASE_KEYSTORE_PASSWORD', "debug.dgsrz.com")
-                keyAlias localProperties.get('RELEASE_KEY_ALIAS', "debug.github.dgsrz.com")
-                keyPassword localProperties.get('RELEASE_KEY_PASSWORD', "debug.github.dgsrz.com")
-            } catch (ignored) {
-                throw new InvalidUserDataException('You should define RELEASE_KEYSTORE_PASSWORD and RELEASE_KEY_PASSWORD in local.properties.', ignored)
-            }
+            storeFile file('osudroid-release.keystore')
+            storePassword 'osudroid123'
+            keyAlias 'osudroid'
+            keyPassword 'osudroid123'
         }
     }
 
     buildTypes {
         debug {
-            resValue "string", "app_name", "osu!droid-debug"
+            resValue "string", "app_name", "osu!droid+-debug"
             applicationIdSuffix '.debug'
             firebaseCrashlytics {
                 mappingFileUploadEnabled false
@@ -111,7 +101,7 @@ android {
         }
 
         release {
-            resValue "string", "app_name", "osu!droid"
+            resValue "string", "app_name", "osu!droid+"
 //            minifyEnabled true
 //            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard.cfg', 'proguard-kotlin.pro'
             signingConfig signingConfigs.release
@@ -122,7 +112,7 @@ android {
 
         pre_release {
             matchingFallbacks = ['release']
-            resValue "string", "app_name", "osu!droid"
+            resValue "string", "app_name", "osu!droid+"
 //            minifyEnabled true
 //            debuggable true
 //            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard.cfg', 'proguard-kotlin.pro'
@@ -216,7 +206,6 @@ dependencies {
 
     // Room
     implementation "androidx.room:room-runtime:$room_version"
-    annotationProcessor "androidx.room:room-compiler:$room_version"
     ksp "androidx.room:room-compiler:$room_version"
     implementation "androidx.room:room-ktx:$room_version"
     testImplementation "androidx.room:room-testing:$room_version"

@@ -26,8 +26,8 @@ import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.menu.IFilterMenu
 import ru.nsu.ccfit.zuev.osu.menu.SongMenu
-import ru.nsu.ccfit.zuev.osuplus.R
-import ru.nsu.ccfit.zuev.osu.GlobalManager.getInstance as getGlobal
+import ru.nsu.ccfit.zuev.osuplusplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager.getInstance as getGlobal
 
 class SearchBarFragment : BaseFragment(), IFilterMenu {
     private var configContext: Context? = null
@@ -334,3 +334,4 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
         fun restoreState() = Triple(folder, favOnly, filter)
     }
 }
+

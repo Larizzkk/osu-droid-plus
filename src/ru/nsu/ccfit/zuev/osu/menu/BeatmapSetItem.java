@@ -12,12 +12,12 @@ import java.util.regex.Pattern;
 
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.LibraryManager;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import com.osudroid.data.BeatmapInfo;
 import com.osudroid.data.DatabaseManager;
 
 import ru.nsu.ccfit.zuev.osu.Utils;
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm;
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm;
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
 
 public class BeatmapSetItem {

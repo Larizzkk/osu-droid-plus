@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Trail Implementation Arrays -->
+    <string-array name="trail_implementation_names">
+        <item>Legacy (Original)</item>
+        <item>Optimized (Recommended)</item>
+        <item>Advanced (Experimental)</item>
+    </string-array>
+
+    <string-array name="trail_implementation_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+
+    // Trail Style Arrays
+    <string-array name="trail_style_names">
+        <item>Normal</item>
+        <item>Fade</item>
+    </string-array>
+
+    <string-array name="trail_style_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+
+    <!-- Autoplay movement types -->
+    <string-array name="autoplay_movement_names">
+        <item>Linear</item>
+        <item>Bezier</item>
+        <item>Spline</item>
+        <item>Circular</item>
+        <item>Axis</item>
+        <item>ExGon</item>
+        <item>Aggressive</item>
+        <item>Momentum</item>
+        <item>Pippi</item>
+        <item>Flower</item>
+    </string-array>
+    <string-array name="autoplay_movement_values">
+        <item>linear</item>
+        <item>bezier</item>
+        <item>spline</item>
+        <item>circular</item>
+        <item>axis</item>
+        <item>exgon</item>
+        <item>aggressive</item>
+        <item>momentum</item>
+        <item>pippi</item>
+        <item>flower</item>
+    </string-array>
+
+</resources>

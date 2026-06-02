@@ -9,6 +9,7 @@ import com.rian.osu.mods.settings.*
 import com.rian.osu.utils.HitObjectGenerationUtils
 import kotlin.math.exp
 import kotlin.math.max
+import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ensureActive
 
@@ -81,8 +82,13 @@ class ModRandom : Mod(), IModApplicableToBeatmap {
             }
 
             if (i == 0) {
+                // Ensure first object is well within playfield bounds
+                val maxDistance = minOf(
+                    HitObjectGenerationUtils.playfieldCenter.x - 50f,
+                    HitObjectGenerationUtils.playfieldCenter.y - 50f
+                )
                 positionInfo.distanceFromPrevious =
-                    (random!!.nextDouble() * HitObjectGenerationUtils.playfieldCenter.y).toFloat()
+                    (random!!.nextDouble() * maxDistance).toFloat()
 
                 positionInfo.relativeAngle = (random!!.nextDouble() * 2 * Math.PI - Math.PI).toFloat()
             } else {

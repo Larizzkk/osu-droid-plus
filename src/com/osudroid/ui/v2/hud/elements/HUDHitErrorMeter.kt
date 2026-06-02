@@ -8,7 +8,7 @@ import com.osudroid.utils.*
 import com.reco1l.andengine.component.*
 import com.reco1l.toolkt.kotlin.*
 import org.anddev.andengine.engine.camera.*
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import javax.microedition.khronos.opengles.*
 import kotlin.math.abs
 

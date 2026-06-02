@@ -24,9 +24,9 @@ import com.reco1l.toolkt.android.Views;
 import java.io.File;
 import java.util.Locale;
 
-import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
-import ru.nsu.ccfit.zuev.osuplus.R;
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 
 public class ScoreMenuFragment extends BaseFragment {
 
@@ -168,3 +168,4 @@ public class ScoreMenuFragment extends BaseFragment {
         show();
     }
 }
+

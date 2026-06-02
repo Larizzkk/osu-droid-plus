@@ -54,6 +54,11 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
     @Suppress("UNCHECKED_CAST")
     fun <T : Mod> put(mod: Class<out T>) = put(mod, mod.getDeclaredConstructor().newInstance()) as? T
 
+    /**
+     * Puts a mod without removing incompatible mods.
+     */
+    fun putWithoutIncompatibilityCheck(value: Mod): Mod? = super.put(value::class.java, value)
+
     override fun put(key: Class<out Mod>, value: Mod): Mod? {
         // Ensure the mod class corresponds to the mod itself.
         if (key != value::class.java) {

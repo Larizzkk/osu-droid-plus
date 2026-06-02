@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.reco1l.andengine.sprite.*
 import com.reco1l.andengine.ui.*

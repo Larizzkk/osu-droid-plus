@@ -11,7 +11,7 @@ import com.osudroid.ui.v1.DownloadFragment
 import com.reco1l.toolkt.kotlin.async
 import net.lingala.zip4j.ZipFile
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.FileUtils
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
@@ -142,3 +142,4 @@ object BeatmapDownloader : IFileRequestObserver {
         isDownloading = false
     }
 }
+

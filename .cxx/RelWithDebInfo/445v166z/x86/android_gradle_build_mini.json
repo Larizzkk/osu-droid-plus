@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\src\\main\\cpp\\CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "C:\\Android\\SDK\\cmake\\3.22.1\\bin\\ninja.exe",
+      "-C",
+      "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\.cxx\\RelWithDebInfo\\445v166z\\x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "C:\\Android\\SDK\\cmake\\3.22.1\\bin\\ninja.exe",
+    "-C",
+    "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\.cxx\\RelWithDebInfo\\445v166z\\x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "osudroid_native::@6890427a1f51a3e7e1df": {
+      "artifactName": "osudroid_native",
+      "abi": "x86",
+      "output": "C:\\Users\\user\\Desktop\\idklolkek4eburek\\osu-droid+\\build\\intermediates\\cxx\\RelWithDebInfo\\445v166z\\obj\\x86\\libosudroid_native.so",
+      "runtimeFiles": []
+    }
+  }
+}

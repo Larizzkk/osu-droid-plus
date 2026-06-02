@@ -1,6 +1,7 @@
 @file:Suppress("ConstPropertyName")
 
 package com.reco1l.andengine
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import android.content.Context
 import android.graphics.Color

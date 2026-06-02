@@ -1,4 +1,5 @@
 package com.reco1l.andengine.sprite
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import org.anddev.andengine.opengl.texture.region.*
 import ru.nsu.ccfit.zuev.osu.*

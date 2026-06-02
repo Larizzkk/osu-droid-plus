@@ -18,8 +18,8 @@ import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.HashMap;
 
-import ru.nsu.ccfit.zuev.osu.MainActivity;
-import ru.nsu.ccfit.zuev.osuplus.R;
+import ru.nsu.ccfit.zuev.osuplusplus.MainActivity;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.online.OnlineFileOperator;
 
@@ -93,3 +93,4 @@ public class PushNotificationService extends FirebaseMessagingService {
     }
 
 }
+

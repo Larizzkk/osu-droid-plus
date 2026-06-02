@@ -1,4 +1,5 @@
 package ru.nsu.ccfit.zuev.osu.menu;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 
 import android.annotation.SuppressLint;
 

@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.game
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.reco1l.andengine.*
 import com.reco1l.andengine.container.*

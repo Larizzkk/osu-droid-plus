@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.multi
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import android.icu.text.SimpleDateFormat
 import com.edlplan.framework.easing.Easing
@@ -20,8 +21,9 @@ import com.reco1l.framework.math.*
 import org.anddev.andengine.input.touch.*
 import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import java.util.LinkedList
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 
 /**
  * Because we're pros we want to highlight us.

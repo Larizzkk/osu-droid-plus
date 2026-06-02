@@ -114,6 +114,74 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Mods">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="unrestrictedMods"
+            android:title="Unrestricted Mods"
+            android:summary="Allow selecting any mods regardless of compatibility"
+            app:layout="@layout/settings_preference_checkbox_bottom" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Kiai Effects">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="kiaiParticles"
+            android:title="Kiai Particles"
+            android:summary="Show star particles during kiai sections"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="kiaiFlash"
+            android:title="Kiai Flash"
+            android:summary="Show white flash effect when kiai starts"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="hitCirclePulse"
+            android:title="Hit Circle Pulse"
+            android:summary="Pulse hit circles in rhythm during kiai"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="menuKiaiFlash"
+            android:title="Menu Kiai Flash"
+            android:summary="Show beat pulse in song selection menu"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="15"
+            android:key="triangleSize"
+            android:max="200"
+            android:title="Triangle Size"
+            android:summary="Size of floating triangles in song menu"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="trianglesEnabled"
+            android:title="Triangles"
+            android:summary="Show floating triangle particles"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="25"
+            android:key="triangleCount"
+            android:max="100"
+            android:title="Triangle Count"
+            android:summary="Maximum number of triangles on screen"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/opt_combo_colors_title">
 
         <CheckBoxPreference

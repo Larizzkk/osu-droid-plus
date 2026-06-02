@@ -5,8 +5,8 @@ import androidx.room.*
 import com.reco1l.toolkt.kotlin.*
 import com.rian.osu.difficulty.BeatmapDifficultyCalculator
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm.*
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm.*
 import ru.nsu.ccfit.zuev.osu.game.GameHelper
 import kotlin.math.max
 import kotlin.math.min
@@ -533,5 +533,3 @@ fun BeatmapInfo(data: Beatmap, lastModified: Long, calculateDifficulty: Boolean,
     @Query("DELETE FROM BeatmapInfo")
     fun deleteAll()
 }
-
-

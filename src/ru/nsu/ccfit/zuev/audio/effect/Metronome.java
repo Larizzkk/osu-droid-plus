@@ -3,7 +3,7 @@ package ru.nsu.ccfit.zuev.audio.effect;
 import com.rian.osu.beatmap.timings.TimingControlPoint;
 
 import ru.nsu.ccfit.zuev.audio.BassSoundProvider;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 
 public class Metronome {
 

@@ -37,7 +37,7 @@ import androidx.appcompat.app.AppCompatDialog;
 
 import java.util.Locale;
 
-import ru.nsu.ccfit.zuev.osuplus.R;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 
 public class ColorPickerDialog
         extends

@@ -184,4 +184,3 @@ public abstract class BaseCanvas extends AbstractSRable<CanvasData> {
         super.finalize();
     }
 }
-

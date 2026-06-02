@@ -15,7 +15,7 @@ import com.reco1l.osu.ui.MessageDialog
 import com.reco1l.toolkt.android.dp
 import com.reco1l.toolkt.android.removeSelf
 import com.rian.osu.math.Vector2
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 
 class BlockAreaEditorFragment : BaseFragment() {

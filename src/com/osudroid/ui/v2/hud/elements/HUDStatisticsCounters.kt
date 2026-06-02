@@ -5,7 +5,7 @@ import com.reco1l.andengine.*
 import com.reco1l.andengine.text.*
 import com.reco1l.framework.*
 import com.osudroid.ui.v2.hud.HUDElement
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.game.GameScene
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2
 import ru.nsu.ccfit.zuev.skins.*

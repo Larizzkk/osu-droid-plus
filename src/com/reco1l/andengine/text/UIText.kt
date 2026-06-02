@@ -1,4 +1,5 @@
 package com.reco1l.andengine.text
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.reco1l.andengine.*
 import com.reco1l.andengine.buffered.*

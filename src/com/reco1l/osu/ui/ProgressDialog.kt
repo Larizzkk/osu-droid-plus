@@ -1,7 +1,7 @@
 package com.reco1l.osu.ui
 
 import com.google.android.material.progressindicator.CircularProgressIndicator
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 
 /**

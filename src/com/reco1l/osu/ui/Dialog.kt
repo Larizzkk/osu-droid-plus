@@ -22,7 +22,7 @@ import com.reco1l.toolkt.animation.cancelAnimators
 import com.reco1l.toolkt.animation.toAlpha
 import com.reco1l.toolkt.animation.toScaleX
 import com.reco1l.toolkt.animation.toScaleY
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 
 /**

@@ -2,8 +2,8 @@ package ru.nsu.ccfit.zuev.audio.serviceAudio;
 
 import android.app.Application;
 
-import ru.nsu.ccfit.zuev.osu.AppException;
-import ru.nsu.ccfit.zuev.osu.GlobalManager;
+import ru.nsu.ccfit.zuev.osuplusplus.AppException;
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 
 public class SaveServiceObject extends Application {
 
@@ -33,3 +33,4 @@ public class SaveServiceObject extends Application {
         Thread.setDefaultUncaughtExceptionHandler(AppException.getAppExceptionHandler());
     }
 }
+

@@ -13,7 +13,7 @@ import org.anddev.andengine.entity.particle.modifier.ExpireModifier
 import org.anddev.andengine.entity.particle.modifier.ScaleModifier
 import org.anddev.andengine.entity.scene.Scene
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import java.util.Calendar
 import javax.microedition.khronos.opengles.GL10
 

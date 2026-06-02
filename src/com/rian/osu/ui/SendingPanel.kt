@@ -12,7 +12,7 @@ import ru.nsu.ccfit.zuev.osu.Config
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.round
-import ru.nsu.ccfit.zuev.osu.ResourceManager.getInstance as getResources
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager.getInstance as getResources
 
 class SendingPanel(
     private val overallRank: Long,

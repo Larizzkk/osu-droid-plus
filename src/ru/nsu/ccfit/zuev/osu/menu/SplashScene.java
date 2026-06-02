@@ -11,7 +11,7 @@ import org.anddev.andengine.entity.text.ChangeableText;
 import org.anddev.andengine.util.HorizontalAlign;
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 
 /**
  * Created by Fuuko on 2015/4/25.

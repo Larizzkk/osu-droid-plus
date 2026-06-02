@@ -20,7 +20,7 @@ import java.util.HashSet;
 
 import javax.annotation.Nullable;
 
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 
 public class GameEffect extends GameObject {

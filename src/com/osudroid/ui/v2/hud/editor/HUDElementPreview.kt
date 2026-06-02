@@ -12,7 +12,7 @@ import com.osudroid.ui.v2.hud.HUDElementSkinData
 import com.reco1l.andengine.component.*
 import org.anddev.andengine.engine.camera.Camera
 import org.anddev.andengine.input.touch.TouchEvent
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import javax.microedition.khronos.opengles.GL10
 import kotlin.math.abs
 import kotlin.math.min

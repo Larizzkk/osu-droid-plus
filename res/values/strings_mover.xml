@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    
+    <!-- Mover Settings -->
+    <string name="mover_settings_title">Mover Settings</string>
+    <string name="mover_general_settings">General Movement Settings</string>
+    
+    <!-- Mover List -->
+    <string name="mover_list_title">Mover Types</string>
+    <string name="mover_list_summary">Select cursor movement styles (comma-separated)</string>
+    
+    <!-- Spinner List -->
+    <string name="spinner_list_title">Spinner Movers</string>
+    <string name="spinner_list_summary">Select spinner movement styles (comma-separated)</string>
+    
+    <!-- Dance Settings -->
+    <string name="do_spinners_together_title">Do Spinners Together</string>
+    <string name="do_spinners_together_summary">All cursors spin the same spinner together</string>
+    
+    <string name="spinner_radius_title">Spinner Radius</string>
+    <string name="spinner_radius_summary">Radius for spinner movements</string>
+    
+    <string name="battle_mode_title">Battle Mode</string>
+    <string name="battle_mode_summary">Enable battle mode for multiple cursors</string>
+    
+    <string name="slider_dance_title">Slider Dance</string>
+    <string name="slider_dance_summary">Enable slider dance movements</string>
+    
+    <string name="random_slider_dance_title">Random Slider Dance</string>
+    <string name="random_slider_dance_summary">Randomly enable slider dance movements</string>
+    
+    <string name="tag_slider_dance_title">TAG Slider Dance</string>
+    <string name="tag_slider_dance_summary">Enable TAG slider dance movements</string>
+    
+    <string name="combo_tag_title">Combo TAG</string>
+    <string name="combo_tag_summary">Enable combo-based TAG system</string>
+    
+    <!-- Bezier Settings -->
+    <string name="bezier_settings">Bezier Settings</string>
+    
+    <string name="bezier_aggressiveness_title">Aggressiveness</string>
+    <string name="bezier_aggressiveness_summary">Bezier curve aggressiveness (0-200)</string>
+    
+    <string name="bezier_slider_aggressiveness_title">Slider Aggressiveness</string>
+    <string name="bezier_slider_aggressiveness_summary">Bezier curve aggressiveness for sliders (0-50)</string>
+    
+    <string name="bezier_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="bezier_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="bezier_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="bezier_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="bezier_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="bezier_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <!-- Flower Settings -->
+    <string name="flower_settings">Flower Settings</string>
+    
+    <string name="flower_angle_offset_title">Angle Offset</string>
+    <string name="flower_angle_offset_summary">Angle offset for flower movement (0-360°)</string>
+    
+    <string name="flower_distance_mult_title">Distance Multiplier</string>
+    <string name="flower_distance_mult_summary">Distance multiplier for flower movement</string>
+    
+    <string name="flower_stream_angle_offset_title">Stream Angle Offset</string>
+    <string name="flower_stream_angle_offset_summary">Angle offset for stream movements (0-360°)</string>
+    
+    <string name="flower_long_jump_title">Long Jump</string>
+    <string name="flower_long_jump_summary">Long jump threshold (-1 = disabled)</string>
+    
+    <string name="flower_long_jump_mult_title">Long Jump Multiplier</string>
+    <string name="flower_long_jump_mult_summary">Long jump distance multiplier</string>
+    
+    <string name="flower_long_jump_on_equal_pos_title">Long Jump On Equal Pos</string>
+    <string name="flower_long_jump_on_equal_pos_summary">Enable long jump on equal positions</string>
+    
+    <string name="flower_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="flower_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="flower_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="flower_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="flower_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="flower_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <!-- Circular Settings -->
+    <string name="circular_settings">Circular Settings</string>
+    
+    <string name="circular_radius_multiplier_title">Radius Multiplier</string>
+    <string name="circular_radius_multiplier_summary">Radius multiplier for circular movement</string>
+    
+    <string name="circular_stream_trigger_title">Stream Trigger</string>
+    <string name="circular_stream_trigger_summary">Stream trigger time in milliseconds</string>
+    
+    <string name="pippi_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="pippi_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="pippi_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="pippi_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="pippi_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="pippi_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <!-- Spline Settings -->
+    <string name="spline_settings">Spline Settings</string>
+    
+    <string name="spline_rotational_force_title">Rotational Force</string>
+    <string name="spline_rotational_force_summary">Enable rotational force for spline movement</string>
+    
+    <string name="spline_stream_half_circle_title">Stream Half Circle</string>
+    <string name="spline_stream_half_circle_summary">Enable half circle for stream movements</string>
+    
+    <string name="spline_stream_wobble_title">Stream Wobble</string>
+    <string name="spline_stream_wobble_summary">Enable wobble for stream movements</string>
+    
+    <string name="spline_wobble_scale_title">Wobble Scale</string>
+    <string name="spline_wobble_scale_summary">Wobble scale factor</string>
+    
+    <string name="spline_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="spline_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="spline_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="spline_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="spline_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="spline_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <!-- Momentum Settings -->
+    <string name="momentum_settings">Momentum Settings</string>
+    
+    <string name="momentum_skip_stack_angles_title">Skip Stack Angles</string>
+    <string name="momentum_skip_stack_angles_summary">Skip angle calculations for stacked objects</string>
+    
+    <string name="momentum_stream_restrict_title">Stream Restrict</string>
+    <string name="momentum_stream_restrict_summary">Enable stream movement restrictions</string>
+    
+    <string name="momentum_duration_mult_title">Duration Multiplier</string>
+    <string name="momentum_duration_mult_summary">Movement duration multiplier</string>
+    
+    <string name="momentum_duration_trigger_title">Duration Trigger</string>
+    <string name="momentum_duration_trigger_summary">Duration trigger threshold in milliseconds</string>
+    
+    <string name="momentum_stream_mult_title">Stream Multiplier</string>
+    <string name="momentum_stream_mult_summary">Stream movement multiplier</string>
+    
+    <string name="momentum_restrict_angle_title">Restrict Angle</string>
+    <string name="momentum_restrict_angle_summary">Movement restriction angle (0-180°)</string>
+    
+    <string name="momentum_restrict_area_title">Restrict Area</string>
+    <string name="momentum_restrict_area_summary">Movement restriction area (0-180°)</string>
+    
+    <string name="momentum_restrict_invert_title">Restrict Invert</string>
+    <string name="momentum_restrict_invert_summary">Invert movement restrictions</string>
+    
+    <string name="momentum_distance_mult_title">Distance Multiplier</string>
+    <string name="momentum_distance_mult_summary">Distance multiplier for momentum movement</string>
+    
+    <string name="momentum_distance_mult_out_title">Distance Multiplier Out</string>
+    <string name="momentum_distance_mult_out_summary">Distance multiplier for outgoing movement</string>
+    
+    <string name="momentum_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="momentum_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="momentum_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="momentum_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="momentum_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="momentum_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <string name="momentum_slider_max_angle_change_title">Slider Max Angle Change</string>
+    <string name="momentum_slider_max_angle_change_summary">Maximum angle change for slider movement (0-180°)</string>
+    
+    <!-- ExGon Settings -->
+    <string name="exgon_settings">ExGon Settings</string>
+    
+    <string name="exgon_delay_title">Delay</string>
+    <string name="exgon_delay_summary">Delay between random movements in milliseconds</string>
+    
+    <string name="exgon_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="exgon_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="exgon_slider_angle_offset_range_title">Slider Angle Offset Range</string>
+    <string name="exgon_slider_angle_offset_range_summary">Random angle offset range for sliders (0-90°)</string>
+    
+    <string name="exgon_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="exgon_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <!-- Linear Settings -->
+    <string name="linear_settings">Linear Settings</string>
+    
+    <string name="linear_wait_for_preempt_title">Wait For Preempt</string>
+    <string name="linear_wait_for_preempt_summary">Wait for preempt time before movement</string>
+    
+    <string name="linear_reaction_time_title">Reaction Time</string>
+    <string name="linear_reaction_time_summary">Reaction time in milliseconds</string>
+    
+    <string name="linear_choppy_long_objects_title">Choppy Long Objects</string>
+    <string name="linear_choppy_long_objects_summary">Enable choppy movement for long objects</string>
+    
+    <!-- Pippi Settings -->
+    <string name="pippi_settings">Pippi Settings</string>
+    
+    <string name="pippi_rotation_speed_title">Rotation Speed</string>
+    <string name="pippi_rotation_speed_summary">Rotation speed multiplier</string>
+    
+    <string name="pippi_radius_multiplier_title">Radius Multiplier</string>
+    <string name="pippi_radius_multiplier_summary">Radius multiplier for pippi movement</string>
+    
+    <string name="pippi_spinner_radius_title">Spinner Radius</string>
+    <string name="pippi_spinner_radius_summary">Spinner radius for pippi movement</string>
+    
+    <!-- Cursor Settings -->
+    <string name="cursor_settings">Cursor Settings</string>
+    
+    <string name="cursor_trail_style_title">Trail Style</string>
+    <string name="cursor_trail_style_summary">Cursor trail rendering style</string>
+    
+    <string name="cursor_style23_speed_title">Style 23 Speed</string>
+    <string name="cursor_style23_speed_summary">Speed for rainbow trail styles</string>
+    
+    <string name="cursor_style4_shift_title">Style 4 Shift</string>
+    <string name="cursor_style4_shift_summary">Hue shift for gradient trail style</string>
+    
+    <string name="cursor_trail_scale_title">Trail Scale</string>
+    <string name="cursor_trail_scale_summary">Trail size scale multiplier</string>
+    
+    <string name="cursor_trail_end_scale_title">Trail End Scale</string>
+    <string name="cursor_trail_end_scale_summary">Trail end size scale multiplier</string>
+    
+    <string name="cursor_trail_density_title">Trail Density</string>
+    <string name="cursor_trail_density_summary">Trail point density</string>
+    
+    <string name="cursor_trail_max_length_title">Trail Max Length</string>
+    <string name="cursor_trail_max_length_summary">Maximum trail length</string>
+    
+    <string name="cursor_trail_remove_speed_title">Trail Remove Speed</string>
+    <string name="cursor_trail_remove_speed_summary">Trail removal speed multiplier</string>
+    
+    <string name="cursor_enable_trail_glow_title">Enable Trail Glow</string>
+    <string name="cursor_enable_trail_glow_summary">Enable glow effect for trails</string>
+    
+    <string name="cursor_size_title">Cursor Size</string>
+    <string name="cursor_size_summary">Cursor size in pixels</string>
+    
+    <string name="cursor_enable_rainbow_title">Enable Rainbow</string>
+    <string name="cursor_enable_rainbow_summary">Enable rainbow color effects</string>
+    
+    <string name="cursor_rainbow_speed_title">Rainbow Speed</string>
+    <string name="cursor_rainbow_speed_summary">Rainbow color change speed</string>
+    
+    <string name="cursor_flash_to_the_beat_title">Flash To The Beat</string>
+    <string name="cursor_flash_to_the_beat_summary">Flash cursor to the beat</string>
+    
+    <string name="cursor_flash_amplitude_title">Flash Amplitude</string>
+    <string name="cursor_flash_amplitude_summary">Flash effect amplitude</string>
+    
+    <string name="cursor_expand_title">Cursor Expand</string>
+    <string name="cursor_expand_summary">Expand cursor on clicks</string>
+    
+    <string name="cursor_scale_to_the_beat_title">Scale To The Beat</string>
+    <string name="cursor_scale_to_the_beat_summary">Scale cursor to the beat</string>
+    
+    <string name="cursor_show_cursors_on_breaks_title">Show Cursors On Breaks</string>
+    <string name="cursor_show_cursors_on_breaks_summary">Show cursors during break periods</string>
+    
+    <string name="cursor_bounce_on_edges_title">Bounce On Edges</string>
+    <string name="cursor_bounce_on_edges_summary">Bounce cursor off playfield edges</string>
+    
+    <string name="cursor_additive_blending_title">Additive Blending</string>
+    <string name="cursor_additive_blending_summary">Enable additive blending for cursor</string>
+    
+    <string name="cursor_ripples_title">Cursor Ripples</string>
+    <string name="cursor_ripples_summary">Enable ripple effects on cursor clicks</string>
+    
+    <string name="cursor_smoke_enabled_title">Cursor Smoke</string>
+    <string name="cursor_smoke_enabled_summary">Enable smoke effects for cursor</string>
+    
+    <!-- Enhanced Cursor Settings -->
+    <string name="enhanced_cursor_settings">Enhanced Cursor Settings</string>
+    
+    <string name="enhanced_cursor_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="enhanced_cursor_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="enhanced_cursor_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="enhanced_cursor_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="enhanced_cursor_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="enhanced_cursor_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <string name="enhanced_cursor_slider_segments_title">Slider Segments</string>
+    <string name="enhanced_cursor_slider_segments_summary">Number of segments for complex slider movement</string>
+    
+    <!-- Half Circle Settings -->
+    <string name="half_circle_settings">Half Circle Settings</string>
+    
+    <string name="half_circle_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="half_circle_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="half_circle_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="half_circle_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="half_circle_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="half_circle_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+    
+    <!-- Axis Settings -->
+    <string name="axis_settings">Axis Settings</string>
+    
+    <string name="axis_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="axis_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="axis_slider_probe_offset_title">Slider Probe Offset</string>
+    <string name="axis_slider_probe_offset_summary">Probe offset for axis-aligned slider movement</string>
+    
+    <!-- Aggressive Settings -->
+    <string name="aggressive_settings">Aggressive Settings</string>
+    
+    <string name="aggressive_enable_slider_movement_title">Enable Slider Movement</string>
+    <string name="aggressive_enable_slider_movement_summary">Enable special slider movement with probing</string>
+    
+    <string name="aggressive_slider_angle_offset_title">Slider Angle Offset</string>
+    <string name="aggressive_slider_angle_offset_summary">Angle offset for slider movement (0-90°)</string>
+    
+    <string name="aggressive_slider_distance_mult_title">Slider Distance Multiplier</string>
+    <string name="aggressive_slider_distance_mult_summary">Distance multiplier for slider movement</string>
+
+</resources>

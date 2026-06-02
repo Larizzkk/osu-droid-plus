@@ -68,12 +68,12 @@ import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.ConfigBackup
 import ru.nsu.ccfit.zuev.osu.GlobalManager
 import ru.nsu.ccfit.zuev.osu.LibraryManager
-import ru.nsu.ccfit.zuev.osu.MainActivity
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.MainActivity
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager
 
 
@@ -222,6 +222,7 @@ class SettingsFragment : SettingsFragment() {
         }
 
         createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
+        createSectionButton("Autoplay", R.drawable.play_arrow_24px, Section.Autoplay)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
 
 
@@ -248,6 +249,7 @@ class SettingsFragment : SettingsFragment() {
         Section.Library -> handleLibrarySectionPreferences()
         Section.Advanced -> handleAdvancedSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
+        Section.Autoplay -> {}
         Section.Player -> handlePlayerSectionPreferences()
         Section.Room -> handleRoomSectionPreferences()
     }
@@ -271,21 +273,21 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleGeneralSectionPreferences() {
-        findPreference<InputPreference>("onlinePassword")!!.setOnTextInputBind {
+        findPreference<InputPreference>("onlinePassword")?.setOnTextInputBind {
             inputType = TYPE_CLASS_TEXT or TYPE_TEXT_VARIATION_PASSWORD
         }
 
-        findPreference<Preference>("registerAcc")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("registerAcc")?.setOnPreferenceClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REGISTER_URL)))
             true
         }
 
-        findPreference<Preference>("update")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("update")?.setOnPreferenceClickListener {
             UpdateManager.checkNewUpdates(false)
             true
         }
 
-        findPreference<Preference>("backup")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("backup")?.setOnPreferenceClickListener {
             val success = ConfigBackup.exportPreferences()
 
             ToastLogger.showText(
@@ -296,7 +298,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<Preference>("restore")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("restore")?.setOnPreferenceClickListener {
             val context = it.context
             val success = ConfigBackup.importPreferences()
 
@@ -318,7 +320,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<SelectPreference>("difficultyAlgorithm")!!.setOnPreferenceChangeListener { _, newValue ->
+        findPreference<SelectPreference>("difficultyAlgorithm")?.setOnPreferenceChangeListener { _, newValue ->
             if (Multiplayer.isMultiplayer) {
                 // We need to manually update it before because the preference is updated after this listener.
                 Config.setString("difficultyAlgorithm", newValue as String)
@@ -327,7 +329,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<SelectPreference>("appLanguage")!!.apply {
+        findPreference<SelectPreference>("appLanguage")?.apply {
             if (Multiplayer.isMultiplayer) {
                 isEnabled = false
                 return
@@ -379,7 +381,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleGraphicsSectionPreferences() {
-        findPreference<SelectPreference>("skinPath")!!.apply {
+        findPreference<SelectPreference>("skinPath")?.apply {
 
             val skinMain = File(Config.getSkinTopPath())
             val skins = Config.getSkins().map { Option(it.key, it.value) }.toMutableList()
@@ -393,7 +395,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<Preference>("hud_editor")!!.apply {
+        findPreference<Preference>("hud_editor")?.apply {
 
             if (Multiplayer.isMultiplayer) {
                 isEnabled = false
@@ -425,7 +427,7 @@ class SettingsFragment : SettingsFragment() {
     private fun handleGameplaySectionPreferences() {
         val playfieldAreaDisplay = PlayfieldAreaDisplay()
 
-        findPreference<SeekBarPreference>("playfieldSize")!!.apply {
+        findPreference<SeekBarPreference>("playfieldSize")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -435,7 +437,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("playfieldHorizontalPosition")!!.apply {
+        findPreference<SeekBarPreference>("playfieldHorizontalPosition")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -445,7 +447,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("playfieldVerticalPosition")!!.apply {
+        findPreference<SeekBarPreference>("playfieldVerticalPosition")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -458,7 +460,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleAudioSectionPreferences() {
-        findPreference<SeekBarPreference>("bgmvolume")!!.apply {
+        findPreference<SeekBarPreference>("bgmvolume")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -467,7 +469,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("soundvolume")!!.apply {
+        findPreference<SeekBarPreference>("soundvolume")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 // Set the configuration now as the sound below depends on this value.
                 Config.setSoundVolume((newValue as Int) / 100f)
@@ -480,9 +482,9 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        val offsetPreference = findPreference<SeekBarPreference>("offset")!!
+        val offsetPreference = findPreference<SeekBarPreference>("offset") ?: return
 
-        findPreference<Preference>("offset_calibration")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("offset_calibration")?.setOnPreferenceClickListener {
             CalibrationScene.settingsFragment = this
             CalibrationScene.OFFSET_MIN = offsetPreference.min
             CalibrationScene.OFFSET_MAX = offsetPreference.max
@@ -497,18 +499,18 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleLibrarySectionPreferences() {
-        findPreference<Preference>("clear_beatmap_cache")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("clear_beatmap_cache")?.setOnPreferenceClickListener {
             LibraryManager.clearDatabase()
             ToastLogger.showText(StringTable.get(string.library_cleared), true)
             true
         }
 
-        findPreference<Preference>("clear_properties")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("clear_properties")?.setOnPreferenceClickListener {
             DatabaseManager.beatmapOptionsTable.deleteAll()
             true
         }
 
-        findPreference<Preference>("importReplay")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("importReplay")?.setOnPreferenceClickListener {
             replayFilePicker.launch("application/octet-stream")
 
             true
@@ -517,13 +519,13 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleAdvancedSectionPreferences() {
-        findPreference<CheckBoxPreference>("forceMaxRefreshRate")!!.apply {
+        findPreference<CheckBoxPreference>("forceMaxRefreshRate")?.apply {
             // Obtaining supported refresh rates is only available on Android 12 and above.
             // See https://developer.android.com/reference/android/view/Display.Mode#getAlternativeRefreshRates().
             isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         }
 
-        findPreference<InputPreference>("skinTopPath")!!.setOnPreferenceChangeListener { it, newValue ->
+        findPreference<InputPreference>("skinTopPath")?.setOnPreferenceChangeListener { it, newValue ->
 
             it as InputPreference
 
@@ -548,12 +550,12 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleInputSectionPreferences() {
-        findPreference<Preference>("block_areas")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("block_areas")?.setOnPreferenceClickListener {
             BlockAreaEditorFragment().show()
             true
         }
 
-        findPreference<SeekBarPreference>("seekBarVibrateIntensity")!!.apply {
+        findPreference<SeekBarPreference>("seekBarVibrateIntensity")?.apply {
             min = 1
             max = 255
             value = Config.getInt("seekBarVibrateIntensity", 127)
@@ -563,21 +565,21 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("vibrationCircle")!!.apply {
+        findPreference<CheckBoxPreference>("vibrationCircle")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 VibratorManager.isCircleVibrationEnabled = newValue as Boolean
                 true
             }
         }
 
-        findPreference<CheckBoxPreference>("vibrationSlider")!!.apply {
+        findPreference<CheckBoxPreference>("vibrationSlider")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 VibratorManager.isSliderVibrationEnabled = newValue as Boolean
                 true
             }
         }
 
-        findPreference<CheckBoxPreference>("vibrationSpinner")!!.apply {
+        findPreference<CheckBoxPreference>("vibrationSpinner")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 VibratorManager.isSpinnerVibrationEnabled = newValue as Boolean
                 true
@@ -587,7 +589,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handlePlayerSectionPreferences() {
-        findPreference<SelectPreference>("player_team")!!.apply {
+        findPreference<SelectPreference>("player_team")?.apply {
             isEnabled = Multiplayer.room!!.teamMode == TeamMode.TeamVersus
             value = Multiplayer.player!!.team?.ordinal?.toString()
 
@@ -597,7 +599,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("player_nightcore")!!.apply {
+        findPreference<CheckBoxPreference>("player_nightcore")?.apply {
 
             setOnPreferenceChangeListener { _, newValue ->
                 Config.setUseNightcoreOnMultiplayer(newValue as Boolean)
@@ -609,7 +611,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleRoomSectionPreferences() {
-        findPreference<Preference>("room_link")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("room_link")?.setOnPreferenceClickListener {
 
             requireContext().getSystemService<ClipboardManager>()!!.apply {
 
@@ -620,7 +622,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<InputPreference>("room_name")!!.apply {
+        findPreference<InputPreference>("room_name")?.apply {
 
             setText(Multiplayer.room!!.name)
             setOnPreferenceChangeListener { _, newValue ->
@@ -635,7 +637,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<InputPreference>("room_password")!!.apply {
+        findPreference<InputPreference>("room_password")?.apply {
             setText(null)
             setOnPreferenceChangeListener { _, newValue ->
                 RoomAPI.setRoomPassword(newValue as String)
@@ -643,7 +645,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("room_max_players")!!.apply {
+        findPreference<SeekBarPreference>("room_max_players")?.apply {
             min = max(2, Multiplayer.room!!.activePlayers.size)
             value = Multiplayer.room!!.maxPlayers
 
@@ -653,7 +655,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("room_free_mods")!!.apply {
+        findPreference<CheckBoxPreference>("room_free_mods")?.apply {
             isChecked = Multiplayer.room!!.gameplaySettings.isFreeMod
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -662,7 +664,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SelectPreference>("room_versus_mode")!!.apply {
+        findPreference<SelectPreference>("room_versus_mode")?.apply {
             value = Multiplayer.room!!.teamMode.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -671,7 +673,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SelectPreference>("room_win_condition")!!.apply {
+        findPreference<SelectPreference>("room_win_condition")?.apply {
             value = Multiplayer.room!!.winCondition.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -680,7 +682,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("room_removeSliderLock")!!.apply {
+        findPreference<CheckBoxPreference>("room_removeSliderLock")?.apply {
             isChecked = Multiplayer.room!!.gameplaySettings.isRemoveSliderLock
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -722,6 +724,7 @@ class SettingsFragment : SettingsFragment() {
         Audio(R.xml.settings_audio),
         Library(R.xml.settings_library),
         Input(R.xml.settings_input),
+        Autoplay(R.xml.settings_autoplay),
         Advanced(R.xml.settings_advanced),
 
         // Multiplayer exclusive

@@ -6,7 +6,7 @@ import com.rian.osu.beatmap.hitobject.HitSampleInfo
 import kotlin.math.max
 import ru.nsu.ccfit.zuev.audio.BassSoundProvider
 import ru.nsu.ccfit.zuev.skins.OsuSkin
-import ru.nsu.ccfit.zuev.osu.ResourceManager.getInstance as getResources
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager.getInstance as getResources
 
 /**
  * A wrapper for [HitSampleInfo]s to allow for additional gameplay-specific information to be stored.

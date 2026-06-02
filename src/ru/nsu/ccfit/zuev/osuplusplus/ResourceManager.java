@@ -1,4 +1,6 @@
-package ru.nsu.ccfit.zuev.osu;
+package ru.nsu.ccfit.zuev.osuplusplus;
+
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 
 import static kotlin.collections.ArraysKt.any;
 import static kotlin.collections.ArraysKt.filter;
@@ -43,7 +45,7 @@ import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.helper.QualityAssetBitmapSource;
 import ru.nsu.ccfit.zuev.osu.helper.QualityFileBitmapSource;
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 import ru.nsu.ccfit.zuev.skins.SkinJsonReader;
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager;
@@ -135,12 +137,12 @@ public class ResourceManager {
     }
 
     public void loadSkin(String folder) {
-        loadFont("smallFont", null, 21, Color.WHITE);
-        loadFont("middleFont", null, 24, Color.WHITE);
-        loadFont("bigFont", null, 36, Color.WHITE);
-        loadFont("font", null, 28, Color.WHITE);
-        loadStrokeFont("strokeFont", null, 36, Color.BLACK, Color.WHITE);
-        loadFont("CaptionFont", null, 35, Color.WHITE);
+        loadFont("smallFont", "TorusNotched.ttf", 21, Color.WHITE);
+        loadFont("middleFont", "TorusNotched.ttf", 24, Color.WHITE);
+        loadFont("bigFont", "TorusNotched.ttf", 36, Color.WHITE);
+        loadFont("font", "TorusNotched.ttf", 28, Color.WHITE);
+        loadStrokeFont("strokeFont", "TorusNotched.ttf", 36, Color.BLACK, Color.WHITE);
+        loadFont("CaptionFont", "TorusNotched.ttf", 35, Color.WHITE);
 
         if (!folder.endsWith("/"))
             folder = folder + "/";
@@ -205,6 +207,8 @@ public class ResourceManager {
         }
         final Map<String, File> availableFiles = new HashMap<>();
         if (skinFiles != null) {
+            boolean removeUnsupportedElements = Config.getBoolean("removeUnsupportedSkinElements", true);
+
             for (final File f : skinFiles) {
                 if (f.isFile()) {
                     if (f.getName().startsWith("comboburst")
@@ -217,6 +221,33 @@ public class ResourceManager {
                     if (f.length() == 0) {
                         continue;
                     }
+
+                    // Filter unsupported skin elements if enabled
+                    if (removeUnsupportedElements) {
+                        String fileName = f.getName();
+                        // Skip @2x (high DPI) elements
+                        if (fileName.contains("@2x")) {
+                            continue;
+                        }
+                        // Skip mania mode elements
+                        if (fileName.contains("mania") || fileName.startsWith("mania-")) {
+                            continue;
+                        }
+                        // Skip catch mode elements
+                        if (fileName.contains("catch") || fileName.startsWith("catch-")) {
+                            continue;
+                        }
+                        // Skip taiko mode elements
+                        if (fileName.contains("taiko") || fileName.startsWith("taiko-")) {
+                            continue;
+                        }
+                        // Skip other game mode specific elements
+                        if (fileName.contains("fruits") || fileName.startsWith("fruits-") ||
+                            fileName.contains("pippidon") || fileName.startsWith("pippidon-")) {
+                            continue;
+                        }
+                    }
+
                     final String filename = f.getName().substring(0, f.getName().length() - 4);
                     availableFiles.put(filename, f);
                     //if ((filename.startsWith("hit0") || filename.startsWith("hit50") || filename.startsWith("hit100") || filename.startsWith("hit300"))){
@@ -452,7 +483,7 @@ public class ResourceManager {
 
     public Font getFont(final String resname) {
         if (!fonts.containsKey(resname)) {
-            loadFont(resname, null, 35, Color.WHITE);
+            loadFont(resname, "TorusNotched.ttf", 35, Color.WHITE);
         }
         return fonts.get(resname);
     }

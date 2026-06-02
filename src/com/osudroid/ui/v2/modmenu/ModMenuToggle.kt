@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.modmenu
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.osudroid.multiplayer.*
 import com.osudroid.utils.searchContiguously

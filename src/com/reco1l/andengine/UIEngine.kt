@@ -1,4 +1,5 @@
 package com.reco1l.andengine
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import android.app.Activity
 import android.view.*

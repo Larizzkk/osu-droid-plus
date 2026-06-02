@@ -4,7 +4,7 @@ import android.view.View
 import android.widget.TextView
 import com.edlplan.ui.fragment.BaseFragment
 import com.google.android.material.progressindicator.CircularProgressIndicator
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 class LoadingBadgeFragment : BaseFragment() {
 

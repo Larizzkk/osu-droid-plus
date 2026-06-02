@@ -9,7 +9,7 @@ import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.reco1l.framework.net.FileRequest
 import com.reco1l.toolkt.android.cornerRadius
 import com.reco1l.toolkt.android.dp
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 class DownloadFragment : LoadingFragment() {
 

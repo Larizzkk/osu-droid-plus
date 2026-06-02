@@ -1,0 +1,9 @@
+# ninja log v5
+11	621	7993616062898794	CMakeFiles/osudroid_native.dir/audio/AudioProcessor.cpp.o	a5f21c015cdd38c3
+32	317	7993616059846997	CMakeFiles/osudroid_native.dir/math/FastMath.cpp.o	6070a73f68a89af9
+4	738	7993622144292437	CMakeFiles/osudroid_native.dir/native-lib.cpp.o	b45ba2c34be8f50d
+22	1269	7993616069383615	CMakeFiles/osudroid_native.dir/utils/StringUtils.cpp.o	e4fa0e1e39961e9e
+740	967	7993622146560259	C:/Users/user/Desktop/idklolkek4eburek/osu-droid+/build/intermediates/cxx/RelWithDebInfo/445v166z/obj/x86/libosudroid_native.so	5de0bceeb751f529
+15	981	7993626099406734	CMakeFiles/osudroid_native.dir/effects/BackgroundBlurProcessor.cpp.o	33a465bc941db351
+4	1143	7993626101092044	CMakeFiles/osudroid_native.dir/native-lib.cpp.o	b45ba2c34be8f50d
+1143	1414	7993626103678910	C:/Users/user/Desktop/idklolkek4eburek/osu-droid+/build/intermediates/cxx/RelWithDebInfo/445v166z/obj/x86/libosudroid_native.so	9c1bbb21d10956d5

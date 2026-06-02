@@ -1,4 +1,5 @@
 package com.reco1l.andengine.ui
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.edlplan.framework.easing.*
 import com.reco1l.andengine.*

@@ -13,7 +13,7 @@ import com.reco1l.toolkt.kotlin.*
 import com.rian.osu.mods.*
 import com.rian.osu.mods.settings.*
 import kotlin.reflect.KClass
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 class ModCustomizationMenu : UIModal(
 

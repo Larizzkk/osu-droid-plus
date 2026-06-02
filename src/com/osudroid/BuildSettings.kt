@@ -1,6 +1,6 @@
 package com.osudroid
 
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
 
 object BuildSettings {
 
@@ -24,5 +24,6 @@ object BuildSettings {
      */
     const val DEBUG_PLAYGROUND = false
 }
+
 
 

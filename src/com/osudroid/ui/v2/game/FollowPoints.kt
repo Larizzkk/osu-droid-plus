@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.game
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.edlplan.framework.easing.*
 import com.osudroid.utils.updateThread

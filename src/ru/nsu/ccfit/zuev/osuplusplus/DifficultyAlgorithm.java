@@ -1,4 +1,4 @@
-package ru.nsu.ccfit.zuev.osu;
+package ru.nsu.ccfit.zuev.osuplusplus;
 
 /**
  * Represents the algorithm used to calculate the difficulty of a beatmap.

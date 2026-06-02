@@ -47,6 +47,7 @@ object ModUtils {
             ModSmallCircle(),
             ModSuddenDeath(),
             ModSynesthesia(),
+            ModTag(),
             ModTraceable(),
             ModWindDown(),
             ModWindUp()

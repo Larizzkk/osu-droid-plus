@@ -1,0 +1,3 @@
+C:/Users/user/Desktop/idklolkek4eburek/osu-droid+/.cxx/RelWithDebInfo/445v166z/arm64-v8a/CMakeFiles/osudroid_native.dir
+C:/Users/user/Desktop/idklolkek4eburek/osu-droid+/.cxx/RelWithDebInfo/445v166z/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/Users/user/Desktop/idklolkek4eburek/osu-droid+/.cxx/RelWithDebInfo/445v166z/arm64-v8a/CMakeFiles/rebuild_cache.dir

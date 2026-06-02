@@ -4,7 +4,7 @@ import android.util.Log
 import okhttp3.internal.toImmutableMap
 import okio.buffer
 import okio.source
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
 import java.io.Closeable
 import java.io.File
 import java.io.IOException
@@ -137,3 +137,4 @@ class IniReader(file: File) : Closeable {
 
 
 class IniException(override val message: String?) : IOException()
+
