@@ -15,6 +15,8 @@ class ReplayPlaybackRate : UILinearContainer() {
 
     private val rateFormatter = DecimalFormat("0.00x")
 
+    var onValueChanged: ((Float) -> Unit)? = null
+
     init {
         orientation = Orientation.Vertical
         width = FillParent
@@ -24,7 +26,10 @@ class ReplayPlaybackRate : UILinearContainer() {
             control.min = 0.05f
             control.max = 2f
             valueFormatter = { rateFormatter.format(it) }
-            onValueChanged = { rate = it }
+            onValueChanged = {
+                rate = it
+                this@ReplayPlaybackRate.onValueChanged?.invoke(it)
+            }
         }
 
         +slider

@@ -136,6 +136,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private Cursor[] cursors = new Cursor[CursorCount];
     private ru.nsu.ccfit.zuev.osuplusplus.ScreenShake screenShake;
     public String audioFilePath = null;
+    private com.osudroid.game.replay.ReplaySettingsPanel replayPanel;
     private UIScene scene;
     private UIScene bgScene, mgScene, fgScene;
     private Scene oldScene;
@@ -1402,13 +1403,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             engine.getCamera()
         );
 
-        // Initialize replay control overlay
-        if (replaying || GameHelper.isAutoplay()) {
-            com.osudroid.game.replay.ReplayPlaybackControl replayCtrl =
-                new com.osudroid.game.replay.ReplayPlaybackControl();
-            fgScene.attachChild(replayCtrl);
-        }
-
         // Initialize kiai flash overlay
         kiaiFlashOverlay = new org.anddev.andengine.entity.primitive.Rectangle(
             0,
@@ -1535,6 +1529,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         hud.setEditMode(isHUDEditorMode);
         hud.setSkinData(OsuSkin.get().getHUDSkinData());
+
+        // Initialize replay control overlay
+        if (replaying || GameHelper.isAutoplay()) {
+            replayPanel = new com.osudroid.game.replay.ReplaySettingsPanel();
+            ru.nsu.ccfit.zuev.osu.ReplayControlBridge.wireReplayPanel(
+                replayPanel,
+                this
+            );
+            hud.attachChild(replayPanel);
+        }
 
         skipBtn = null;
         if (skipTime > 1) {
@@ -1999,6 +2003,21 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         updateKiaiFlash(dt);
 
         if (screenShake != null) screenShake.update(dt);
+
+        // Update replay seek position
+        if (
+            replaying &&
+            replayPanel != null &&
+            objects != null &&
+            objects.length > 0
+        ) {
+            ru.nsu.ccfit.zuev.osu.ReplayControlBridge.updateSeekPosition(
+                replayPanel,
+                elapsedTime,
+                (float) objects[0].startTime / 1000,
+                (float) objects[objects.length - 1].getEndTime() / 1000
+            );
+        }
 
         if (!isGameOver) {
             if (breakPeriodIndex < breakPeriods.length) {
@@ -3282,7 +3301,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         int eventTime = (int) (elapsedTime * 1000 + offset);
 
         if (replaying) {
-            return true;
+            // Don't block touch - let scene dispatch to registered touch areas (replay controls)
+            return false;
         }
 
         if (isGameOver) {
