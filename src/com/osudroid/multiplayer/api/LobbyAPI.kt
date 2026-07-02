@@ -18,7 +18,7 @@ object LobbyAPI {
     /**
      * The hostname.
      */
-    const val HOST = "https://multi.osudroid.moe"
+    const val HOST = "https://osu-droid-multiplayer.onrender.com"
 
     /**
      * The invite link host.
@@ -92,7 +92,15 @@ object LobbyAPI {
     /**
      * Create room and get the ID.
      */
-    fun createRoom(name: String, beatmap: RoomBeatmap?, hostUID: Long, sessionId: String, sign: String?, password: String? = null, maxPlayers: Int = 8): Long {
+    fun createRoom(
+        name: String,
+        beatmap: RoomBeatmap?,
+        hostUID: Long,
+        sessionId: String,
+        sign: String?,
+        password: String? = null,
+        maxPlayers: Int = 8
+    ): Long {
 
         if (BuildSettings.MOCK_MULTIPLAYER) {
             return 1

@@ -66,7 +66,6 @@ import com.rian.osu.difficulty.calculator.StandardPerformanceCalculationParamete
 import com.rian.osu.gameplay.GameplayHitSampleInfo;
 import com.rian.osu.math.Interpolation;
 import com.rian.osu.mods.*;
-import com.rian.osu.ui.FPSCounter;
 import com.rian.osu.utils.ModHashMap;
 import com.rian.osu.utils.ModUtils;
 import java.io.File;
@@ -122,6 +121,7 @@ import ru.nsu.ccfit.zuev.osu.scoring.ResultType;
 import ru.nsu.ccfit.zuev.osu.scoring.ScoringScene;
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2;
 import ru.nsu.ccfit.zuev.osu.scoring.TouchType;
+import ru.nsu.ccfit.zuev.osuplusplus.MainActivity;
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.main.AutoCursor;
 import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.main.CursorEntity;
@@ -222,12 +222,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private Job gameLoadingJob;
 
     private PerformanceCalculationParameters performanceCalculationParameters;
-    private TimedDifficultyAttributes<
-        DroidDifficultyAttributes
-    >[] droidTimedDifficultyAttributes;
-    private TimedDifficultyAttributes<
-        StandardDifficultyAttributes
-    >[] standardTimedDifficultyAttributes;
+    private TimedDifficultyAttributes<DroidDifficultyAttributes>[] droidTimedDifficultyAttributes;
+    private TimedDifficultyAttributes<StandardDifficultyAttributes>[] standardTimedDifficultyAttributes;
 
     // Game
 
@@ -465,10 +461,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 storyboardOverlayProxy.detachSelf();
             } else {
                 storyboardSprite.setOverlayDrawProxy(
-                    storyboardOverlayProxy = new ProxySprite(
+                    (storyboardOverlayProxy = new ProxySprite(
                         Config.getRES_WIDTH(),
                         Config.getRES_HEIGHT()
-                    )
+                    ))
                 );
                 ensureActive(scope.getCoroutineContext());
             }
@@ -1040,7 +1036,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         ) {
             // Calculate timed difficulty attributes
             switch (Config.getDifficultyAlgorithm()) {
-                case droid -> {
+                case droid, drpp, rxpp -> {
                     performanceCalculationParameters =
                         new DroidPerformanceCalculationParameters();
 
@@ -1279,7 +1275,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         stat.calculateModScoreMultiplier(parsedBeatmap);
         stat.canFail =
             !stat.getMod().contains(ModNoFail.class) &&
-            !stat.getMod().contains(ModRelax.class) &&
             !stat.getMod().contains(ModAutopilot.class) &&
             !stat.getMod().contains(ModAutoplay.class);
 
@@ -1322,10 +1317,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             lastMods.ofType(ModApproachDifferent.class)
         );
 
-        int cursorCount =
-            replaying && replay != null
-                ? replay.cursorMoves.size()
-                : CursorCount;
+        int cursorCount = GameHelper.isRelax()
+            ? 1
+            : replaying && replay != null
+              ? replay.cursorMoves.size()
+              : CursorCount;
 
         cursors = new Cursor[cursorCount];
 
@@ -1611,52 +1607,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
         stat.setPlayerName(playname);
 
-        var counterTextFont = ResourceManager.getInstance().getFont(
-            "smallFont"
-        );
-
-        if (Config.isShowFPS()) {
-            var fpsCounter = new FPSCounter(counterTextFont);
-
-            // Attach a dummy entity for computing FPS, as its frame rate is tied to the draw thread and not
-            // the update thread.
-            hud.attachChild(
-                new Entity() {
-                    private long previousDrawTime;
-
-                    @Override
-                    protected void onManagedUpdate(float pSecondsElapsed) {
-                        fpsCounter.setPosition(
-                            Config.getRES_WIDTH() -
-                                fpsCounter.getWidthScaled() -
-                                5,
-                            Config.getRES_HEIGHT() -
-                                fpsCounter.getHeightScaled() -
-                                10
-                        );
-                    }
-
-                    @Override
-                    protected void onManagedDraw(GL10 pGL, Camera pCamera) {
-                        long currentDrawTime = SystemClock.uptimeMillis();
-
-                        fpsCounter.updateFps(
-                            (currentDrawTime - previousDrawTime) / 1000f
-                        );
-
-                        previousDrawTime = currentDrawTime;
-                    }
-                }
-            );
-
-            fpsCounter.setPosition(
-                Config.getRES_WIDTH() - fpsCounter.getWidthScaled() - 5,
-                Config.getRES_HEIGHT() - fpsCounter.getHeightScaled() - 10
-            );
-
-            hud.attachChild(fpsCounter);
-        }
-
         breakAnimator = new BreakAnimator(fgScene, stat, hud);
 
         if (Multiplayer.isMultiplayer) {
@@ -1730,10 +1680,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         // Disable screen dimming
-        engine
-            .getEngineOptions()
-            .setWakeLockOptions(WakeLockOptions.SCREEN_BRIGHT);
-        GlobalManager.getInstance().getMainActivity().reapplyWakeLock();
+        engine.getEngineOptions().setWakeLockOptions(WakeLockOptions.SCREEN_ON);
+        GlobalManager.getInstance()
+            .getMainActivity()
+            .runOnUiThread(() ->
+                GlobalManager.getInstance().getMainActivity().reapplyWakeLock()
+            );
 
         engine.setScene(scene);
         engine.getOverlay().attachChild(hud, 0);
@@ -1828,9 +1780,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 // Emulating moves
                 while (
                     cIndex < replay.cursorMoves.get(i).size &&
-                    (
-                        movement = replay.cursorMoves.get(i).movements[cIndex]
-                    ).getTime() <=
+                    (movement = replay.cursorMoves
+                        .get(i)
+                        .movements[cIndex]).getTime() <=
                         (elapsedTime + dt / 4) * 1000
                 ) {
                     var event = CursorEvent.obtain();
@@ -2448,11 +2400,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             touchOptions.setUseRawPointer(false);
             engine.getTouchController().applyTouchOptions(touchOptions);
 
-            // Enable screen dimming
             engine
                 .getEngineOptions()
-                .setWakeLockOptions(WakeLockOptions.SCREEN_DIM);
-            GlobalManager.getInstance().getMainActivity().reapplyWakeLock();
+                .setWakeLockOptions(WakeLockOptions.SCREEN_ON);
+            GlobalManager.getInstance()
+                .getMainActivity()
+                .runOnUiThread(() ->
+                    GlobalManager.getInstance()
+                        .getMainActivity()
+                        .reapplyWakeLock()
+                );
 
             if (video != null) {
                 video.release();
@@ -2816,11 +2773,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         touchController.applyTouchOptions(touchOptions);
         touchController.resetRawPointers();
 
-        // Enable screen dimming
-        engine
-            .getEngineOptions()
-            .setWakeLockOptions(WakeLockOptions.SCREEN_DIM);
-        GlobalManager.getInstance().getMainActivity().reapplyWakeLock();
+        engine.getEngineOptions().setWakeLockOptions(WakeLockOptions.SCREEN_ON);
+        GlobalManager.getInstance()
+            .getMainActivity()
+            .runOnUiThread(() ->
+                GlobalManager.getInstance().getMainActivity().reapplyWakeLock()
+            );
 
         if (storyboardSprite != null) {
             storyboardSprite.detachSelf();
@@ -3281,6 +3239,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     @Override
     public boolean isObjectHittable(GameObject object) {
+        // When notelock is disabled (lazer-style), allow hitting any active object
+        if (!Config.getBoolean("noteLockEnabled", true)) {
+            return true;
+        }
         return object == judgeableObject;
     }
 
@@ -3569,9 +3531,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                             entity.setRotation(
                                 entity.getRotation() +
                                     ((float) Random.Default.nextDouble(
-                                            -0.02,
-                                            0.02
-                                        ) * 180) /
+                                        -0.02,
+                                        0.02
+                                    ) *
+                                        180) /
                                         FMath.Pi
                             );
                         } else if (entity.getRotation() > 0) {
@@ -3678,7 +3641,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         UIEngine.getCurrent().getOverlay().getChildScene().back();
         paused = false;
 
-        if (stat.getHp() <= 0 && !stat.getMod().contains(ModNoFail.class)) {
+        if (
+            stat.getHp() <= 0 &&
+            !stat.getMod().contains(ModNoFail.class) &&
+            !stat.getMod().contains(ModRelax.class) &&
+            !stat.getMod().contains(ModAutopilot.class)
+        ) {
             quit();
             return;
         }
@@ -3960,7 +3928,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             autoCursor.onSliderEnd();
         }
         if (replay != null && !replaying) {
-            short acc = (short) (accuracy);
+            short acc = (short) accuracy;
             replay.addObjectResult(id, acc, (BitSet) tickSet.clone());
         }
     }
@@ -4161,7 +4129,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         double pp = switch (Config.getDifficultyAlgorithm()) {
-            case droid -> getDroidPPAt(objectId);
+            case droid, drpp, rxpp -> getDroidPPAt(objectId);
             case standard -> getStandardPPAt(objectId);
         };
 
@@ -4261,7 +4229,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     if (timeDifference <= 0.1f * speedMultiplier) {
                         float minimumSynchronizationTime =
                             (Config.getMinimumGameplaySynchronizationTime() *
-                                speedMultiplier) / 1000;
+                                speedMultiplier) /
+                            1000;
                         // Sync gameplay with audio if the difference is too large.
                         if (
                             !isGameOver &&
@@ -4457,7 +4426,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         // displayed scene (the one before gameplay starts), which is not what we want.
         if (
             !(GlobalManager.getInstance().getCamera() instanceof
-                    SmoothCamera camera)
+                SmoothCamera camera)
         ) {
             return;
         }
@@ -4488,7 +4457,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private void resetPlayfieldSizeScale() {
         if (
             !(GlobalManager.getInstance().getCamera() instanceof
-                    SmoothCamera camera)
+                SmoothCamera camera)
         ) {
             return;
         }
@@ -4760,7 +4729,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             if (
                 kiaiParticlesEnabled &&
                 particleEnabled &&
-                (elapsedTime * 1000 - particleBeginTime > 2000)
+                elapsedTime * 1000 - particleBeginTime > 2000
             ) {
                 for (var particleSpout : particleSystem) {
                     if (particleSpout != null) {

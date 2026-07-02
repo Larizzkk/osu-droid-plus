@@ -1,7 +1,5 @@
 package ru.nsu.ccfit.zuev.osuplusplus;
 
-import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
-
 import static kotlin.collections.ArraysKt.any;
 import static kotlin.collections.ArraysKt.filter;
 import static kotlin.collections.ArraysKt.joinToString;
@@ -10,22 +8,10 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.util.Log;
-
 import com.osudroid.ui.skinning.IniReader;
 import com.osudroid.ui.skinning.SkinConverter;
 import com.reco1l.andengine.UIEngine;
 import com.reco1l.andengine.texture.BlankTextureRegion;
-import org.anddev.andengine.engine.Engine;
-import org.anddev.andengine.opengl.font.Font;
-import org.anddev.andengine.opengl.font.FontFactory;
-import org.anddev.andengine.opengl.font.StrokeFont;
-import org.anddev.andengine.opengl.texture.TextureOptions;
-import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
-import org.anddev.andengine.opengl.texture.region.TextureRegion;
-import org.anddev.andengine.opengl.texture.region.TextureRegionFactory;
-import org.anddev.andengine.util.Debug;
-import org.json.JSONObject;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,9 +22,18 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import kotlin.text.MatchResult;
 import kotlin.text.Regex;
+import org.anddev.andengine.engine.Engine;
+import org.anddev.andengine.opengl.font.Font;
+import org.anddev.andengine.opengl.font.FontFactory;
+import org.anddev.andengine.opengl.font.StrokeFont;
+import org.anddev.andengine.opengl.texture.TextureOptions;
+import org.anddev.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
+import org.anddev.andengine.opengl.texture.region.TextureRegion;
+import org.anddev.andengine.opengl.texture.region.TextureRegionFactory;
+import org.anddev.andengine.util.Debug;
+import org.json.JSONObject;
 import ru.nsu.ccfit.zuev.audio.BassSoundProvider;
 import ru.nsu.ccfit.zuev.osu.helper.FileUtils;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
@@ -46,9 +41,10 @@ import ru.nsu.ccfit.zuev.osu.helper.QualityAssetBitmapSource;
 import ru.nsu.ccfit.zuev.osu.helper.QualityFileBitmapSource;
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager;
 import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
+import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 import ru.nsu.ccfit.zuev.skins.SkinJsonReader;
-import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager;
 import ru.nsu.ccfit.zuev.skins.StringSkinData;
 
 public class ResourceManager {
@@ -79,7 +75,7 @@ public class ResourceManager {
         "play-skip-",
         "scorebar-colour-",
         "sliderb",
-        "sliderfollowcircle-"
+        "sliderfollowcircle-",
     };
 
     /**
@@ -93,9 +89,13 @@ public class ResourceManager {
      * (e.g., <code>menu-back-0</code> (with hyphen) or <code>sliderb0</code> (without hyphen)).
      * </p>
      */
-    private static final Regex ANIMATABLE_TEXTURE_REGEX = new Regex("^(" + joinToString(ANIMATABLE_TEXTURES, "|", "", "", -1, "", null) + ")(\\d+)$");
+    private static final Regex ANIMATABLE_TEXTURE_REGEX = new Regex(
+        "^(" +
+            joinToString(ANIMATABLE_TEXTURES, "|", "", "", -1, "", null) +
+            ")(\\d+)$"
+    );
 
-    private final static ResourceManager mgr = new ResourceManager();
+    private static final ResourceManager mgr = new ResourceManager();
 
     private final Map<String, Font> fonts = new HashMap<>();
     private final Map<String, Integer> frameCount = new HashMap<>();
@@ -109,8 +109,7 @@ public class ResourceManager {
     private Engine engine;
     private Context context;
 
-    private ResourceManager() {
-    }
+    private ResourceManager() {}
 
     public static ResourceManager getInstance() {
         return mgr;
@@ -141,27 +140,39 @@ public class ResourceManager {
         loadFont("middleFont", "TorusNotched.ttf", 24, Color.WHITE);
         loadFont("bigFont", "TorusNotched.ttf", 36, Color.WHITE);
         loadFont("font", "TorusNotched.ttf", 28, Color.WHITE);
-        loadStrokeFont("strokeFont", "TorusNotched.ttf", 36, Color.BLACK, Color.WHITE);
+        loadStrokeFont(
+            "strokeFont",
+            "TorusNotched.ttf",
+            36,
+            Color.BLACK,
+            Color.WHITE
+        );
         loadFont("CaptionFont", "TorusNotched.ttf", 35, Color.WHITE);
 
-        if (!folder.endsWith("/"))
-            folder = folder + "/";
+        if (!folder.endsWith("/")) folder = folder + "/";
 
         loadCustomSkin(folder);
 
-        loadTexture("ranking_enabled_score", "ranking_enabled_score.png", false);
+        loadTexture(
+            "ranking_enabled_score",
+            "ranking_enabled_score.png",
+            false
+        );
         loadTexture("ranking_enabled_pp", "ranking_enabled_pp.png", false);
         loadTexture("ranking_disabled", "ranking_disabled.png", false);
-        loadTexture("flashlight_cursor", "flashlight_cursor.png", false, TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+        loadTexture(
+            "flashlight_cursor",
+            "flashlight_cursor.png",
+            false,
+            TextureOptions.BILINEAR_PREMULTIPLYALPHA
+        );
 
-        if (!textures.containsKey("lighting"))
-            textures.put("lighting", null);
+        if (!textures.containsKey("lighting")) textures.put("lighting", null);
 
         UIEngine.getCurrent().onSkinChange();
     }
 
     public void loadCustomSkin(String folder) {
-
         if (!folder.endsWith("/")) folder += "/";
 
         File[] skinFiles = null;
@@ -192,12 +203,22 @@ public class ResourceManager {
                         e.printStackTrace();
                     }
 
-                    SkinConverter.ensureOptionalTexture(new File(folder, "sliderendcircle.png"));
-                    SkinConverter.ensureOptionalTexture(new File(folder, "sliderendcircleoverlay.png"));
+                    SkinConverter.ensureOptionalTexture(
+                        new File(folder, "sliderendcircle.png")
+                    );
+                    SkinConverter.ensureOptionalTexture(
+                        new File(folder, "sliderendcircleoverlay.png")
+                    );
 
-                    SkinConverter.ensureTexture(new File(folder, "selection-mods.png"));
-                    SkinConverter.ensureTexture(new File(folder, "selection-random.png"));
-                    SkinConverter.ensureTexture(new File(folder, "selection-options.png"));
+                    SkinConverter.ensureTexture(
+                        new File(folder, "selection-mods.png")
+                    );
+                    SkinConverter.ensureTexture(
+                        new File(folder, "selection-random.png")
+                    );
+                    SkinConverter.ensureTexture(
+                        new File(folder, "selection-options.png")
+                    );
 
                     skinFiles = FileUtils.listFiles(skinFolder);
                 }
@@ -207,12 +228,18 @@ public class ResourceManager {
         }
         final Map<String, File> availableFiles = new HashMap<>();
         if (skinFiles != null) {
-            boolean removeUnsupportedElements = Config.getBoolean("removeUnsupportedSkinElements", true);
+            boolean removeUnsupportedElements = Config.getBoolean(
+                "removeUnsupportedSkinElements",
+                true
+            );
 
             for (final File f : skinFiles) {
                 if (f.isFile()) {
-                    if (f.getName().startsWith("comboburst")
-                            && (f.getName().endsWith(".wav") || f.getName().endsWith(".mp3"))) {
+                    if (
+                        f.getName().startsWith("comboburst") &&
+                        (f.getName().endsWith(".wav") ||
+                            f.getName().endsWith(".mp3"))
+                    ) {
                         continue;
                     }
                     if (f.getName().length() < 5) {
@@ -230,25 +257,40 @@ public class ResourceManager {
                             continue;
                         }
                         // Skip mania mode elements
-                        if (fileName.contains("mania") || fileName.startsWith("mania-")) {
+                        if (
+                            fileName.contains("mania") ||
+                            fileName.startsWith("mania-")
+                        ) {
                             continue;
                         }
                         // Skip catch mode elements
-                        if (fileName.contains("catch") || fileName.startsWith("catch-")) {
+                        if (
+                            fileName.contains("catch") ||
+                            fileName.startsWith("catch-")
+                        ) {
                             continue;
                         }
                         // Skip taiko mode elements
-                        if (fileName.contains("taiko") || fileName.startsWith("taiko-")) {
+                        if (
+                            fileName.contains("taiko") ||
+                            fileName.startsWith("taiko-")
+                        ) {
                             continue;
                         }
                         // Skip other game mode specific elements
-                        if (fileName.contains("fruits") || fileName.startsWith("fruits-") ||
-                            fileName.contains("pippidon") || fileName.startsWith("pippidon-")) {
+                        if (
+                            fileName.contains("fruits") ||
+                            fileName.startsWith("fruits-") ||
+                            fileName.contains("pippidon") ||
+                            fileName.startsWith("pippidon-")
+                        ) {
                             continue;
                         }
                     }
 
-                    final String filename = f.getName().substring(0, f.getName().length() - 4);
+                    final String filename = f
+                        .getName()
+                        .substring(0, f.getName().length() - 4);
                     availableFiles.put(filename, f);
                     //if ((filename.startsWith("hit0") || filename.startsWith("hit50") || filename.startsWith("hit100") || filename.startsWith("hit300"))){
                     //    availableFiles.put(filename + "-0", f);
@@ -263,10 +305,18 @@ public class ResourceManager {
                         }
                     }
                     if (filename.equals("hitcircleoverlay")) {
-                        if (!availableFiles.containsKey("sliderstartcircleoverlay")) {
+                        if (
+                            !availableFiles.containsKey(
+                                "sliderstartcircleoverlay"
+                            )
+                        ) {
                             availableFiles.put("sliderstartcircleoverlay", f);
                         }
-                        if (!availableFiles.containsKey("sliderendcircleoverlay")) {
+                        if (
+                            !availableFiles.containsKey(
+                                "sliderendcircleoverlay"
+                            )
+                        ) {
                             availableFiles.put("sliderendcircleoverlay", f);
                         }
                     }
@@ -285,19 +335,33 @@ public class ResourceManager {
         customFrameCount.clear();
 
         try {
+            String[] availableAnimatableFilenames = filter(
+                availableFiles.keySet().toArray(new String[0]),
+                f -> any(ANIMATABLE_TEXTURES, f::startsWith)
+            ).toArray(new String[0]);
 
-            String[] availableAnimatableFilenames = filter(availableFiles.keySet().toArray(new String[0]), f -> any(ANIMATABLE_TEXTURES, f::startsWith)).toArray(new String[0]);
+            boolean isDefaultSkin = Objects.equals(
+                folder,
+                Config.getSkinTopPath()
+            );
 
-            boolean isDefaultSkin = Objects.equals(folder, Config.getSkinTopPath());
-
-            for (var assetName : Objects.requireNonNull(context.getAssets().list("gfx"))) {
-
-                var textureName = assetName.substring(0, assetName.length() - 4);
+            for (var assetName : Objects.requireNonNull(
+                context.getAssets().list("gfx")
+            )) {
+                var textureName = assetName.substring(
+                    0,
+                    assetName.length() - 4
+                );
 
                 // Animatable textures are managed separately unless they're not present in the skin folder.
                 var skip = false;
                 for (var animatableTexture : ANIMATABLE_TEXTURES) {
-                    if (textureName.startsWith(animatableTexture) && any(availableAnimatableFilenames, f -> f.startsWith(animatableTexture))) {
+                    if (
+                        textureName.startsWith(animatableTexture) &&
+                        any(availableAnimatableFilenames, f ->
+                            f.startsWith(animatableTexture)
+                        )
+                    ) {
                         skip = true;
                         break;
                     }
@@ -307,9 +371,18 @@ public class ResourceManager {
                 }
 
                 if (availableFiles.containsKey(textureName)) {
-                    loadTexture(textureName, Objects.requireNonNull(availableFiles.get(textureName)).getPath(), true);
+                    loadTexture(
+                        textureName,
+                        Objects.requireNonNull(
+                            availableFiles.get(textureName)
+                        ).getPath(),
+                        true
+                    );
                 } else {
-                    if (!isDefaultSkin && any(OPTIONAL_TEXTURES, textureName::startsWith)) {
+                    if (
+                        !isDefaultSkin &&
+                        any(OPTIONAL_TEXTURES, textureName::startsWith)
+                    ) {
                         unloadTexture(textureName);
                     } else {
                         loadTexture(textureName, "gfx/" + assetName, false);
@@ -319,19 +392,42 @@ public class ResourceManager {
             }
 
             if (availableFiles.containsKey("scorebar-kidanger")) {
-                loadTexture("scorebar-kidanger", Objects.requireNonNull(availableFiles.get("scorebar-kidanger")).getPath(), true);
-                loadTexture("scorebar-kidanger2", Objects.requireNonNull(availableFiles.get(availableFiles.containsKey("scorebar-kidanger2") ? "scorebar-kidanger2" : "scorebar-kidanger")).getPath(), true);
+                loadTexture(
+                    "scorebar-kidanger",
+                    Objects.requireNonNull(
+                        availableFiles.get("scorebar-kidanger")
+                    ).getPath(),
+                    true
+                );
+                loadTexture(
+                    "scorebar-kidanger2",
+                    Objects.requireNonNull(
+                        availableFiles.get(
+                            availableFiles.containsKey("scorebar-kidanger2")
+                                ? "scorebar-kidanger2"
+                                : "scorebar-kidanger"
+                        )
+                    ).getPath(),
+                    true
+                );
             }
 
             if (availableFiles.containsKey("comboburst")) {
-                loadTexture("comboburst", Objects.requireNonNull(availableFiles.get("comboburst")).getPath(), true);
+                loadTexture(
+                    "comboburst",
+                    Objects.requireNonNull(
+                        availableFiles.get("comboburst")
+                    ).getPath(),
+                    true
+                );
             } else {
                 unloadTexture("comboburst");
             }
 
             for (int i = 0; i < 10; i++) {
                 String textureName = "comboburst-" + i;
-                if (availableFiles.containsKey(textureName)) { // No idea if this is still needed
+                if (availableFiles.containsKey(textureName)) {
+                    // No idea if this is still needed
                     File file = availableFiles.get(textureName);
                     if (file != null) {
                         loadTexture(textureName, file.getPath(), true);
@@ -342,7 +438,6 @@ public class ResourceManager {
             }
 
             for (var filename : availableAnimatableFilenames) {
-
                 var file = availableFiles.get(filename);
                 if (file != null) {
                     loadTexture(filename, file.getPath(), true);
@@ -351,17 +446,24 @@ public class ResourceManager {
                     unloadTexture(filename);
                 }
             }
-
         } catch (final IOException e) {
             Debug.e("Resources: " + e.getMessage(), e);
         }
 
         try {
             // TODO: buggy?
-            for (final String s : Objects.requireNonNull(context.getAssets().list("sfx"))) {
+            for (final String s : Objects.requireNonNull(
+                context.getAssets().list("sfx")
+            )) {
                 final String name = s.substring(0, s.length() - 4);
                 if (availableFiles.containsKey(name)) {
-                    loadSound(name, Objects.requireNonNull(availableFiles.get(name)).getPath(), true);
+                    loadSound(
+                        name,
+                        Objects.requireNonNull(
+                            availableFiles.get(name)
+                        ).getPath(),
+                        true
+                    );
                 } else {
                     loadSound(name, "sfx/" + s, false);
                 }
@@ -369,7 +471,11 @@ public class ResourceManager {
             if (skinFolder != null) {
                 loadSound("comboburst", folder + "comboburst.wav", true);
                 for (int i = 0; i < 10; i++) {
-                    loadSound("comboburst-" + i, folder + "comboburst-" + i + ".wav", true);
+                    loadSound(
+                        "comboburst-" + i,
+                        folder + "comboburst-" + i + ".wav",
+                        true
+                    );
                 }
             }
         } catch (final IOException e) {
@@ -377,15 +483,18 @@ public class ResourceManager {
         }
 
         loadTexture("ranking_button", "ranking_button.png", false);
-        loadTexture("ranking_enabled_score", "ranking_enabled_score.png", false);
+        loadTexture(
+            "ranking_enabled_score",
+            "ranking_enabled_score.png",
+            false
+        );
         loadTexture("ranking_enabled_pp", "ranking_enabled_pp.png", false);
         loadTexture("ranking_disabled", "ranking_disabled.png", false);
         loadTexture("selection-approved", "selection-approved.png", false);
         loadTexture("selection-loved", "selection-loved.png", false);
         loadTexture("selection-question", "selection-question.png", false);
         loadTexture("selection-ranked", "selection-ranked.png", false);
-        if (!textures.containsKey("lighting"))
-            textures.put("lighting", null);
+        if (!textures.containsKey("lighting")) textures.put("lighting", null);
     }
 
     /**
@@ -399,8 +508,11 @@ public class ResourceManager {
      *
      * @return The frame index parsed from the filename, or -1 if the frame count could not be parsed.
      */
-    private int parseFrameIndex(String filename, boolean checkFirstFrameExists, boolean isBeatmapSkin) {
-
+    private int parseFrameIndex(
+        String filename,
+        boolean checkFirstFrameExists,
+        boolean isBeatmapSkin
+    ) {
         String textureName = filename;
         int frameIndex = 0;
 
@@ -412,7 +524,10 @@ public class ResourceManager {
 
             textureName = values.get(1);
             if (textureName.endsWith("-")) {
-                textureName = textureName.substring(0, textureName.length() - 1);
+                textureName = textureName.substring(
+                    0,
+                    textureName.length() - 1
+                );
             }
 
             frameIndex = Integer.parseInt(values.get(2));
@@ -421,38 +536,65 @@ public class ResourceManager {
         var skinTextures = isBeatmapSkin ? customTextures : textures;
         var skinFrameCount = isBeatmapSkin ? customFrameCount : frameCount;
 
-        if (result == null || checkFirstFrameExists
-                && !skinTextures.containsKey(textureName)
-                && !skinTextures.containsKey(textureName + "-0")
-                && !skinTextures.containsKey(textureName + "0")) {
+        if (
+            result == null ||
+            (checkFirstFrameExists &&
+                !skinTextures.containsKey(textureName) &&
+                !skinTextures.containsKey(textureName + "-0") &&
+                !skinTextures.containsKey(textureName + "0"))
+        ) {
             skinFrameCount.remove(textureName);
             return -1;
         }
 
         //noinspection DataFlowIssue
-        if (!skinFrameCount.containsKey(textureName) || skinFrameCount.get(textureName) < frameIndex + 1) {
+        if (
+            !skinFrameCount.containsKey(textureName) ||
+            skinFrameCount.get(textureName) < frameIndex + 1
+        ) {
             skinFrameCount.put(textureName, frameIndex + 1);
         }
 
         if (BuildConfig.DEBUG) {
-            Log.v("ResourceManager", "Parsed frame index: " + frameIndex + " from " + filename);
+            Log.v(
+                "ResourceManager",
+                "Parsed frame index: " + frameIndex + " from " + filename
+            );
         }
 
         return frameIndex;
     }
 
-    public Font loadFont(final String resname, final String file, int size,
-                         final int color) {
+    public Font loadFont(
+        final String resname,
+        final String file,
+        int size,
+        final int color
+    ) {
         size /= Config.getTextureQuality();
-        final BitmapTextureAtlas texture = new BitmapTextureAtlas(512, 512,
-                TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+        final BitmapTextureAtlas texture = new BitmapTextureAtlas(
+            512,
+            512,
+            TextureOptions.BILINEAR_PREMULTIPLYALPHA
+        );
         Font font;
         if (file == null) {
-            font = new Font(texture, Typeface.create(Typeface.DEFAULT,
-                    Typeface.NORMAL), size, true, color);
+            font = new Font(
+                texture,
+                Typeface.create(Typeface.DEFAULT, Typeface.NORMAL),
+                size,
+                true,
+                color
+            );
         } else {
-            font = FontFactory.createFromAsset(texture, context, "fonts/"
-                    + file, size, true, color);
+            font = FontFactory.createFromAsset(
+                texture,
+                context,
+                "fonts/" + file,
+                size,
+                true,
+                color
+            );
         }
         engine.getTextureManager().loadTexture(texture);
         engine.getFontManager().loadFont(font);
@@ -460,20 +602,41 @@ public class ResourceManager {
         return font;
     }
 
-    public StrokeFont loadStrokeFont(final String resname, final String file,
-                                     int size, final int color1, final int color2) {
+    public StrokeFont loadStrokeFont(
+        final String resname,
+        final String file,
+        int size,
+        final int color1,
+        final int color2
+    ) {
         size /= Config.getTextureQuality();
-        final BitmapTextureAtlas texture = new BitmapTextureAtlas(512, 256,
-                TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+        final BitmapTextureAtlas texture = new BitmapTextureAtlas(
+            512,
+            256,
+            TextureOptions.BILINEAR_PREMULTIPLYALPHA
+        );
         StrokeFont font;
         if (file == null) {
-            font = new StrokeFont(texture, Typeface.create(Typeface.DEFAULT,
-                    Typeface.NORMAL), size, true, color1,
-                    Config.getTextureQuality() == 1 ? 2 : 0.75f, color2);
+            font = new StrokeFont(
+                texture,
+                Typeface.create(Typeface.DEFAULT, Typeface.NORMAL),
+                size,
+                true,
+                color1,
+                Config.getTextureQuality() == 1 ? 2 : 0.75f,
+                color2
+            );
         } else {
-            font = FontFactory.createStrokeFromAsset(texture, context, "fonts/"
-                            + file, size, true, color1, (float) 2 / Config.getTextureQuality(),
-                    color2);
+            font = FontFactory.createStrokeFromAsset(
+                texture,
+                context,
+                "fonts/" + file,
+                size,
+                true,
+                color1,
+                (float) 2 / Config.getTextureQuality(),
+                color2
+            );
         }
         engine.getTextureManager().loadTexture(texture);
         engine.getFontManager().loadFont(font);
@@ -488,19 +651,42 @@ public class ResourceManager {
         return fonts.get(resname);
     }
 
-    public TextureRegion loadTexture(final String resname, final String file,
-                                     final boolean external, final TextureOptions opt) {
+    public TextureRegion loadTexture(
+        final String resname,
+        final String file,
+        final boolean external,
+        final TextureOptions opt
+    ) {
         return loadTexture(resname, file, external, opt, this.engine);
     }
 
-    public TextureRegion loadTexture(final String resname, final String file,
-                                     final boolean external) {
-        return loadTexture(resname, file, external, TextureOptions.BILINEAR, this.engine);
+    public TextureRegion loadTexture(
+        final String resname,
+        final String file,
+        final boolean external
+    ) {
+        return loadTexture(
+            resname,
+            file,
+            external,
+            TextureOptions.BILINEAR,
+            this.engine
+        );
     }
 
-    public TextureRegion loadTexture(final String resname, final String file,
-                                     final boolean external, Engine engine) {
-        return loadTexture(resname, file, external, TextureOptions.BILINEAR, engine);
+    public TextureRegion loadTexture(
+        final String resname,
+        final String file,
+        final boolean external,
+        Engine engine
+    ) {
+        return loadTexture(
+            resname,
+            file,
+            external,
+            TextureOptions.BILINEAR,
+            engine
+        );
     }
 
     public TextureRegion loadBackground(final String file) {
@@ -509,50 +695,97 @@ public class ResourceManager {
 
     public TextureRegion loadBackground(final String file, Engine engine) {
         if (textures.containsKey("::background")) {
-            engine.getTextureManager().unloadTexture(Objects.requireNonNull(textures.get("::background")).getTexture());
+            engine
+                .getTextureManager()
+                .unloadTexture(
+                    Objects.requireNonNull(
+                        textures.get("::background")
+                    ).getTexture()
+                );
         }
         if (file == null) {
             return textures.get("menu-background");
         }
         TextureRegion region;
-        final QualityFileBitmapSource source = new QualityFileBitmapSource(new File(file));
-        if (source.getWidth() == 0 || source.getHeight() == 0 || !source.preload()) {
+        final QualityFileBitmapSource source = new QualityFileBitmapSource(
+            new File(file)
+        );
+        if (
+            source.getWidth() == 0 ||
+            source.getHeight() == 0 ||
+            !source.preload()
+        ) {
             textures.put("::background", textures.get("menu-background"));
             return textures.get("::background");
         }
-        final BitmapTextureAtlas tex = new BitmapTextureAtlas(source.getWidth(), source.getHeight(), TextureOptions.BILINEAR);
-        region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
+        final BitmapTextureAtlas tex = new BitmapTextureAtlas(
+            source.getWidth(),
+            source.getHeight(),
+            TextureOptions.BILINEAR
+        );
+        region = TextureRegionFactory.createFromSource(
+            tex,
+            source,
+            0,
+            0,
+            false
+        );
         engine.getTextureManager().loadTexture(tex);
         textures.put("::background", region);
         return region;
     }
 
-    public TextureRegion loadTexture(final String resname, final String file,
-                                     final boolean external, final TextureOptions opt, Engine engine) {
+    public TextureRegion loadTexture(
+        final String resname,
+        final String file,
+        final boolean external,
+        final TextureOptions opt,
+        Engine engine
+    ) {
         TextureRegion region;
         if (external) {
             var texFile = new File(file);
             var isHDTexture = false;
 
             if (!texFile.exists()) {
-
                 var dotIndex = file.lastIndexOf('.');
 
-                texFile = new File(file.substring(0, dotIndex) + "@2x" + file.substring(dotIndex));
+                texFile = new File(
+                    file.substring(0, dotIndex) +
+                        "@2x" +
+                        file.substring(dotIndex)
+                );
                 isHDTexture = texFile.exists();
 
                 if (!isHDTexture) {
                     return new BlankTextureRegion();
                 }
             }
-            final QualityFileBitmapSource source = new QualityFileBitmapSource(texFile, isHDTexture ? 2 : 1);
+            final QualityFileBitmapSource source = new QualityFileBitmapSource(
+                texFile,
+                isHDTexture ? 2 : 1
+            );
 
-            if (source.getWidth() == 0 || source.getHeight() == 0 || !source.preload()) {
+            if (
+                source.getWidth() == 0 ||
+                source.getHeight() == 0 ||
+                !source.preload()
+            ) {
                 return null;
             }
 
-            final BitmapTextureAtlas tex = new BitmapTextureAtlas(source.getWidth(), source.getHeight(), opt);
-            region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
+            final BitmapTextureAtlas tex = new BitmapTextureAtlas(
+                source.getWidth(),
+                source.getHeight(),
+                opt
+            );
+            region = TextureRegionFactory.createFromSource(
+                tex,
+                source,
+                0,
+                0,
+                false
+            );
             engine.getTextureManager().loadTexture(tex);
             textures.put(resname, region);
         } else {
@@ -564,11 +797,25 @@ public class ResourceManager {
                 return new BlankTextureRegion();
             }
 
-            if (source.getWidth() == 0 || source.getHeight() == 0 || !source.preload()) {
+            if (
+                source.getWidth() == 0 ||
+                source.getHeight() == 0 ||
+                !source.preload()
+            ) {
                 return null;
             }
-            final BitmapTextureAtlas tex = new BitmapTextureAtlas(source.getWidth(), source.getHeight(), opt);
-            region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
+            final BitmapTextureAtlas tex = new BitmapTextureAtlas(
+                source.getWidth(),
+                source.getHeight(),
+                opt
+            );
+            region = TextureRegionFactory.createFromSource(
+                tex,
+                source,
+                0,
+                0,
+                false
+            );
             engine.getTextureManager().loadTexture(tex);
             textures.put(resname, region);
         }
@@ -576,38 +823,69 @@ public class ResourceManager {
         return region;
     }
 
-    public TextureRegion loadHighQualityAsset(final String resname,
-                                              final String file) {
+    public TextureRegion loadHighQualityAsset(
+        final String resname,
+        final String file
+    ) {
         TextureRegion region;
 
-        final QualityAssetBitmapSource source = new QualityAssetBitmapSource(context, file);
+        final QualityAssetBitmapSource source = new QualityAssetBitmapSource(
+            context,
+            file
+        );
         if (source.getWidth() == 0 || source.getHeight() == 0) {
             return null;
         }
 
-        final BitmapTextureAtlas tex = new BitmapTextureAtlas(source.getWidth(), source.getHeight(), TextureOptions.BILINEAR);
-        region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
+        final BitmapTextureAtlas tex = new BitmapTextureAtlas(
+            source.getWidth(),
+            source.getHeight(),
+            TextureOptions.BILINEAR
+        );
+        region = TextureRegionFactory.createFromSource(
+            tex,
+            source,
+            0,
+            0,
+            false
+        );
         engine.getTextureManager().loadTexture(tex);
         textures.put(resname, region);
 
         return region;
     }
 
-    public TextureRegion loadHighQualityFile(final String resname, final File file) {
+    public TextureRegion loadHighQualityFile(
+        final String resname,
+        final File file
+    ) {
         QualityFileBitmapSource source = new QualityFileBitmapSource(file);
         if (source.getWidth() == 0 || source.getHeight() == 0) {
             return null;
         }
-        BitmapTextureAtlas tex = new BitmapTextureAtlas(source.getWidth(), source.getHeight(), TextureOptions.BILINEAR);
-        TextureRegion region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
+        BitmapTextureAtlas tex = new BitmapTextureAtlas(
+            source.getWidth(),
+            source.getHeight(),
+            TextureOptions.BILINEAR
+        );
+        TextureRegion region = TextureRegionFactory.createFromSource(
+            tex,
+            source,
+            0,
+            0,
+            false
+        );
         engine.getTextureManager().loadTexture(tex);
         textures.put(resname, region);
         return region;
     }
 
     public void loadHighQualityFileUnderFolder(File folder) {
-        File[] files = FileUtils.listFiles(folder, new String[]{
-            ".png", ".jpg", ".bmp"});
+        File[] files = FileUtils.listFiles(folder, new String[] {
+            ".png",
+            ".jpg",
+            ".bmp",
+        });
         for (File file : files) {
             if (file.isDirectory()) {
                 loadHighQualityFileUnderFolder(file);
@@ -618,17 +896,26 @@ public class ResourceManager {
         }
     }
 
-    public TextureRegion getTextureWithPrefix(StringSkinData prefix, String name)
-    {
+    public TextureRegion getTextureWithPrefix(
+        StringSkinData prefix,
+        String name
+    ) {
         var defaultName = prefix.getDefaultValue() + "-" + name;
-        if (BeatmapSkinManager.isSkinEnabled() && customTextures.containsKey(defaultName)) {
+        if (
+            BeatmapSkinManager.isSkinEnabled() &&
+            customTextures.containsKey(defaultName)
+        ) {
             return customTextures.get(defaultName);
         }
 
         var customName = prefix.getCurrentValue() + "-" + name;
 
         if (!textures.containsKey(customName)) {
-            loadTexture(customName, Config.getSkinPath() + customName.replace("\\", "") + ".png", true);
+            loadTexture(
+                customName,
+                Config.getSkinPath() + customName.replace("\\", "") + ".png",
+                true
+            );
         }
 
         if (textures.get(customName) != null) {
@@ -638,7 +925,10 @@ public class ResourceManager {
     }
 
     public TextureRegion getTexture(final String resname) {
-        if (BeatmapSkinManager.isSkinEnabled() && customTextures.containsKey(resname)) {
+        if (
+            BeatmapSkinManager.isSkinEnabled() &&
+            customTextures.containsKey(resname)
+        ) {
             return customTextures.get(resname);
         }
         if (!textures.containsKey(resname)) {
@@ -653,18 +943,30 @@ public class ResourceManager {
         var region = getTextureIfLoaded(MD5Calculator.getStringMD5(avatarURL));
 
         if (region == null) {
-            region = getTextureIfLoaded(MD5Calculator.getStringMD5(OnlineManager.defaultAvatarURL));
+            region = getTextureIfLoaded(
+                MD5Calculator.getStringMD5(OnlineManager.defaultAvatarURL)
+            );
         }
 
         return region;
     }
 
+
+    public TextureRegion getProfileBannerTextureIfLoaded(final String bannerURL) {
+        if (bannerURL == null || bannerURL.length() == 0) {
+            return null;
+        }
+
+        return getTextureIfLoaded(MD5Calculator.getStringMD5(bannerURL));
+    }
     public TextureRegion getTextureIfLoaded(final String resname) {
-        if (textures.containsKey(resname)/*
-         * &&
-         * textures.get(resname).getTexture().
-         * isLoadedToHardware()
-         */) {
+        if (
+            textures.containsKey(resname) /*
+             * &&
+             * textures.get(resname).getTexture().
+             * isLoadedToHardware()
+             */
+        ) {
             return textures.get(resname);
         }
         return null;
@@ -674,21 +976,29 @@ public class ResourceManager {
         return textures.containsKey(resname);
     }
 
-    public BassSoundProvider loadSound(final String resname, final String file,
-                                       final boolean external) {
+    public BassSoundProvider loadSound(
+        final String resname,
+        final String file,
+        final boolean external
+    ) {
         BassSoundProvider snd = new BassSoundProvider();
         if (external) {
             //若是来自储存文件
             try {
                 if (!snd.prepare(file)) {
                     // 外部文件加载失败尝试自带皮肤
-                    String shortName = file.substring(file.lastIndexOf("/") + 1);
+                    String shortName = file.substring(
+                        file.lastIndexOf("/") + 1
+                    );
                     if (!snd.prepare(context.getAssets(), "sfx/" + shortName)) {
                         return null;
                     }
                 }
             } catch (final Exception e) {
-                Debug.e("ResourceManager.loadSoundFromExternal: " + e.getMessage(), e);
+                Debug.e(
+                    "ResourceManager.loadSoundFromExternal: " + e.getMessage(),
+                    e
+                );
                 return null;
             }
         } else {
@@ -712,7 +1022,10 @@ public class ResourceManager {
         return getSound(name, true);
     }
 
-    public BassSoundProvider getSound(final String name, final boolean defaultToEmpty) {
+    public BassSoundProvider getSound(
+        final String name,
+        final boolean defaultToEmpty
+    ) {
         var sound = sounds.get(name);
 
         if (sound == null && defaultToEmpty) {
@@ -750,15 +1063,23 @@ public class ResourceManager {
         customSounds.put(resName, snd);
     }
 
-    public BassSoundProvider getCustomSound(final String name, final boolean defaultToEmpty) {
-        if (BeatmapSkinManager.isSkinEnabled() && customSounds.containsKey(name)) {
+    public BassSoundProvider getCustomSound(
+        final String name,
+        final boolean defaultToEmpty
+    ) {
+        if (
+            BeatmapSkinManager.isSkinEnabled() && customSounds.containsKey(name)
+        ) {
             return customSounds.get(name);
         }
 
         return getSound(name, defaultToEmpty);
     }
 
-    public BassSoundProvider getCustomSound(final String resname, final int set) {
+    public BassSoundProvider getCustomSound(
+        final String resname,
+        final int set
+    ) {
         if (!BeatmapSkinManager.isSkinEnabled()) {
             return getSound(resname);
         }
@@ -784,8 +1105,14 @@ public class ResourceManager {
 
         String delimiter = "-";
 
-        if (parseFrameIndex(resname, true, true) < 0 && !textures.containsKey(resname)) {
-            if (textures.containsKey(resname + "-0") || textures.containsKey(resname + "0")) {
+        if (
+            parseFrameIndex(resname, true, true) < 0 &&
+            !textures.containsKey(resname)
+        ) {
+            if (
+                textures.containsKey(resname + "-0") ||
+                textures.containsKey(resname + "0")
+            ) {
                 if (textures.containsKey(resname + "0")) {
                     delimiter = "";
                 }
@@ -799,8 +1126,18 @@ public class ResourceManager {
         if (!source.preload()) {
             return;
         }
-        BitmapTextureAtlas tex = new BitmapTextureAtlas(source.getWidth(), source.getHeight(), TextureOptions.BILINEAR);
-        TextureRegion region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
+        BitmapTextureAtlas tex = new BitmapTextureAtlas(
+            source.getWidth(),
+            source.getHeight(),
+            TextureOptions.BILINEAR
+        );
+        TextureRegion region = TextureRegionFactory.createFromSource(
+            tex,
+            source,
+            0,
+            0,
+            false
+        );
         engine.getTextureManager().loadTexture(tex);
         if (multiframe) {
             int i = 0;
@@ -835,8 +1172,11 @@ public class ResourceManager {
 
     public void unloadTexture(final String name) {
         if (textures.get(name) != null) {
-            engine.getTextureManager().unloadTexture(
-                    Objects.requireNonNull(textures.get(name)).getTexture());
+            engine
+                .getTextureManager()
+                .unloadTexture(
+                    Objects.requireNonNull(textures.get(name)).getTexture()
+                );
             textures.remove(name);
             Debug.i("Texture \"" + name + "\"unloaded");
         }
@@ -869,7 +1209,11 @@ public class ResourceManager {
         final Set<String> texnames = customTextures.keySet();
         for (final String s : texnames) {
             TextureRegion tex = customTextures.get(s);
-            if (tex != null && tex.getTexture() != null && tex.getTexture().isLoadedToHardware()) {
+            if (
+                tex != null &&
+                tex.getTexture() != null &&
+                tex.getTexture().isLoadedToHardware()
+            ) {
                 engine.getTextureManager().unloadTexture(tex.getTexture());
                 // engine.getTextureManager().loadTexture(textures.get(s).getTexture());
             }
@@ -880,8 +1224,9 @@ public class ResourceManager {
     }
 
     public int getFrameCount(final String texname) {
-
-        boolean isCustom = BeatmapSkinManager.isSkinEnabled() && customFrameCount.containsKey(texname);
+        boolean isCustom =
+            BeatmapSkinManager.isSkinEnabled() &&
+            customFrameCount.containsKey(texname);
 
         if (isCustom) {
             //noinspection DataFlowIssue
@@ -897,11 +1242,20 @@ public class ResourceManager {
     }
 
     public void checkSpinnerTextures() {
-        final String[] names = {"spinner-background", "spinner-circle",
-                "spinner-metre", "spinner-approachcircle", "spinner-spin"};
+        final String[] names = {
+            "spinner-background",
+            "spinner-circle",
+            "spinner-metre",
+            "spinner-approachcircle",
+            "spinner-spin",
+        };
         for (final String s : names) {
             TextureRegion tex = textures.get(s);
-            if (tex != null && tex.getTexture() != null && !tex.getTexture().isLoadedToHardware()) {
+            if (
+                tex != null &&
+                tex.getTexture() != null &&
+                !tex.getTexture().isLoadedToHardware()
+            ) {
                 engine.getTextureManager().reloadTextures();
                 break;
             }
@@ -910,21 +1264,24 @@ public class ResourceManager {
 
     public void checkEvoSpinnerTextures() {
         final String[] names = {
-                "spinner-bottom",
-                "spinner-top",
-                "spinner-glow",
-                "spinner-middle",
-                "spinner-middle2",
-                "spinner-spin",
-                "spinner-clear"
+            "spinner-bottom",
+            "spinner-top",
+            "spinner-glow",
+            "spinner-middle",
+            "spinner-middle2",
+            "spinner-spin",
+            "spinner-clear",
         };
         for (final String s : names) {
             TextureRegion tex = textures.get(s);
-            if (tex != null && tex.getTexture() != null && !tex.getTexture().isLoadedToHardware()) {
+            if (
+                tex != null &&
+                tex.getTexture() != null &&
+                !tex.getTexture().isLoadedToHardware()
+            ) {
                 engine.getTextureManager().reloadTextures();
                 break;
             }
         }
     }
-
 }

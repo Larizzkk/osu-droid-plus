@@ -12,6 +12,7 @@ class ModApproachDifferent : Mod() {
     override val acronym = "AD"
     override val description = "Never trust the approach circles..."
     override val type = ModType.Fun
+    override val isRanked = true
     override val incompatibleMods = super.incompatibleMods + arrayOf(ModHidden::class, ModFreezeFrame::class)
 
     override val isRelevant

@@ -15,6 +15,7 @@ import com.osudroid.multiplayer.api.data.parseGameplaySettings
 import com.osudroid.multiplayer.api.data.parsePlayer
 import com.osudroid.multiplayer.api.data.parsePlayers
 import com.osudroid.ui.v2.multi.RoomScene
+import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.SecurityUtils
 import io.socket.client.IO
 import io.socket.client.Socket
@@ -29,6 +30,15 @@ object RoomAPI {
      * The API version.
      */
     const val API_VERSION = 9
+
+    /**
+     * The Socket.IO server host.
+     * Change this to your server URL:
+     *   - Android emulator: http://10.0.2.2:3000
+     *   - Real device (same network): http://<YOUR_IP>:3000
+     *   - Render deployment: https://<your-app>.onrender.com
+     */
+    const val SOCKET_HOST = "https://osu-droid-multiplayer.onrender.com"
 
 
     /**
@@ -215,7 +225,7 @@ object RoomAPI {
         Multiplayer.room = room
         Multiplayer.player = room.playersMap[OnlineManager.getInstance().userId]!!
         Multiplayer.roomScene = scene
-        
+
 
         scene.onRoomConnect(room)
     }
@@ -292,17 +302,20 @@ object RoomAPI {
      * Connect to the specified room, if success it'll call [IRoomEventListener.onRoomConnect] if not
      * [IRoomEventListener.onRoomConnectFail]
      */
-    fun connectToRoom(roomId: Long, userId: Long, gameSessionId: String, roomPassword: String? = null,
-                      multiplayerSessionID: String? = null) {
+    fun connectToRoom(
+        roomId: Long, userId: Long, gameSessionId: String, roomPassword: String? = null,
+        multiplayerSessionID: String? = null
+    ) {
 
         // Clearing previous socket in case of reconnection.
         socket?.off()
         socket = null
 
-        val url = "${LobbyAPI.HOST}/$roomId"
+        val url = "${SOCKET_HOST}/${roomId}"
         val auth = mutableMapOf<String, String>()
         val sign = SecurityUtils.signRequest("${userId}_$gameSessionId")
 
+        auth["username"] = Config.getOnlineUsername()
         auth["uid"] = userId.toString()
         auth["gameSessionID"] = gameSessionId
         auth["version"] = API_VERSION.toString()
@@ -366,17 +379,23 @@ object RoomAPI {
      */
     @JvmOverloads
     @JvmStatic
-    fun changeBeatmap(md5: String? = null, title: String? = null, artist: String? = null, version: String? = null, creator: String? = null) {
+    fun changeBeatmap(
+        md5: String? = null,
+        title: String? = null,
+        artist: String? = null,
+        version: String? = null,
+        creator: String? = null,
+        beatmapSetId: Long? = null
+    ) {
 
-        val json = JSONObject().apply {
-
-            put("md5", md5)
-            put("title", title)
-            put("artist", artist)
-            put("version", version)
-            put("creator", creator)
-
-        }
+        val json = JSONObject()
+        // Only put non-null values — JSONObject.put(String, null) throws
+        if (md5 != null) json.put("md5", md5)
+        if (title != null) json.put("title", title)
+        if (artist != null) json.put("artist", artist)
+        if (version != null) json.put("version", version)
+        if (creator != null) json.put("creator", creator)
+        if (beatmapSetId != null) json.put("beatmapSetId", beatmapSetId)
 
         socket?.emit("beatmapChanged", json) ?: run {
             Multiplayer.log("WARNING: Tried to emit event 'beatmapChanged' while socket is null.")
@@ -421,9 +440,9 @@ object RoomAPI {
     @JvmStatic
     fun setRoomMods(mods: String) {
         socket?.emit("roomModsChanged", JSONArray(mods)) ?: run {
-			Multiplayer.log("WARNING: Tried to emit event 'roomModsChanged' while socket is null.")
-			return
-		}
+            Multiplayer.log("WARNING: Tried to emit event 'roomModsChanged' while socket is null.")
+            return
+        }
         Multiplayer.log("EMITTED: roomModsChanged -> $mods")
     }
 
@@ -585,9 +604,9 @@ object RoomAPI {
     @JvmStatic
     fun setPlayerMods(mods: String) {
         socket?.emit("playerModsChanged", JSONArray(mods)) ?: run {
-			Multiplayer.log("WARNING: Tried to emit event 'playerModsChanged' while socket is null.")
-			return
-		}
+            Multiplayer.log("WARNING: Tried to emit event 'playerModsChanged' while socket is null.")
+            return
+        }
 
         Multiplayer.log("EMITTED: playerModsChanged -> $mods")
     }

@@ -5,20 +5,18 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
-
-import java.io.File;
-
 import com.un4seen.bass.BASS;
-
+import java.io.File;
 import ru.nsu.ccfit.zuev.audio.Status;
 import ru.nsu.ccfit.zuev.osuplusplus.MainActivity;
 
-
 public class SongService extends Service {
+
     public static int defaultFrequency = 44100;
 
     private BassAudioFunc audioFunc;
     private boolean isGaming = false;
+
     // private boolean isSettingMenu = false;
 
     public static void initBASS() {
@@ -36,11 +34,31 @@ public class SongService extends Service {
         BASS.BASS_Init(-1, defaultFrequency, BASS.BASS_DEVICE_LATENCY);
 
         Log.i("BASS-Config", "BASS initialized");
-        Log.i("BASS-Config", "Update period:          " + BASS.BASS_GetConfig(BASS.BASS_CONFIG_UPDATEPERIOD));
-        Log.i("BASS-Config", "Device period:          " + BASS.BASS_GetConfig(BASS.BASS_CONFIG_DEV_PERIOD));
-        Log.i("BASS-Config", "Device buffer length:   " + BASS.BASS_GetConfig(BASS.BASS_CONFIG_DEV_BUFFER));
-        Log.i("BASS-Config", "Playback buffer length: " + BASS.BASS_GetConfig(BASS.BASS_CONFIG_BUFFER));
-        Log.i("BASS-Config", "Device nonstop:         " + BASS.BASS_GetConfig(BASS.BASS_CONFIG_DEV_NONSTOP));
+        Log.i(
+            "BASS-Config",
+            "Update period:          " +
+                BASS.BASS_GetConfig(BASS.BASS_CONFIG_UPDATEPERIOD)
+        );
+        Log.i(
+            "BASS-Config",
+            "Device period:          " +
+                BASS.BASS_GetConfig(BASS.BASS_CONFIG_DEV_PERIOD)
+        );
+        Log.i(
+            "BASS-Config",
+            "Device buffer length:   " +
+                BASS.BASS_GetConfig(BASS.BASS_CONFIG_DEV_BUFFER)
+        );
+        Log.i(
+            "BASS-Config",
+            "Playback buffer length: " +
+                BASS.BASS_GetConfig(BASS.BASS_CONFIG_BUFFER)
+        );
+        Log.i(
+            "BASS-Config",
+            "Device nonstop:         " +
+                BASS.BASS_GetConfig(BASS.BASS_CONFIG_DEV_NONSTOP)
+        );
     }
 
     @Override
@@ -69,6 +87,12 @@ public class SongService extends Service {
         System.out.println("onReBind");
     }
 
+    public void setLoop(boolean isLoop) {
+        if (audioFunc != null) {
+            audioFunc.setLoop(isLoop);
+        }
+    }
+
     public boolean preLoad(String filePath) {
         return preLoad(filePath, 1, false, false);
     }
@@ -77,7 +101,12 @@ public class SongService extends Service {
         return preLoad(filePath, speed, adjustPitch, false);
     }
 
-    public boolean preLoad(String filePath, float speed, boolean adjustPitch, boolean isLoop) {
+    public boolean preLoad(
+        String filePath,
+        float speed,
+        boolean adjustPitch,
+        boolean isLoop
+    ) {
         if (checkFileExist(filePath)) {
             if (audioFunc == null) {
                 return false;
@@ -115,7 +144,13 @@ public class SongService extends Service {
 
     public void seekTo(int time) {
         if (audioFunc == null) return;
-        Log.i("BASS", "Seeking to " + time + " ms: " + (audioFunc.jump(time) ? "Success" : "Failed"));
+        Log.i(
+            "BASS",
+            "Seeking to " +
+                time +
+                " ms: " +
+                (audioFunc.jump(time) ? "Success" : "Failed")
+        );
     }
 
     public boolean isGaming() {
@@ -222,10 +257,9 @@ public class SongService extends Service {
     }
 
     public class ReturnBindObject extends Binder {
+
         public SongService getObject() {
             return SongService.this;
         }
     }
-
 }
-

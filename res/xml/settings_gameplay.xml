@@ -1,6 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
 
     <PreferenceCategory android:title="@string/opt_category_hit_objects">
 
@@ -9,7 +11,8 @@
             android:key="showfirstapproachcircle"
             android:summary="@string/opt_show_first_approach_circle_summary"
             android:title="@string/opt_show_first_approach_circle_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -21,25 +24,29 @@
             android:summary="@string/opt_bgbrightness_summary"
             android:title="@string/opt_bgbrightness_title"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="keepBackgroundAspectRatio"
             android:summary="@string/opt_keep_background_aspect_ratio_summary"
             android:title="@string/opt_keep_background_aspect_ratio_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:key="enableStoryboard"
             android:title="@string/opt_enableStoryboard_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:key="enableVideo"
             android:title="@string/opt_video_title"
             android:summary="@string/opt_video_summary"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -53,7 +60,8 @@
             android:title="@string/opt_setplayfield_title"
             app:min="50"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="50"
@@ -62,7 +70,8 @@
             android:title="@string/opt_playfieldHorizontalPosition_title"
             android:summary="@string/opt_playfieldHorizontalPosition_summary"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="50"
@@ -71,14 +80,16 @@
             android:title="@string/opt_playfieldVerticalPosition_title"
             android:summary="@string/opt_playfieldVerticalPosition_summary"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="displayPlayfieldBorder"
             android:title="@string/opt_display_playfield_border_title"
             android:summary="@string/opt_display_playfield_border_summary"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -89,28 +100,39 @@
             android:key="hideInGameUI"
             android:summary="@string/opt_hide_ingame_ui_summary"
             android:title="@string/opt_hide_ingame_ui_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="hideReplayMarquee"
             android:summary="@string/opt_hide_replay_marquee_summary"
             android:title="@string/opt_hide_replay_marquee_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="manualSubmitEnabled"
+            android:title="@string/opt_manual_submit_title"
+            android:summary="@string/opt_manual_submit_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="fps"
             android:summary="@string/opt_fps_summary"
             android:title="@string/opt_fps_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="displayScoreStatistics"
             android:summary="@string/opt_display_score_statistics_summary"
             android:title="@string/opt_display_score_statistics_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -121,7 +143,8 @@
             android:key="unrestrictedMods"
             android:title="Unrestricted Mods"
             android:summary="Allow selecting any mods regardless of compatibility"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -132,28 +155,32 @@
             android:key="kiaiParticles"
             android:title="Kiai Particles"
             android:summary="Show star particles during kiai sections"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="kiaiFlash"
             android:title="Kiai Flash"
             android:summary="Show white flash effect when kiai starts"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="hitCirclePulse"
             android:title="Hit Circle Pulse"
             android:summary="Pulse hit circles in rhythm during kiai"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="menuKiaiFlash"
             android:title="Menu Kiai Flash"
             android:summary="Show beat pulse in song selection menu"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="15"
@@ -162,14 +189,16 @@
             android:title="Triangle Size"
             android:summary="Size of floating triangles in song menu"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="trianglesEnabled"
             android:title="Triangles"
             android:summary="Show floating triangle particles"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="25"
@@ -178,7 +207,16 @@
             android:title="Triangle Count"
             android:summary="Maximum number of triangles on screen"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar_bottom" />
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="snowfallEnabled"
+            android:title="Snowfall Effect"
+            android:summary="Show falling snowflakes in the main menu"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -188,28 +226,32 @@
             android:key="useCustomColors"
             android:summary="@string/opt_combo_colors_summary"
             android:title="@string/opt_combo_colors_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
             alphaSlider="false"
             hexValue="true"
             android:defaultValue="@integer/COLOR_GREEN"
             android:key="combo1"
-            android:title="Combo 1" />
+            android:title="Combo 1"
+        />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
             alphaSlider="false"
             hexValue="true"
             android:defaultValue="@integer/COLOR_BLUE"
             android:key="combo2"
-            android:title="Combo 2" />
+            android:title="Combo 2"
+        />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
             alphaSlider="false"
             hexValue="true"
             android:defaultValue="@integer/COLOR_RED"
             android:key="combo3"
-            android:title="Combo 3" />
+            android:title="Combo 3"
+        />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
             alphaSlider="false"
@@ -217,7 +259,8 @@
             android:defaultValue="@integer/COLOR_YELLOW"
             android:key="combo4"
             android:title="Combo 4"
-            app:layout="@layout/settings_preference_bottom"/>
+            app:layout="@layout/settings_preference_bottom"
+        />
 
     </PreferenceCategory>
 

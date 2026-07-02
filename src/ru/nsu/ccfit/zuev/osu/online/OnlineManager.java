@@ -3,38 +3,42 @@ package ru.nsu.ccfit.zuev.osu.online;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
-
 import com.google.firebase.analytics.FirebaseAnalytics;
-
 import com.osudroid.data.BeatmapInfo;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
-
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import org.anddev.andengine.util.Debug;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-
-import ru.nsu.ccfit.zuev.osu.Config;
-import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
-import ru.nsu.ccfit.zuev.osu.helper.FileUtils;
 import org.json.JSONException;
 import org.json.JSONObject;
 import ru.nsu.ccfit.zuev.osu.*;
+import ru.nsu.ccfit.zuev.osu.Config;
+import ru.nsu.ccfit.zuev.osu.GlobalManager;
+import ru.nsu.ccfit.zuev.osu.helper.FileUtils;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.online.PostBuilder.RequestException;
 import ru.nsu.ccfit.zuev.osu.scoring.BeatmapLeaderboardScoringMode;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 
 public class OnlineManager {
-    public static final String hostname = "osudroid.moe";
+
+    public static final String hostname =
+        "osu-droid-plus-server.larizrkpee.workers.dev";
     public static final String endpoint = "https://" + hostname + "/api/";
     public static final String updateEndpoint = endpoint + "update.php?lang=";
-    public static final String defaultAvatarURL = "https://" + hostname + "/user/avatar/0.png";
+    public static final String defaultAvatarURL =
+        "https://" + hostname + "/user/avatar/0.png";
     private static final String onlineVersion = "60";
+    public static final String profileBannerEndpoint =
+        "https://" + hostname + "/user/banner/";
 
     public static final OkHttpClient client = new OkHttpClient();
 
@@ -54,6 +58,45 @@ public class OnlineManager {
     private float pp = 0;
     private String avatarURL = "";
     private int mapRank;
+    private String profileBannerURL;
+    private String tags = "";
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags != null ? tags : "";
+    }
+
+    public void fetchTags() {
+        try {
+            URL url = new URL(endpoint + "user/tags?uid=" + userId);
+            HttpURLConnection connection =
+                (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+
+            BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream())
+            );
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
+            reader.close();
+            connection.disconnect();
+
+            String result = response.toString().trim();
+            if (!result.isEmpty() && !result.equals("null")) {
+                tags = result;
+            }
+        } catch (Exception e) {
+            Debug.i("Failed to fetch tags: " + e.getMessage());
+        }
+    }
 
     public static OnlineManager getInstance() {
         if (instance == null) {
@@ -76,7 +119,8 @@ public class OnlineManager {
         this.deviceID = Config.getOnlineDeviceID();
     }
 
-    private ArrayList<String> sendRequest(PostBuilder post, String url) throws OnlineManagerException {
+    private ArrayList<String> sendRequest(PostBuilder post, String url)
+        throws OnlineManagerException {
         ArrayList<String> response;
         try {
             response = post.requestWithAttempts(url, 3);
@@ -88,7 +132,7 @@ public class OnlineManager {
         failMessage = "";
 
         //TODO debug code
-		/*Debug.i("Received " + response.size() + " lines");
+        /*Debug.i("Received " + response.size() + " lines");
 		for(String str: response)
 		{
 			Debug.i(str);
@@ -104,12 +148,10 @@ public class OnlineManager {
             Debug.i("sendRequest response code:  " + response.get(0));
             if (response.size() >= 2) {
                 failMessage = response.get(1);
-            } else
-                failMessage = "Unknown server error";
+            } else failMessage = "Unknown server error";
             Debug.i("Received fail: " + failMessage);
             return null;
         }
-
 
         return response;
     }
@@ -122,17 +164,21 @@ public class OnlineManager {
         return logIn(username, password);
     }
 
-    public synchronized boolean logIn(String username, String password) throws OnlineManagerException {
+    public synchronized boolean logIn(String username, String password)
+        throws OnlineManagerException {
         this.username = username;
         this.password = password;
 
         PostBuilder post = new URLEncodedPostBuilder();
         post.addParam("username", username);
         post.addParam(
-                "password",
-                MD5Calculator.getStringMD5(
-                        escapeHTMLSpecialCharacters(addSlashes(String.valueOf(password).trim())) + "taikotaiko"
-                ));
+            "password",
+            MD5Calculator.getStringMD5(
+                escapeHTMLSpecialCharacters(
+                    addSlashes(String.valueOf(password).trim())
+                ) + "taikotaiko"
+            )
+        );
         post.addParam("version", onlineVersion);
 
         ArrayList<String> response = sendRequest(post, endpoint + "login.php");
@@ -163,9 +209,14 @@ public class OnlineManager {
             avatarURL = "";
         }
 
+        profileBannerURL = getProfileBannerURL(userId);
+        fetchTags();
         Bundle bParams = new Bundle();
         bParams.putString(FirebaseAnalytics.Param.METHOD, "ingame");
-        GlobalManager.getInstance().getMainActivity().getAnalytics().logEvent(FirebaseAnalytics.Event.LOGIN, bParams);
+        GlobalManager.getInstance()
+            .getMainActivity()
+            .getAnalytics()
+            .logEvent(FirebaseAnalytics.Event.LOGIN, bParams);
 
         return true;
     }
@@ -178,7 +229,11 @@ public class OnlineManager {
         return true;
     }
 
-    public boolean sendRecord(BeatmapInfo beatmap, String scoreData, String replayPath) throws OnlineManagerException {
+    public boolean sendRecord(
+        BeatmapInfo beatmap,
+        String scoreData,
+        String replayPath
+    ) throws OnlineManagerException {
         Debug.i("Sending record...");
 
         File replayFile = new File(replayPath);
@@ -200,7 +255,10 @@ public class OnlineManager {
         RequestBody replayFileBody = RequestBody.create(replayFile, replayMime);
 
         post.addParam("replayFile", replayFile.getName(), replayFileBody);
-        post.addParam("replayFileChecksum", FileUtils.getSHA256Checksum(replayFile));
+        post.addParam(
+            "replayFileChecksum",
+            FileUtils.getSHA256Checksum(replayFile)
+        );
 
         ArrayList<String> response = sendRequest(post, endpoint + "submit.php");
 
@@ -208,41 +266,52 @@ public class OnlineManager {
             return false;
         }
 
-        if (failMessage.equals("Invalid record data"))
-            return false;
+        if (failMessage.equals("Invalid record data")) return false;
 
+        // Server response format:
+        // SUCCESS\n<rank> <rscore> <acc(0-1)> <mapRank> <pp>
+        //   rank    = new rank (or 0 if unchanged)
+        //   rscore  = total ranked score
+        //   acc     = accuracy (0-1)
+        //   mapRank = rank on this map
+        //   pp      = PP this score is worth
         if (response.size() < 2) {
             failMessage = "Invalid server response";
             return false;
         }
 
-        String[] resp = response.get(1).split("\\s+");
-        if (resp.length < 4) {
+        String[] params = response.get(1).split("\\s+");
+        if (params.length < 5) {
             failMessage = "Invalid server response";
             return false;
         }
 
-        rank = Integer.parseInt(resp[0]);
-        score = Long.parseLong(resp[1]);
-        accuracy = Float.parseFloat(resp[2]);
-        mapRank = Integer.parseInt(resp[3]);
-        pp = Float.parseFloat(resp[4]);
+        rank = Integer.parseInt(params[0]);
+        score = Long.parseLong(params[1]);
+        pp = Float.parseFloat(params[4]);
 
         return true;
     }
 
-    public ArrayList<String> getTop(final String hash) throws OnlineManagerException {
+    public ArrayList<String> getTop(final String hash)
+        throws OnlineManagerException {
         PostBuilder post = new URLEncodedPostBuilder();
         post.addParam("hash", hash);
         post.addParam("uid", String.valueOf(userId));
 
-        if (Config.getBeatmapLeaderboardScoringMode() == BeatmapLeaderboardScoringMode.PP) {
+        if (
+            Config.getBeatmapLeaderboardScoringMode() ==
+            BeatmapLeaderboardScoringMode.PP
+        ) {
             post.addParam("type", "pp");
         } else {
             post.addParam("type", "score");
         }
 
-        ArrayList<String> response = sendRequest(post, endpoint + "getrank.php");
+        ArrayList<String> response = sendRequest(
+            post,
+            endpoint + "getrank.php"
+        );
 
         if (response == null) {
             return new ArrayList<>();
@@ -253,8 +322,9 @@ public class OnlineManager {
         return response;
     }
 
-    public RankedStatus getBeatmapStatus(String md5) throws OnlineManagerException {
-        var builder = new Request.Builder().url("https://osu.direct/api/v2/md5/" + md5);
+    public RankedStatus getBeatmapStatus(String md5)
+        throws OnlineManagerException {
+        var builder = new Request.Builder().url(endpoint + "v2/md5/" + md5);
         var request = builder.build();
 
         try (var response = client.newCall(request).execute()) {
@@ -267,7 +337,10 @@ public class OnlineManager {
         } catch (final JSONException e) {
             Debug.e("getBeatmapStatus JSONException " + e.getMessage(), e);
         } catch (final IllegalArgumentException e) {
-            Debug.e("getBeatmapStatus IllegalArgumentException " + e.getMessage(), e);
+            Debug.e(
+                "getBeatmapStatus IllegalArgumentException " + e.getMessage(),
+                e
+            );
         }
 
         return null;
@@ -284,10 +357,15 @@ public class OnlineManager {
         Debug.i("Loading avatar from " + avatarURL);
         Debug.i("filename = " + filename);
         File picfile = new File(Config.getCachePath(), filename);
-        OnlineFileOperator.downloadFile(avatarURL, picfile.getAbsolutePath(), true);
+        OnlineFileOperator.downloadFile(
+            avatarURL,
+            picfile.getAbsolutePath(),
+            true
+        );
 
         var bitmap = loadAvatarToBitmap(picfile);
-        int imageWidth = 0, imageHeight = 0;
+        int imageWidth = 0,
+            imageHeight = 0;
 
         if (bitmap != null) {
             imageWidth = bitmap.getWidth();
@@ -296,15 +374,30 @@ public class OnlineManager {
 
         if (imageWidth * imageHeight > 0) {
             // Avatar has been cached locally
-            ResourceManager.getInstance().loadHighQualityFile(filename, picfile);
-            if (ResourceManager.getInstance().getAvatarTextureIfLoaded(avatarURL) != null) {
+            ResourceManager.getInstance().loadHighQualityFile(
+                filename,
+                picfile
+            );
+            if (
+                ResourceManager.getInstance().getAvatarTextureIfLoaded(
+                    avatarURL
+                ) != null
+            ) {
                 return true;
             }
         } else {
             // Avatar not found, download the default avatar
-            String defaultAvatarFilename = MD5Calculator.getStringMD5(defaultAvatarURL);
-            File avatarFile = new File(Config.getCachePath(), defaultAvatarFilename);
-            OnlineFileOperator.downloadFile(defaultAvatarURL, avatarFile.getAbsolutePath());
+            String defaultAvatarFilename = MD5Calculator.getStringMD5(
+                defaultAvatarURL
+            );
+            File avatarFile = new File(
+                Config.getCachePath(),
+                defaultAvatarFilename
+            );
+            OnlineFileOperator.downloadFile(
+                defaultAvatarURL,
+                avatarFile.getAbsolutePath()
+            );
 
             bitmap = loadAvatarToBitmap(avatarFile);
             if (bitmap != null) {
@@ -314,8 +407,15 @@ public class OnlineManager {
 
             if (imageWidth * imageHeight > 0) {
                 //Avatar has been cached locally
-                ResourceManager.getInstance().loadHighQualityFile(defaultAvatarFilename, avatarFile);
-                if (ResourceManager.getInstance().getAvatarTextureIfLoaded(defaultAvatarURL) != null) {
+                ResourceManager.getInstance().loadHighQualityFile(
+                    defaultAvatarFilename,
+                    avatarFile
+                );
+                if (
+                    ResourceManager.getInstance().getAvatarTextureIfLoaded(
+                        defaultAvatarURL
+                    ) != null
+                ) {
                     return true;
                 }
             }
@@ -339,11 +439,59 @@ public class OnlineManager {
         }
     }
 
+    public boolean loadProfileBannerToTextureManager() {
+        return loadProfileBannerToTextureManager(profileBannerURL);
+    }
+
+    public boolean loadProfileBannerToTextureManager(String bannerURL) {
+        if (bannerURL == null || bannerURL.isEmpty()) return false;
+
+        if (
+            ResourceManager.getInstance().getProfileBannerTextureIfLoaded(
+                bannerURL
+            ) != null
+        ) {
+            return true;
+        }
+
+        String filename = MD5Calculator.getStringMD5(bannerURL);
+        Debug.i("Loading profile banner from " + bannerURL);
+        File bannerFile = new File(Config.getCachePath(), filename);
+        OnlineFileOperator.downloadFile(
+            bannerURL,
+            bannerFile.getAbsolutePath(),
+            true
+        );
+
+        var bitmap = loadAvatarToBitmap(bannerFile);
+        int imageWidth = 0,
+            imageHeight = 0;
+
+        if (bitmap != null) {
+            imageWidth = bitmap.getWidth();
+            imageHeight = bitmap.getHeight();
+        }
+
+        if (imageWidth * imageHeight <= 0) {
+            return false;
+        }
+
+        ResourceManager.getInstance().loadHighQualityFile(filename, bannerFile);
+        return (
+            ResourceManager.getInstance().getProfileBannerTextureIfLoaded(
+                bannerURL
+            ) != null
+        );
+    }
+
     public String getScorePack(int playid) throws OnlineManagerException {
         PostBuilder post = new URLEncodedPostBuilder();
         post.addParam("playID", String.valueOf(playid));
 
-        if (Config.getBeatmapLeaderboardScoringMode() == BeatmapLeaderboardScoringMode.PP) {
+        if (
+            Config.getBeatmapLeaderboardScoringMode() ==
+            BeatmapLeaderboardScoringMode.PP
+        ) {
             post.addParam("type", "pp");
         } else {
             post.addParam("type", "score");
@@ -382,6 +530,18 @@ public class OnlineManager {
         return avatarURL;
     }
 
+    public static String getAvatarURL(long userId) {
+        return "https://" + hostname + "/user/avatar/" + userId + ".png";
+    }
+
+    public static String getProfileBannerURL(long userId) {
+        return profileBannerEndpoint + userId + ".png";
+    }
+
+    public String getProfileBannerURL() {
+        return profileBannerURL;
+    }
+
     public String getUsername() {
         return username;
     }
@@ -415,9 +575,13 @@ public class OnlineManager {
     }
 
     public static class OnlineManagerException extends Exception {
+
         private static final long serialVersionUID = -5703212596292949401L;
 
-        public OnlineManagerException(final String message, final Throwable cause) {
+        public OnlineManagerException(
+            final String message,
+            final Throwable cause
+        ) {
             super(message, cause);
         }
 
@@ -428,17 +592,17 @@ public class OnlineManager {
 
     private String escapeHTMLSpecialCharacters(String str) {
         return str
-                .replace("&", "&amp;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;");
+            .replace("&", "&amp;")
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;");
     }
 
     private String addSlashes(String str) {
         return str
-                .replace("'", "\\'")
-                .replace("\"", "\\\"")
-                .replace("\\", "\\\\");
+            .replace("'", "\\'")
+            .replace("\"", "\\\"")
+            .replace("\\", "\\\\");
     }
 }

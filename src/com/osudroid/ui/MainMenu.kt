@@ -2,6 +2,7 @@ package com.osudroid.ui
 
 import com.osudroid.BuildSettings
 import com.osudroid.resources.R
+import com.osudroid.utils.MainActivityHelper
 import com.osudroid.ui.v1.SettingsFragment
 import com.reco1l.andengine.sprite.UISprite
 import com.osudroid.utils.async
@@ -13,6 +14,7 @@ import org.anddev.andengine.input.touch.TouchEvent
 import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.LibraryManager
 import ru.nsu.ccfit.zuev.osuplusplus.MainScene
+import ru.nsu.ccfit.zuev.osuplusplus.MusicOption
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
@@ -71,8 +73,8 @@ class MainMenu(val main: MainScene) {
                 async {
                     LoadingScreen().show()
 
-                    GlobalManager.getInstance().mainActivity.checkNewSkins()
-                    GlobalManager.getInstance().mainActivity.loadBeatmapLibrary()
+                    MainActivityHelper.checkNewSkins()
+                    MainActivityHelper.loadBeatmapLibrary()
 
                     if (LibraryManager.getLibrary().isEmpty()) {
                         GlobalManager.getInstance().songService.isGaming = false
@@ -80,7 +82,7 @@ class MainMenu(val main: MainScene) {
 
                         BeatmapListing().show()
                     } else {
-                        main.musicControl(MainScene.MusicOption.PLAY)
+                        main.musicControl(MusicOption.PLAY)
 
                         GlobalManager.getInstance().songMenu.reload()
                         GlobalManager.getInstance().songMenu.show()
@@ -134,8 +136,8 @@ class MainMenu(val main: MainScene) {
                 async {
                     LoadingScreen().show()
 
-                    GlobalManager.getInstance().mainActivity.checkNewSkins()
-                    GlobalManager.getInstance().mainActivity.loadBeatmapLibrary()
+                    MainActivityHelper.checkNewSkins()
+                    MainActivityHelper.loadBeatmapLibrary()
 
                     GlobalManager.getInstance().songMenu.reload()
                     GlobalManager.getInstance().engine.scene = LobbyScene()
@@ -166,7 +168,7 @@ class MainMenu(val main: MainScene) {
                 setColor(1f, 1f, 1f)
 
                 if (textureRegion == exitTexture) {
-                    main.showExitDialog()
+                    GlobalManager.getInstance().mainScene.showExitDialog()
                 } else {
                     showFirstMenu()
                 }
@@ -229,4 +231,3 @@ class MainMenu(val main: MainScene) {
         third.textureRegion = backTexture
     }
 }
-

@@ -41,11 +41,12 @@ object AccessibilityDetector {
         val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
 
         // Filtering services that can perform gestures.
-        val illegalServices = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).filter {
+        val illegalServices =
+            manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).filter {
 
-            (AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES and it.capabilities == AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES) &&
-            !excludedServices.contains(it.resolveInfo.serviceInfo.packageName)
-        }
+                (AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES and it.capabilities == AccessibilityServiceInfo.CAPABILITY_CAN_PERFORM_GESTURES) &&
+                        !excludedServices.contains(it.resolveInfo.serviceInfo.packageName)
+            }
 
         isIllegalServiceDetected = illegalServices.isNotEmpty()
 
@@ -91,7 +92,7 @@ object AccessibilityDetector {
         }
 
         addButton(context.getString(R.string.accessibility_detector_exit)) {
-            context.forcedExit()
+            MainActivityHelper.forcedExit()
             it.dismiss()
         }
 

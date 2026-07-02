@@ -9,11 +9,14 @@ import com.osudroid.multiplayer.api.data.RoomTeam.Blue
 import com.osudroid.multiplayer.api.data.RoomTeam.Red
 import com.osudroid.ui.OsuColors
 import com.osudroid.ui.v2.*
+import com.osudroid.utils.async
+import com.osudroid.utils.mainThread
 import com.reco1l.andengine.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
 import com.reco1l.andengine.shape.*
 import com.reco1l.andengine.sprite.UISprite
+import com.reco1l.andengine.sprite.UIShapedSprite
 import com.reco1l.andengine.text.CompoundText
 import com.reco1l.andengine.text.FontAwesomeIcon
 import com.reco1l.andengine.text.UIText
@@ -24,6 +27,7 @@ import com.reco1l.framework.math.*
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
+import ru.nsu.ccfit.zuev.osu.online.OnlineManager
 import ru.nsu.ccfit.zuev.osuplusplus.R
 
 class RoomPlayerCard : UILinearContainer() {
@@ -69,6 +73,7 @@ class RoomPlayerCard : UILinearContainer() {
 
         private lateinit var nameText: CompoundText
         private lateinit var missingIndicator: UISprite
+        private lateinit var avatarSprite: UIShapedSprite
 
         private val innerContainer: UILinearContainer
         private var modDisplay: UIComponent? = null
@@ -103,6 +108,15 @@ class RoomPlayerCard : UILinearContainer() {
                 paintStyle = PaintStyle.Outline
             }
 
+            avatarSprite = UIShapedSprite().apply {
+                size = Vec2(36f)
+                shape = com.reco1l.andengine.shape.UICircle()
+                // Default empty avatar — will be replaced when player avatar loads
+                setColor(0.25f, 0.25f, 0.25f)
+                alpha = 0.5f
+            }
+            +avatarSprite
+
             innerContainer = linearContainer {
                 orientation = Orientation.Vertical
                 inheritAncestorsColor = false
@@ -126,6 +140,8 @@ class RoomPlayerCard : UILinearContainer() {
 
         }
 
+
+        private var lastPlayerId: Long = -1
 
         fun updateState(room: Room, player: RoomPlayer) {
             foreground!!.color = when (player.status) {
@@ -156,6 +172,12 @@ class RoomPlayerCard : UILinearContainer() {
             }
 
             missingIndicator.isVisible = player.status == MissingBeatmap
+
+            // Load avatar when player ID changes
+            if (player.id != lastPlayerId) {
+                lastPlayerId = player.id
+                loadAvatar(player.id)
+            }
 
             if (Config.isPreferModAcronymInMultiplayer()) {
                 if (modDisplay !is UIText) {
@@ -214,7 +236,10 @@ class RoomPlayerCard : UILinearContainer() {
                                 setText(R.string.multiplayer_room_player_menu_transfer_host)
                                 onActionUp = {
                                     UIConfirmDialog().apply {
-                                        title = StringTable.format(R.string.multiplayer_room_player_transfer_dialog_title, player.name)
+                                        title = StringTable.format(
+                                            R.string.multiplayer_room_player_transfer_dialog_title,
+                                            player.name
+                                        )
                                         text = StringTable.get(R.string.multiplayer_room_player_transfer_dialog_message)
                                         onConfirm = {
                                             if (Multiplayer.isConnected) {
@@ -233,7 +258,10 @@ class RoomPlayerCard : UILinearContainer() {
                                 }
                                 onActionUp = {
                                     UIConfirmDialog().apply {
-                                        title = StringTable.format(R.string.multiplayer_room_player_kick_dialog_title, player.name)
+                                        title = StringTable.format(
+                                            R.string.multiplayer_room_player_kick_dialog_title,
+                                            player.name
+                                        )
                                         text = StringTable.get(R.string.multiplayer_room_player_kick_dialog_message)
                                         onConfirm = {
                                             if (Multiplayer.isConnected) {
@@ -248,6 +276,33 @@ class RoomPlayerCard : UILinearContainer() {
                     }
 
                 }.show()
+            }
+        }
+
+        private fun loadAvatar(userId: Long) {
+            val avatarUrl = OnlineManager.getAvatarURL(userId)
+            val md5 = ru.nsu.ccfit.zuev.osu.helper.MD5Calculator.getStringMD5(avatarUrl)
+            async {
+                try {
+                    // Check if already loaded
+                    var tex = ResourceManager.getInstance()
+                        .getAvatarTextureIfLoaded(avatarUrl)
+
+                    if (tex == null) {
+                        // Load from URL
+                        tex = ResourceManager.getInstance()
+                            .loadTexture(md5, avatarUrl, true)
+                    }
+
+                    val finalTex = tex
+                    if (finalTex != null) {
+                        mainThread {
+                            avatarSprite.textureRegion = finalTex
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }

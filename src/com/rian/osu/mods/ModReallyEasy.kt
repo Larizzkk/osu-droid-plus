@@ -13,6 +13,7 @@ class ModReallyEasy : Mod(), IModApplicableToDifficultyWithMods {
     override val acronym = "RE"
     override val description = "Everything just got easier..."
     override val type = ModType.DifficultyReduction
+    override val isRanked = true
     override val scoreMultiplier = 0.5f
 
     override fun isCompatibleWith(other: Mod): Boolean {

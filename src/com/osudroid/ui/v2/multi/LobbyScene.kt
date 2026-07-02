@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.multi
+
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import android.util.Log
@@ -111,7 +112,8 @@ class LobbyScene : UIScene() {
                             key = "search"
                             width = 500f
                             height = FillParent
-                            placeholder = StringTable.get(ru.nsu.ccfit.zuev.osuplusplus.R.string.multiplayer_lobby_search_rooms)
+                            placeholder =
+                                StringTable.get(ru.nsu.ccfit.zuev.osuplusplus.R.string.multiplayer_lobby_search_rooms)
                         }
 
                         override fun onValueChanged() {
@@ -284,7 +286,7 @@ class LobbyScene : UIScene() {
         Multiplayer.isMultiplayer = false
         GlobalManager.getInstance().songService.isGaming = false
 
-        GlobalManager.getInstance().mainScene.show()
+        GlobalManager.getInstance().engine.scene = GlobalManager.getInstance().mainScene.scene
     }
 
 

@@ -12,7 +12,17 @@ public enum DifficultyAlgorithm {
     /**
      * osu!standard algorithm.
      */
-    standard;
+    standard,
+
+    /**
+     * DRPP — Droid Ranking Performance Points (server-side formula).
+     */
+    drpp,
+
+    /**
+     * RXPP — Relax Performance Points (server-side formula).
+     */
+    rxpp;
 
     /**
      * Parses an integer value to a {@link DifficultyAlgorithm}.
@@ -21,6 +31,11 @@ public enum DifficultyAlgorithm {
      * @return The parsed {@link DifficultyAlgorithm}.
      */
     public static DifficultyAlgorithm parse(int value) {
-        return value == 1 ? standard : droid;
+        return switch (value) {
+            case 1 -> standard;
+            case 2 -> drpp;
+            case 3 -> rxpp;
+            default -> droid;
+        };
     }
 }

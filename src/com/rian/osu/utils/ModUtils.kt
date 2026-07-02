@@ -47,7 +47,6 @@ object ModUtils {
             ModSmallCircle(),
             ModSuddenDeath(),
             ModSynesthesia(),
-            ModTag(),
             ModTraceable(),
             ModWindDown(),
             ModWindUp()
@@ -80,7 +79,7 @@ object ModUtils {
     ): String {
         val filteredMods = mods.filter {
             (includeNonUserPlayable || it.isUserPlayable) &&
-            (includeIrrelevantMods || it.isRelevant)
+                    (includeIrrelevantMods || it.isRelevant)
         }
 
         return Json.encodeToString(filteredMods.map { it.toAPIMod() })

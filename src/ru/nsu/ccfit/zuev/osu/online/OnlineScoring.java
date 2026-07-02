@@ -2,23 +2,20 @@ package ru.nsu.ccfit.zuev.osu.online;
 
 import android.content.Intent;
 import android.net.Uri;
-
 import com.google.android.material.snackbar.Snackbar;
 import com.osudroid.data.BeatmapInfo;
 import com.osudroid.utils.Execution;
 import com.rian.osu.ui.SendingPanel;
-
-import org.anddev.andengine.util.Debug;
-
 import java.util.concurrent.CancellationException;
-
 import kotlinx.coroutines.Job;
 import kotlinx.coroutines.JobKt;
+import org.anddev.andengine.util.Debug;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2;
 
 public class OnlineScoring {
+
     private static final int attemptCount = 5;
     private static OnlineScoring instance = null;
     private final Boolean onlineMutex = Boolean.FALSE;
@@ -26,14 +23,18 @@ public class OnlineScoring {
     private OnlinePanel secondPanel = null;
     private boolean avatarLoaded = false;
     private final Snackbar snackbar = Snackbar.make(
-            GlobalManager.getInstance().getMainActivity().getWindow().getDecorView(),
-            "", 10000);
+        GlobalManager.getInstance()
+            .getMainActivity()
+            .getWindow()
+            .getDecorView(),
+        "",
+        10000
+    );
 
     private Job loginJob, avatarJob;
 
     public static OnlineScoring getInstance() {
-        if (instance == null)
-            instance = new OnlineScoring();
+        if (instance == null) instance = new OnlineScoring();
         return instance;
     }
 
@@ -46,12 +47,13 @@ public class OnlineScoring {
     }
 
     public OnlinePanel createSecondPanel() {
-        if (!OnlineManager.getInstance().isStayOnline())
-            return null;
+        if (!OnlineManager.getInstance().isStayOnline()) return null;
         secondPanel = new OnlinePanel();
         secondPanel.setInfo();
         String avatarURL = OnlineManager.getInstance().getAvatarURL();
-        secondPanel.setAvatar(avatarLoaded && !avatarURL.isEmpty() ? avatarURL : null);
+        secondPanel.setAvatar(
+            avatarLoaded && !avatarURL.isEmpty() ? avatarURL : null
+        );
         return secondPanel;
     }
 
@@ -61,34 +63,31 @@ public class OnlineScoring {
 
     public void setPanelMessage(String message, String submessage) {
         panel.setMessage(message, submessage);
-        if (secondPanel != null)
-            secondPanel.setMessage(message, submessage);
+        if (secondPanel != null) secondPanel.setMessage(message, submessage);
     }
 
     public void updatePanels() {
         panel.setInfo();
-        if (secondPanel != null)
-            secondPanel.setInfo();
+        if (secondPanel != null) secondPanel.setInfo();
     }
 
     public void updatePanelAvatars() {
         final String avatarUrl = OnlineManager.getInstance().getAvatarURL();
-        String texname = avatarLoaded && !avatarUrl.isEmpty() ? avatarUrl : null;
+        String texname =
+            avatarLoaded && !avatarUrl.isEmpty() ? avatarUrl : null;
         panel.setAvatar(texname);
-        if (secondPanel != null)
-            secondPanel.setAvatar(texname);
+        if (secondPanel != null) secondPanel.setAvatar(texname);
     }
 
     public void login() {
-        if (!OnlineManager.getInstance().isStayOnline())
-            return;
+        if (!OnlineManager.getInstance().isStayOnline()) return;
         avatarLoaded = false;
 
         if (loginJob != null) {
             loginJob.cancel(new CancellationException("Login cancelled"));
         }
 
-        loginJob = Execution.async((scope) -> {
+        loginJob = Execution.async(scope -> {
             synchronized (onlineMutex) {
                 boolean success = false;
 
@@ -116,18 +115,34 @@ public class OnlineScoring {
                     OnlineManager.getInstance().setStayOnline(true);
                     loadAvatar(true);
                 } else {
-                    setPanelMessage("Cannot log in", OnlineManager.getInstance().getFailMessage());
+                    setPanelMessage(
+                        "Cannot log in",
+                        OnlineManager.getInstance().getFailMessage()
+                    );
                     OnlineManager.getInstance().setStayOnline(false);
 
-                    if (OnlineManager.getInstance().getFailMessage().equals("Cannot connect to server")) {
+                    if (
+                        OnlineManager.getInstance()
+                            .getFailMessage()
+                            .equals("Cannot connect to server")
+                    ) {
                         Execution.mainThread(() -> {
                             snackbar.dismiss();
-                            snackbar.setText("Cannot connect to server. Please check the following article for troubleshooting.");
+                            snackbar.setText(
+                                "Cannot connect to server. Please check the following article for troubleshooting."
+                            );
 
-                            snackbar.setAction("Check", (v) -> {
-                                var intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://neroyuki.github.io/osudroid-guide/help/login_fail"));
+                            snackbar.setAction("Check", v -> {
+                                var intent = new Intent(
+                                    Intent.ACTION_VIEW,
+                                    Uri.parse(
+                                        "https://neroyuki.github.io/osudroid-guide/help/login_fail"
+                                    )
+                                );
 
-                                GlobalManager.getInstance().getMainActivity().startActivity(intent);
+                                GlobalManager.getInstance()
+                                    .getMainActivity()
+                                    .startActivity(intent);
                             });
 
                             snackbar.show();
@@ -138,9 +153,13 @@ public class OnlineScoring {
         });
     }
 
-    public void sendRecord(final BeatmapInfo beatmap, final StatisticV2 record, final SendingPanel panel, final String replayPath) {
-        if (!OnlineManager.getInstance().isStayOnline())
-            return;
+    public void sendRecord(
+        final BeatmapInfo beatmap,
+        final StatisticV2 record,
+        final SendingPanel panel,
+        final String replayPath
+    ) {
+        if (!OnlineManager.getInstance().isStayOnline()) return;
 
         Debug.i("Sending score");
 
@@ -156,27 +175,45 @@ public class OnlineScoring {
                     }
 
                     try {
-                        success = OnlineManager.getInstance().sendRecord(beatmap, recordData, replayPath);
+                        success = OnlineManager.getInstance().sendRecord(
+                            beatmap,
+                            recordData,
+                            replayPath
+                        );
                     } catch (OnlineManager.OnlineManagerException e) {
                         Debug.e("Login error: " + e.getMessage());
                         success = false;
                     }
 
-                    if (OnlineManager.getInstance().getFailMessage().length() > 0) {
-                        ToastLogger.showText(OnlineManager.getInstance().getFailMessage(), true);
-                        if (OnlineManager.getInstance().getFailMessage().equals("Invalid record data"))
-                            i = attemptCount;
+                    if (
+                        OnlineManager.getInstance().getFailMessage().length() >
+                        0
+                    ) {
+                        ToastLogger.showText(
+                            OnlineManager.getInstance().getFailMessage(),
+                            true
+                        );
+                        if (
+                            OnlineManager.getInstance()
+                                .getFailMessage()
+                                .equals("Invalid record data")
+                        ) i = attemptCount;
                     } else if (success) {
-                        updatePanels();
+                        Execution.updateThread(this::updatePanels);
                         OnlineManager mgr = OnlineManager.getInstance();
-                        panel.show(mgr.getMapRank(), mgr.getRank(), mgr.getScore(), mgr.getAccuracy(), mgr.getPP());
+                        panel.show(
+                            mgr.getMapRank(),
+                            mgr.getRank(),
+                            mgr.getScore(),
+                            mgr.getAccuracy(),
+                            mgr.getPP()
+                        );
                         break;
                     }
 
                     try {
                         Thread.sleep(5000);
-                    } catch (InterruptedException ignored) {
-                    }
+                    } catch (InterruptedException ignored) {}
                 }
 
                 if (!success) {
@@ -189,21 +226,23 @@ public class OnlineScoring {
     public void loadAvatar(final boolean both) {
         if (!OnlineManager.getInstance().isStayOnline()) return;
         final String avatarUrl = OnlineManager.getInstance().getAvatarURL();
-        if (avatarUrl == null || avatarUrl.length() == 0)
-            return;
+        if (avatarUrl == null || avatarUrl.length() == 0) return;
 
         if (avatarJob != null) {
-            avatarJob.cancel(new CancellationException("Avatar loading cancelled"));
+            avatarJob.cancel(
+                new CancellationException("Avatar loading cancelled")
+            );
         }
 
-        avatarJob = Execution.async((scope) -> {
+        avatarJob = Execution.async(scope -> {
             synchronized (onlineMutex) {
-                avatarLoaded = OnlineManager.getInstance().loadAvatarToTextureManager();
+                avatarLoaded =
+                    OnlineManager.getInstance().loadAvatarToTextureManager();
                 JobKt.ensureActive(scope.getCoroutineContext());
-                if (both)
-                    updatePanelAvatars();
-                else if (secondPanel != null)
-                    secondPanel.setAvatar(avatarLoaded ? avatarUrl : null);
+                if (both) updatePanelAvatars();
+                else if (secondPanel != null) secondPanel.setAvatar(
+                    avatarLoaded ? avatarUrl : null
+                );
             }
         });
     }

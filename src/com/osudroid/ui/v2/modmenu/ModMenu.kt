@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.modmenu
+
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.edlplan.framework.easing.Easing
@@ -228,7 +229,9 @@ object ModMenu : UIScene() {
 
                     ModType.entries.forEach { type ->
                         val sectionName = StringTable.get(type.stringId)
-                        val sectionToggles = mods.filter { it !is IMigratableMod && it.isUserPlayable && it.type == type }.map { ModMenuToggle(it) }
+                        val sectionToggles =
+                            mods.filter { it !is IMigratableMod && it.isUserPlayable && it.type == type }
+                                .map { ModMenuToggle(it) }
 
                         if (sectionToggles.isEmpty()) {
                             return@forEach
@@ -341,7 +344,10 @@ object ModMenu : UIScene() {
         calculationJob = async scope@{
 
             val difficultyAlgorithm = Config.getDifficultyAlgorithm()
-            val gameMode = if (difficultyAlgorithm == droid) GameMode.Droid else GameMode.Standard
+            val gameMode = when (difficultyAlgorithm) {
+                droid, drpp, rxpp -> GameMode.Droid
+                standard -> GameMode.Standard
+            }
 
             val beatmap = try {
                 BeatmapCache.getBeatmap(selectedBeatmap, true, gameMode, this)
@@ -389,6 +395,8 @@ object ModMenu : UIScene() {
             val attributes = when (difficultyAlgorithm) {
                 droid -> calculateDroidDifficulty(beatmap, mods, this@scope)
                 standard -> calculateStandardDifficulty(beatmap, mods, this@scope)
+                drpp -> calculateDroidDifficulty(beatmap, mods, this@scope)
+                rxpp -> calculateDroidDifficulty(beatmap, mods, this@scope)
             }
 
             ensureActive()
@@ -404,6 +412,9 @@ object ModMenu : UIScene() {
     //region Visibility
 
     override fun show() {
+        // Duck volume when mod menu is opened
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume() * 0.3f
+
         GlobalManager.getInstance().engine.scene.setChildScene(
             this,
             false,
@@ -446,6 +457,8 @@ object ModMenu : UIScene() {
             }
         }
 
+        // Restore volume when mod menu is closed
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume()
         super.back()
     }
 
@@ -581,8 +594,8 @@ object ModMenu : UIScene() {
                         if (unrestricted) {
                             // Only automation mods are incompatible with each other
                             toggle.mod.type == com.rian.osu.mods.ModType.Automation &&
-                            m.type == com.rian.osu.mods.ModType.Automation &&
-                            !toggle.mod.isCompatibleWith(m)
+                                    m.type == com.rian.osu.mods.ModType.Automation &&
+                                    !toggle.mod.isCompatibleWith(m)
                         } else {
                             !toggle.mod.isCompatibleWith(m)
                         }
@@ -692,11 +705,15 @@ object ModMenu : UIScene() {
             counter.targetValue = finalValue
 
             valueEntity.clearEntityModifiers()
-            valueEntity.colorTo(Color4(when {
-                initialValue < finalValue -> 0xFFF78383
-                initialValue > finalValue -> 0xFF40CF5D
-                else -> 0xFFFFFFFF
-            }), counter.rollingDuration / 1000, counter.rollingEasing)
+            valueEntity.colorTo(
+                Color4(
+                    when {
+                        initialValue < finalValue -> 0xFFF78383
+                        initialValue > finalValue -> 0xFF40CF5D
+                        else -> 0xFFFFFFFF
+                    }
+                ), counter.rollingDuration / 1000, counter.rollingEasing
+            )
         }
 
         override fun onManagedUpdate(deltaTimeSec: Float) {

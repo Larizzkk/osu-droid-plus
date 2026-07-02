@@ -1,18 +1,17 @@
 package ru.nsu.ccfit.zuev.osu.game;
 
 import android.graphics.PointF;
-
 import androidx.annotation.Nullable;
-
 import com.edlplan.framework.math.FMath;
 import com.osudroid.game.CursorEvent;
 import com.rian.osu.beatmap.HitWindow;
 import com.rian.osu.beatmap.hitobject.HitObject;
-
+import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.Utils;
 import ru.nsu.ccfit.zuev.osu.scoring.Replay;
 
 public abstract class GameObject {
+
     protected boolean endsCombo;
     protected boolean autoPlay = false;
     protected float hitTime = 0;
@@ -66,8 +65,11 @@ public abstract class GameObject {
      * @return The {@link CursorEvent} that hits this {@link GameObject}, or {@code null} if none.
      */
     @Nullable
-    protected final CursorEvent getHittingCursor(GameObjectListener listener, HitObject hitObject,
-                                                 double objectElapsedTime) {
+    protected final CursorEvent getHittingCursor(
+        GameObjectListener listener,
+        HitObject hitObject,
+        double objectElapsedTime
+    ) {
         int cursorCount = listener.getCursorsCount();
 
         // For Autopilot, we only need to check if a cursor is pressed.
@@ -78,7 +80,9 @@ public abstract class GameObject {
                 int size = events.size();
 
                 while (cursor.latestProcessedDownEventIndex < size) {
-                    var event = events.get(cursor.latestProcessedDownEventIndex++);
+                    var event = events.get(
+                        cursor.latestProcessedDownEventIndex++
+                    );
 
                     if (canHit(event, hitObject.hitWindow)) {
                         return event;
@@ -100,7 +104,9 @@ public abstract class GameObject {
 
                 if (size > 0) {
                     while (cursor.latestProcessedEventIndex < size) {
-                        var event = events.get(cursor.latestProcessedEventIndex++);
+                        var event = events.get(
+                            cursor.latestProcessedEventIndex++
+                        );
 
                         if (event.isActionUp()) {
                             continue;
@@ -109,7 +115,11 @@ public abstract class GameObject {
                         boolean isHit = isHit(hitObject, event);
 
                         // Case 1
-                        if (event.isActionDown() && isHit && canHit(event, hitObject.hitWindow)) {
+                        if (
+                            event.isActionDown() &&
+                            isHit &&
+                            canHit(event, hitObject.hitWindow)
+                        ) {
                             return event;
                         }
 
@@ -125,7 +135,12 @@ public abstract class GameObject {
 
                     // Only consider case 2 in this scenario, as the event should logically be marked as a move event
                     // even if it's a down event (no new events mean the user keeps pressing on the same spot).
-                    if (event != null && !event.isActionUp() && objectElapsedTime >= 0 && isHit(hitObject, event)) {
+                    if (
+                        event != null &&
+                        !event.isActionUp() &&
+                        objectElapsedTime >= 0 &&
+                        isHit(hitObject, event)
+                    ) {
                         return event;
                     }
                 }
@@ -144,7 +159,9 @@ public abstract class GameObject {
             // Consume down events that have not been processed yet, even those that are already past the hit threshold.
             // This ensures that start time ordered hit policy (aka "notelock") is enforced correctly.
             while (cursor.latestProcessedDownEventIndex < downEventsSize) {
-                var downEvent = downEvents.get(cursor.latestProcessedDownEventIndex++);
+                var downEvent = downEvents.get(
+                    cursor.latestProcessedDownEventIndex++
+                );
 
                 if (!canHit(downEvent, hitObject.hitWindow)) {
                     continue;
@@ -160,7 +177,9 @@ public abstract class GameObject {
                         // For the other case, we need to check the event closest to the down event and check if it is
                         // on the object.
                         var otherCursor = listener.getCursor(j);
-                        var closestEvent = otherCursor.getClosestEventBefore(downEvent.systemTime);
+                        var closestEvent = otherCursor.getClosestEventBefore(
+                            downEvent.systemTime
+                        );
 
                         if (closestEvent == null || closestEvent.isActionUp()) {
                             continue;
@@ -189,8 +208,17 @@ public abstract class GameObject {
             return false;
         }
 
+        // Lazer-style: when notelock is disabled, allow hitting any time the cursor is on the object
+        if (!Config.getBoolean("noteLockEnabled", true)) {
+            return true;
+        }
+
         float hittableRange = GameHelper.isAutopilot()
-            ? (float) FMath.clamp(hitWindow.getMehWindow() + 100, 200, HitWindow.MISS_WINDOW) / 1000
+            ? (float) FMath.clamp(
+                  hitWindow.getMehWindow() + 100,
+                  200,
+                  HitWindow.MISS_WINDOW
+              ) / 1000
             : (float) HitWindow.MISS_WINDOW / 1000;
 
         return cursorEvent.getHitTime() / 1000 >= hitTime - hittableRange;
@@ -209,6 +237,9 @@ public abstract class GameObject {
             return false;
         }
 
-        return Utils.squaredDistance(position, cursorEvent.position) <= Utils.sqr((float) hitObject.getScreenSpaceGameplayRadius());
+        return (
+            Utils.squaredDistance(position, cursorEvent.position) <=
+            Utils.sqr((float) hitObject.getScreenSpaceGameplayRadius())
+        );
     }
 }

@@ -12,6 +12,8 @@ class ModSmallCircle : Mod(), IModApplicableToDifficulty {
     override val acronym = "SC"
     override val description = "Who put ants in my beatmaps?"
     override val type = ModType.DifficultyIncrease
+    override val isRanked = true
+    override val scoreMultiplier = 1.03f
 
     override fun isCompatibleWith(other: Mod): Boolean {
         if (other is ModDifficultyAdjust) {

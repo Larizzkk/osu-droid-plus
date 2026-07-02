@@ -1,6 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
 
     <PreferenceCategory android:title="Autoplay Movement Settings">
 
@@ -11,24 +13,8 @@
             android:entries="@array/autoplay_movement_names"
             android:entryValues="@array/autoplay_movement_values"
             android:defaultValue="linear"
-            app:layout="@layout/settings_preference" />
-
-        <CheckBoxPreference
-            android:key="enableSliderMovement"
-            android:title="Enable Slider Movement"
-            android:summary="Enable special slider movement patterns"
-            android:defaultValue="true"
-            app:layout="@layout/settings_preference_checkbox" />
-
-        <com.rian.osu.ui.EditableSeekBarPreference
-            android:key="sliderSpeed"
-            android:title="Slider Speed"
-            android:summary="Speed of slider movement"
-            android:defaultValue="100"
-            android:max="200"
-            app:min="50"
-            app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar_bottom" />
+            app:layout="@layout/settings_preference"
+        />
 
     </PreferenceCategory>
 

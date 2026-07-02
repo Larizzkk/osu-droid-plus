@@ -66,7 +66,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.ConfigBackup
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.LibraryManager
 import ru.nsu.ccfit.zuev.osuplusplus.MainActivity
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
@@ -240,7 +240,7 @@ class SettingsFragment : SettingsFragment() {
 
     // For whatever reason this is restricted API when it wasn't in previous SDKs.
     @SuppressLint("RestrictedApi")
-    override fun onBindPreferences() = when(section) {
+    override fun onBindPreferences() = when (section) {
 
         Section.General -> handleGeneralSectionPreferences()
         Section.Graphics -> handleGraphicsSectionPreferences()
@@ -254,6 +254,12 @@ class SettingsFragment : SettingsFragment() {
         Section.Room -> handleRoomSectionPreferences()
     }
 
+
+    override fun show() {
+        // Duck volume when settings are opened
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume() * 0.3f
+        super.show()
+    }
 
     override fun dismiss() {
         Config.loadConfig(requireActivity())
@@ -279,6 +285,11 @@ class SettingsFragment : SettingsFragment() {
 
         findPreference<Preference>("registerAcc")?.setOnPreferenceClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REGISTER_URL)))
+            true
+        }
+
+        findPreference<Preference>("serverLink")?.setOnPreferenceClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://osu-droid-plus-server.larizrkpee.workers.dev")))
             true
         }
 
@@ -615,10 +626,18 @@ class SettingsFragment : SettingsFragment() {
 
             requireContext().getSystemService<ClipboardManager>()!!.apply {
 
-                setPrimaryClip(ClipData.newPlainText(Multiplayer.room!!.name, "${LobbyAPI.INVITE_HOST}/${Multiplayer.room!!.id}/"))
+                setPrimaryClip(
+                    ClipData.newPlainText(
+                        Multiplayer.room!!.name,
+                        "${LobbyAPI.INVITE_HOST}/${Multiplayer.room!!.id}/"
+                    )
+                )
             }
 
-            ToastLogger.showText("Link copied to clipboard. If the room has a password, you can write it at the end of the link.", false)
+            ToastLogger.showText(
+                "Link copied to clipboard. If the room has a password, you can write it at the end of the link.",
+                false
+            )
             true
         }
 

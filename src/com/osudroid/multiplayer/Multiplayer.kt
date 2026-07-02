@@ -2,6 +2,7 @@ package com.osudroid.multiplayer
 
 import android.net.*
 import android.util.Log
+import com.osudroid.utils.MainActivityHelper
 import com.osudroid.multiplayer.api.RoomAPI
 import com.osudroid.multiplayer.api.data.Room
 import com.osudroid.multiplayer.api.data.RoomPlayer
@@ -106,8 +107,8 @@ object Multiplayer {
             try {
                 LoadingScreen().show()
 
-                GlobalManager.getInstance().mainActivity.checkNewSkins()
-                GlobalManager.getInstance().mainActivity.loadBeatmapLibrary()
+                MainActivityHelper.checkNewSkins()
+                MainActivityHelper.loadBeatmapLibrary()
 
                 val roomID = link.pathSegments[0].toLong()
                 val password = if (link.pathSegments.size > 1) link.pathSegments[1] else null
@@ -181,7 +182,8 @@ object Multiplayer {
 
         // Replacing server statistic with local
         val ownScore = GlobalManager.getInstance().gameScene.stat
-        val ownScoreIndex = list.indexOfFirst { it.playerName == OnlineManager.getInstance().username }.takeUnless { it == -1 }
+        val ownScoreIndex =
+            list.indexOfFirst { it.playerName == OnlineManager.getInstance().username }.takeUnless { it == -1 }
 
         if (ownScore != null) {
             // This should never happen
@@ -246,7 +248,10 @@ object Multiplayer {
 
                 // Timeout to reconnect was exceed.
                 if (currentTime - reconnectionStartTimeMS >= 30000) {
-                    ToastLogger.showText("The connection to server has been lost, please check your internet connection.", true)
+                    ToastLogger.showText(
+                        "The connection to server has been lost, please check your internet connection.",
+                        true
+                    )
                     roomScene?.back()
                     return@launch
                 }

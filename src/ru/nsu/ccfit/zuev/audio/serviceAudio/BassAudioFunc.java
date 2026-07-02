@@ -2,9 +2,7 @@ package ru.nsu.ccfit.zuev.audio.serviceAudio;
 
 import com.un4seen.bass.BASS;
 import com.un4seen.bass.BASS_FX;
-
 import java.nio.ByteBuffer;
-
 import ru.nsu.ccfit.zuev.audio.Status;
 import ru.nsu.ccfit.zuev.osu.Config;
 
@@ -15,7 +13,8 @@ public class BassAudioFunc {
     private int channel = 0;
     private float speed = 1f;
     private boolean adjustPitch;
-    private final BASS.BASS_CHANNELINFO channelInfo = new BASS.BASS_CHANNELINFO();
+    private final BASS.BASS_CHANNELINFO channelInfo =
+        new BASS.BASS_CHANNELINFO();
 
     private ByteBuffer buffer = null;
     private int playFlag = BASS.BASS_STREAM_PRESCAN;
@@ -26,8 +25,7 @@ public class BassAudioFunc {
      */
     private float frequency;
 
-    public BassAudioFunc() {
-    }
+    public BassAudioFunc() {}
 
     public boolean pause() {
         return BASS.BASS_ChannelPause(channel);
@@ -36,8 +34,7 @@ public class BassAudioFunc {
     public boolean resume() {
         setEndSync();
 
-        if (BASS.BASS_ChannelPlay(channel, false))
-        {
+        if (BASS.BASS_ChannelPlay(channel, false)) {
             setVolume(Config.getBgmVolume());
             return true;
         }
@@ -47,8 +44,16 @@ public class BassAudioFunc {
     public boolean preLoad(String filePath, float speed, boolean adjustPitch) {
         doClear();
 
-        channel = BASS.BASS_StreamCreateFile(filePath, 0, 0, playFlag | BASS.BASS_STREAM_DECODE);
-        channel = BASS_FX.BASS_FX_TempoCreate(channel, BASS.BASS_STREAM_AUTOFREE);
+        channel = BASS.BASS_StreamCreateFile(
+            filePath,
+            0,
+            0,
+            playFlag | BASS.BASS_STREAM_DECODE
+        );
+        channel = BASS_FX.BASS_FX_TempoCreate(
+            channel,
+            BASS.BASS_STREAM_AUTOFREE
+        );
 
         if (channel == 0) {
             this.speed = 1;
@@ -69,12 +74,14 @@ public class BassAudioFunc {
     }
 
     public boolean play() {
-        if (channel != 0 && BASS.BASS_ChannelIsActive(channel) == BASS.BASS_ACTIVE_PAUSED) {
+        if (
+            channel != 0 &&
+            BASS.BASS_ChannelIsActive(channel) == BASS.BASS_ACTIVE_PAUSED
+        ) {
             return resume();
         } else if (channel != 0) {
             setEndSync();
-            if (BASS.BASS_ChannelPlay(channel, true))
-            {
+            if (BASS.BASS_ChannelPlay(channel, true)) {
                 setVolume(Config.getBgmVolume());
                 return true;
             }
@@ -92,10 +99,16 @@ public class BassAudioFunc {
 
     public boolean jump(int ms) {
         if (channel != 0 && ms > 0) {
-            long skipPosition = BASS.BASS_ChannelSeconds2Bytes(channel, ms / 1000.0);
+            long skipPosition = BASS.BASS_ChannelSeconds2Bytes(
+                channel,
+                ms / 1000.0
+            );
 
-            return BASS.BASS_ChannelSetPosition(channel, skipPosition,
-                    speed == 1f ? BASS.BASS_POS_BYTE : BASS.BASS_POS_DECODE);
+            return BASS.BASS_ChannelSetPosition(
+                channel,
+                skipPosition,
+                speed == 1f ? BASS.BASS_POS_BYTE : BASS.BASS_POS_DECODE
+            );
         }
 
         return false;
@@ -114,7 +127,10 @@ public class BassAudioFunc {
 
     public double getPosition() {
         if (channel != 0) {
-            long pos = BASS.BASS_ChannelGetPosition(channel, BASS.BASS_POS_BYTE);
+            long pos = BASS.BASS_ChannelGetPosition(
+                channel,
+                BASS.BASS_POS_BYTE
+            );
             if (pos != -1) {
                 return BASS.BASS_ChannelBytes2Seconds(channel, pos) * 1000;
             }
@@ -124,9 +140,13 @@ public class BassAudioFunc {
 
     public int getLength() {
         if (channel != 0) {
-            long length = BASS.BASS_ChannelGetLength(channel, BASS.BASS_POS_BYTE);
+            long length = BASS.BASS_ChannelGetLength(
+                channel,
+                BASS.BASS_POS_BYTE
+            );
             if (length != -1) {
-                return (int) (BASS.BASS_ChannelBytes2Seconds(channel, length) * 1000);
+                return (int) (BASS.BASS_ChannelBytes2Seconds(channel, length) *
+                    1000);
             }
         }
         return 0;
@@ -148,7 +168,10 @@ public class BassAudioFunc {
     }
 
     private void doClear() {
-        if (channel != 0 && BASS.BASS_ChannelIsActive(channel) == BASS.BASS_ACTIVE_PLAYING) {
+        if (
+            channel != 0 &&
+            BASS.BASS_ChannelIsActive(channel) == BASS.BASS_ACTIVE_PLAYING
+        ) {
             BASS.BASS_ChannelStop(channel);
         }
         BASS.BASS_StreamFree(channel);
@@ -158,7 +181,15 @@ public class BassAudioFunc {
         if (isLoop) {
             playFlag |= BASS.BASS_SAMPLE_LOOP;
         } else {
-            playFlag ^= BASS.BASS_SAMPLE_LOOP;
+            playFlag &= ~BASS.BASS_SAMPLE_LOOP;
+        }
+        // Apply to currently playing channel immediately
+        if (channel != 0) {
+            BASS.BASS_ChannelFlags(
+                channel,
+                isLoop ? BASS.BASS_SAMPLE_LOOP : 0,
+                BASS.BASS_SAMPLE_LOOP
+            );
         }
     }
 
@@ -177,7 +208,11 @@ public class BassAudioFunc {
             return;
         }
         this.frequency = frequency;
-        BASS.BASS_ChannelSetAttribute(channel, BASS_FX.BASS_ATTRIB_TEMPO_FREQ, frequency);
+        BASS.BASS_ChannelSetAttribute(
+            channel,
+            BASS_FX.BASS_ATTRIB_TEMPO_FREQ,
+            frequency
+        );
         BASS.BASS_ChannelSetAttribute(channel, BASS_FX.BASS_ATTRIB_TEMPO, 0);
     }
 
@@ -188,14 +223,22 @@ public class BassAudioFunc {
     public float getVolume() {
         BASS.FloatValue volume = new BASS.FloatValue();
         if (channel != 0) {
-            BASS.BASS_ChannelGetAttribute(channel, BASS.BASS_ATTRIB_VOL, volume);
+            BASS.BASS_ChannelGetAttribute(
+                channel,
+                BASS.BASS_ATTRIB_VOL,
+                volume
+            );
         }
         return volume.value;
     }
 
     public void setVolume(float volume) {
         if (channel != 0) {
-            BASS.BASS_ChannelSetAttribute(channel, BASS.BASS_ATTRIB_VOL, volume);
+            BASS.BASS_ChannelSetAttribute(
+                channel,
+                BASS.BASS_ATTRIB_VOL,
+                volume
+            );
         }
     }
 
@@ -209,11 +252,17 @@ public class BassAudioFunc {
     }
 
     private void setEndSync() {
-        BASS.BASS_ChannelSetSync(channel, BASS.BASS_SYNC_END, 0, (handle, channel, data, user) -> {
-            if (isGaming) {
-                stop();
-            }
-        }, 0);
+        BASS.BASS_ChannelSetSync(
+            channel,
+            BASS.BASS_SYNC_END,
+            0,
+            (handle, channel, data, user) -> {
+                if (isGaming) {
+                    stop();
+                }
+            },
+            0
+        );
     }
 
     private void onAudioEffectChange() {
@@ -221,15 +270,30 @@ public class BassAudioFunc {
             return;
         }
 
-
         if (adjustPitch) {
             frequency = channelInfo.freq * speed;
-            BASS.BASS_ChannelSetAttribute(channel, BASS_FX.BASS_ATTRIB_TEMPO_FREQ, frequency);
-            BASS.BASS_ChannelSetAttribute(channel, BASS_FX.BASS_ATTRIB_TEMPO, 0);
+            BASS.BASS_ChannelSetAttribute(
+                channel,
+                BASS_FX.BASS_ATTRIB_TEMPO_FREQ,
+                frequency
+            );
+            BASS.BASS_ChannelSetAttribute(
+                channel,
+                BASS_FX.BASS_ATTRIB_TEMPO,
+                0
+            );
         } else {
             frequency = channelInfo.freq;
-            BASS.BASS_ChannelSetAttribute(channel, BASS_FX.BASS_ATTRIB_TEMPO_FREQ, frequency);
-            BASS.BASS_ChannelSetAttribute(channel, BASS_FX.BASS_ATTRIB_TEMPO, (speed - 1) * 100);
+            BASS.BASS_ChannelSetAttribute(
+                channel,
+                BASS_FX.BASS_ATTRIB_TEMPO_FREQ,
+                frequency
+            );
+            BASS.BASS_ChannelSetAttribute(
+                channel,
+                BASS_FX.BASS_ATTRIB_TEMPO,
+                (speed - 1) * 100
+            );
         }
     }
 }

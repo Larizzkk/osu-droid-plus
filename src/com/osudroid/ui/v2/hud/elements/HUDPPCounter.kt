@@ -44,6 +44,11 @@ class HUDPPCounter : HUDElement() {
     }
 
     private fun updateText() {
-        sprite.text = "${value}${if (Config.getDifficultyAlgorithm() == DifficultyAlgorithm.droid) "dpp" else "pp"}"
+        sprite.text = "${value} ${
+            when (Config.getDifficultyAlgorithm()) {
+                DifficultyAlgorithm.droid, DifficultyAlgorithm.drpp, DifficultyAlgorithm.rxpp -> "DPP"
+                DifficultyAlgorithm.standard -> "PP"
+            }
+        }"
     }
 }

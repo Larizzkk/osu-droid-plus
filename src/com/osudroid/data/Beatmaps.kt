@@ -212,7 +212,7 @@ data class BeatmapInfo(
      */
     var epilepsyWarning: Boolean,
 
-) {
+    ) {
 
     /**
      * The `.osu` file path.
@@ -307,9 +307,11 @@ data class BeatmapInfo(
      * Returns 0 if the star rating has not been calculated.
      */
     @JvmOverloads
-    fun getStarRating(algorithm: DifficultyAlgorithm = Config.getDifficultyAlgorithm()) = when(algorithm) {
+    fun getStarRating(algorithm: DifficultyAlgorithm = Config.getDifficultyAlgorithm()) = when (algorithm) {
         droid -> droidStarRating ?: 0f
         standard -> standardStarRating ?: 0f
+        drpp -> droidStarRating ?: 0f
+        rxpp -> droidStarRating ?: 0f
     }
 
     fun apply(b: BeatmapInfo) {
@@ -424,7 +426,12 @@ data class BeatmapInfo(
  * Represents a beatmap information.
  */
 @JvmOverloads
-fun BeatmapInfo(data: Beatmap, lastModified: Long, calculateDifficulty: Boolean, scope: CoroutineScope? = null): BeatmapInfo {
+fun BeatmapInfo(
+    data: Beatmap,
+    lastModified: Long,
+    calculateDifficulty: Boolean,
+    scope: CoroutineScope? = null
+): BeatmapInfo {
     var droidStarRating: Float? = null
     var standardStarRating: Float? = null
 
@@ -500,7 +507,8 @@ fun BeatmapInfo(data: Beatmap, lastModified: Long, calculateDifficulty: Boolean,
     return beatmapInfo
 }
 
-@Dao interface IBeatmapInfoDAO {
+@Dao
+interface IBeatmapInfoDAO {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAll(beatmapInfo: List<BeatmapInfo>)
@@ -522,10 +530,10 @@ fun BeatmapInfo(data: Beatmap, lastModified: Long, calculateDifficulty: Boolean,
 
     @Transaction
     @Query("SELECT DISTINCT setDirectory, setId FROM BeatmapInfo")
-    fun getBeatmapSetList() : List<BeatmapSetInfo>
+    fun getBeatmapSetList(): List<BeatmapSetInfo>
 
     @Query("SELECT DISTINCT setDirectory FROM BeatmapInfo")
-    fun getBeatmapSetPaths() : List<String>
+    fun getBeatmapSetPaths(): List<String>
 
     @Query("SELECT EXISTS(SELECT setDirectory FROM BeatmapInfo WHERE setDirectory = :directory LIMIT 1)")
     fun isBeatmapSetImported(directory: String): Boolean

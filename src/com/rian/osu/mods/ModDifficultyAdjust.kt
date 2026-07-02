@@ -32,8 +32,8 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "cs",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
-        maxValue = 15f,
+        minValue = -12.5f,
+        maxValue = 11f,
         step = 0.1f,
         precision = 1,
         orderPosition = 0
@@ -47,7 +47,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "ar",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
+        minValue = -12.5f,
         maxValue = 12.5f,
         step = 0.1f,
         precision = 1,
@@ -62,7 +62,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "od",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
+        minValue = -12.5f,
         maxValue = 11f,
         step = 0.1f,
         precision = 1,
@@ -77,7 +77,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "hp",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
+        minValue = -12.5f,
         maxValue = 11f,
         step = 0.1f,
         precision = 1,
@@ -102,6 +102,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
     override val description = "Override a beatmap's difficulty settings."
     override val type = ModType.Conversion
     override val requiresConfiguration = true
+    override val isRanked = true
 
     // This mod has a different default than others as the default value of settings change based on the beatmap.
     override val usesDefaultSettings
@@ -109,27 +110,22 @@ class ModDifficultyAdjust @JvmOverloads constructor(
 
     override val scoreMultiplier: Float
         get() {
-            // Graph: https://www.desmos.com/calculator/yrggkhrkzz
+            // Balanced multiplier based on deviation from default
             var multiplier = 1f
-            val cs = getModSettingDelegate<NullableFloatModSetting>(::cs)
-            val od = getModSettingDelegate<NullableFloatModSetting>(::od)
 
-            if (cs.value != null && cs.defaultValue != null) {
-                val diff = cs.value!! - cs.defaultValue!!
-
-                multiplier *=
-                    if (diff >= 0) 1 + 0.0075f * diff.pow(1.5f)
-                    else 2 / (1 + exp(-0.5f * diff))
+            for (setting in listOf(::cs, ::ar, ::od, ::hp)) {
+                val delegate = getModSettingDelegate<NullableFloatModSetting>(setting)
+                if (delegate.value != null && delegate.defaultValue != null) {
+                    val diff = delegate.value!! - delegate.defaultValue!!
+                    multiplier *= if (diff >= 0) {
+                        // Harder: small bonus (max ~1.25x at +12.5)
+                        1 + 0.003f * diff.pow(1.3f)
+                    } else {
+                        // Easier: logistic penalty (min ~0.12x at -12.5)
+                        2f / (1f + exp(-0.3f * diff))
+                    }
+                }
             }
-
-            if (od.value != null && od.defaultValue != null) {
-                val diff = od.value!! - od.defaultValue!!
-
-                multiplier *=
-                    if (diff >= 0) 1 + 0.005f * diff.pow(1.3f)
-                    else 2 / (1 + exp(-0.25f * diff))
-            }
-
             return multiplier
         }
 
@@ -160,10 +156,20 @@ class ModDifficultyAdjust @JvmOverloads constructor(
             // Special case for force AR in replay version 6 and older, where the AR value is kept constant with respect
             // to game time. This makes the player perceive the AR as is under all speed multipliers.
             if (ar != null && mods.any { m -> m is ModReplayV6 }) {
-                val preempt = BeatmapDifficulty.difficultyRange(ar!!.toDouble(), HitObject.PREEMPT_MAX, HitObject.PREEMPT_MID, HitObject.PREEMPT_MIN)
+                val preempt = BeatmapDifficulty.difficultyRange(
+                    ar!!.toDouble(),
+                    HitObject.PREEMPT_MAX,
+                    HitObject.PREEMPT_MID,
+                    HitObject.PREEMPT_MIN
+                )
                 val trackRate = ModUtils.calculateRateWithMods(mods)
 
-                it.ar = BeatmapDifficulty.inverseDifficultyRange(preempt * trackRate, HitObject.PREEMPT_MAX, HitObject.PREEMPT_MID, HitObject.PREEMPT_MIN).toFloat()
+                it.ar = BeatmapDifficulty.inverseDifficultyRange(
+                    preempt * trackRate,
+                    HitObject.PREEMPT_MAX,
+                    HitObject.PREEMPT_MID,
+                    HitObject.PREEMPT_MIN
+                ).toFloat()
             }
         }
 

@@ -1,6 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
 
     <PreferenceCategory android:title="@string/opt_category_volume">
 
@@ -10,7 +12,8 @@
             android:summary="@string/opt_bgm_volume_summary"
             android:title="@string/opt_bgm_volume_title"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="100"
@@ -18,7 +21,8 @@
             android:summary="@string/opt_sound_volume_summary"
             android:title="@string/opt_sound_volume_title"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar_bottom" />
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -34,12 +38,14 @@
             android:title="@string/opt_offset_title"
             android:summary="@string/opt_offset_summary"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <Preference
             android:key="offset_calibration"
             android:title="@string/opt_offset_calibration_title"
-            android:summary="@string/opt_offset_calibration_summary" />
+            android:summary="@string/opt_offset_calibration_summary"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="20"
@@ -49,7 +55,8 @@
             android:title="@string/opt_gameAudioSynchronizationThreshold_title"
             android:summary="@string/opt_gameAudioSynchronizationThreshold_summary"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar_bottom" />
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -62,14 +69,16 @@
             android:entryValues="@array/metronome_switch_values"
             android:key="metronomeswitch"
             android:summary="@string/opt_metronome_switch_summary"
-            android:title="@string/opt_metronome_switch_title" />
+            android:title="@string/opt_metronome_switch_title"
+        />
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="shiftPitchInRateChange"
             android:summary="@string/opt_shiftPitchInRateChange_summary"
             android:title="@string/opt_shiftPitchInRateChange_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -80,14 +89,26 @@
             android:key="beatmapSounds"
             android:summary="@string/opt_sound_summary"
             android:title="@string/opt_sound_title"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="musicpreview"
             android:summary="@string/opt_musicpreview_summary"
             android:title="@string/opt_musicpreview_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="heartbeatVolume"
+            android:max="100"
+            android:title="Heartbeat Volume"
+            android:summary="Volume of the heartbeat sound effect in main menu"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
 
     </PreferenceCategory>
 

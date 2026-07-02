@@ -7,7 +7,7 @@ import org.anddev.andengine.engine.camera.Camera
 import org.anddev.andengine.entity.primitive.Rectangle
 import org.anddev.andengine.entity.text.ChangeableText
 import org.anddev.andengine.opengl.font.Font
-import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager.getInstance as getGlobal
+import com.osudroid.utils.MainActivityHelper
 import java.util.Locale
 import javax.microedition.khronos.opengles.GL10
 
@@ -23,7 +23,11 @@ class FPSCounter(font: Font) : ChangeableText(
     var fps = 0f; private set
 
     @get:JvmName("getMaximumFPS")
-    var maximumFps = 0f; private set(value) { field = value; forceUpdate = true }
+    var maximumFps = 0f
+        private set(value) {
+            field = value
+            forceUpdate = true
+        }
 
     @get:JvmName("getAverageFPS")
     var averageFps = 0f; private set
@@ -39,10 +43,10 @@ class FPSCounter(font: Font) : ChangeableText(
         if (timeUntilNextAverageFpsCalculation <= 0) {
             timeUntilNextAverageFpsCalculation += averageFpsCalculationInterval
             averageFps = if (framesSinceLastAverageFpsCalculation == 0) 0f
-                        else framesSinceLastAverageFpsCalculation / timeSinceLastAverageFpsCalculation
+            else framesSinceLastAverageFpsCalculation / timeSinceLastAverageFpsCalculation
             timeSinceLastAverageFpsCalculation = 0f
             framesSinceLastAverageFpsCalculation = 0
-            maximumFps = getGlobal().mainActivity.refreshRate
+            maximumFps = MainActivityHelper.getRefreshRate()
         }
         framesSinceLastAverageFpsCalculation++
         timeUntilNextAverageFpsCalculation -= deltaTime
@@ -78,11 +82,21 @@ class FPSCounter(font: Font) : ChangeableText(
     }
 
     private fun updateColor() {
-        val r: Float; val g: Float; val b: Float
+        val r: Float;
+        val g: Float;
+        val b: Float
         when {
-            fps < 30f -> { r = 1f; g = 0f; b = 0f }
-            fps < 50f -> { r = 1f; g = 0.84f; b = 0f }
-            else -> { r = 0f; g = 1f; b = 0f }
+            fps < 30f -> {
+                r = 1f; g = 0f; b = 0f
+            }
+
+            fps < 50f -> {
+                r = 1f; g = 0.84f; b = 0f
+            }
+
+            else -> {
+                r = 0f; g = 1f; b = 0f
+            }
         }
         setColor(r, g, b)
     }

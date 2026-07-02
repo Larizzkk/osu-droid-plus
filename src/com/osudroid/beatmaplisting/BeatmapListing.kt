@@ -55,7 +55,8 @@ import kotlinx.coroutines.SupervisorJob
 import ru.nsu.ccfit.zuev.audio.Status
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
-import ru.nsu.ccfit.zuev.osuplusplus.MainScene.MusicOption
+import ru.nsu.ccfit.zuev.osuplusplus.MainScene
+import ru.nsu.ccfit.zuev.osuplusplus.MusicOption
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osuplusplus.R
 import java.net.URL
@@ -311,11 +312,16 @@ class BeatmapListing : BaseFragment(),
 
 
     override fun show() {
+        // Duck volume when beatmap listing is opened
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume() * 0.3f
+
         isPlayingMusic = GlobalManager.getInstance().songService.status == Status.PLAYING
         super.show()
     }
 
     override fun dismiss() {
+        // Restore volume when beatmap listing is closed
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume()
 
         stopPreviews(true)
 
@@ -359,7 +365,6 @@ class BeatmapListing : BaseFragment(),
     }
 
 }
-
 
 
 // Information
@@ -712,13 +717,14 @@ class BeatmapSetViewHolder(itemView: View, private val mediaScope: CoroutineScop
         previewJob = mediaScope.launch {
 
             try {
-                previewStream = URLBassStream(BeatmapListing.mirror.preview.request(beatmapSet.beatmaps[0].id).toString()) {
-                    stopPreview(true)
+                previewStream =
+                    URLBassStream(BeatmapListing.mirror.preview.request(beatmapSet.beatmaps[0].id).toString()) {
+                        stopPreview(true)
 
-                    if (BeatmapListing.isPlayingMusic) {
-                        GlobalManager.getInstance().mainScene.musicControl(MusicOption.PLAY)
+                        if (BeatmapListing.isPlayingMusic) {
+                            GlobalManager.getInstance().mainScene.musicControl(MusicOption.PLAY)
+                        }
                     }
-                }
 
                 ensureActive()
 
@@ -772,7 +778,12 @@ class BeatmapSetViewHolder(itemView: View, private val mediaScope: CoroutineScop
             previewButton.setCompoundDrawablesWithIntrinsicBounds(R.drawable.play_arrow_24px, 0, 0, 0)
 
             if (detailsFragment?.isLoaded == true) {
-                detailsFragment?.previewButton?.setCompoundDrawablesWithIntrinsicBounds(R.drawable.play_arrow_24px, 0, 0, 0)
+                detailsFragment?.previewButton?.setCompoundDrawablesWithIntrinsicBounds(
+                    R.drawable.play_arrow_24px,
+                    0,
+                    0,
+                    0
+                )
             }
         }
 
@@ -882,5 +893,3 @@ class BeatmapListingFiltersFragment(private val beatmapListing: BeatmapListing) 
 
 
 }
-
-

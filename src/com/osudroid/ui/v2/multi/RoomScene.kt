@@ -333,7 +333,8 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
                                         GlobalManager.getInstance().songMenu.show()
                                         GlobalManager.getInstance().songMenu.select()
 
-                                        // We notify all clients that the host is changing beatmap
+                                        // Notify clients that the host is changing beatmap
+                                        // Each client will resolve the beatmap locally by md5
                                         RoomAPI.changeBeatmap()
                                     }
                                 }
@@ -455,7 +456,8 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
                                 isWaitingForStatusChange = false
                             }
 
-                            else -> isWaitingForStatusChange = false /*This case can never happen, the PLAYING status is set when a game starts*/
+                            else -> isWaitingForStatusChange =
+                                false /*This case can never happen, the PLAYING status is set when a game starts*/
                         }
                     }
                     statusButton = this
@@ -508,7 +510,7 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
     fun updatePlayerList() {
 
         val shouldReload = currentPlayers.size != room.playersMap.size
-            || !currentPlayers.all { room.playersMap.containsKey(it) }
+                || !currentPlayers.all { room.playersMap.containsKey(it) }
 
         updateThread {
             playersContainer.apply {
@@ -560,7 +562,11 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
             text = when (playersReady.size) {
                 room.activePlayers.size -> StringTable.get(R.string.multiplayer_room_start_game)
-                else -> StringTable.format(R.string.multiplayer_room_force_start_game, playersReady.size, room.activePlayers.size)
+                else -> StringTable.format(
+                    R.string.multiplayer_room_force_start_game,
+                    playersReady.size,
+                    room.activePlayers.size
+                )
             }
         }
 
@@ -605,10 +611,17 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
                 isVisible = true
 
                 if (roomBeatmap.parentSetID == null) {
-                    isEnabled = false
-                    leadingIcon = UISprite(ResourceManager.getInstance().getTexture("download_off"))
-                    setText(R.string.multiplayer_room_not_available_beatmap)
-                    return@apply
+                    // Try to find the beatmap locally by MD5 before giving up
+                    val localBeatmap = LibraryManager.findBeatmapByMD5(roomBeatmap.md5)
+                    val localSetId = localBeatmap?.setId
+                    if (localSetId != null) {
+                        roomBeatmap.parentSetID = localSetId.toLong()
+                    } else {
+                        isEnabled = false
+                        leadingIcon = UISprite(ResourceManager.getInstance().getTexture("download_off"))
+                        setText(R.string.multiplayer_room_not_available_beatmap)
+                        return@apply
+                    }
                 }
 
                 isEnabled = true
@@ -622,9 +635,17 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
                     async {
                         try {
-                            BeatmapDownloader.download(url, "${roomBeatmap.parentSetID} ${roomBeatmap.artist} - ${roomBeatmap.title}")
+                            BeatmapDownloader.download(
+                                url,
+                                "${roomBeatmap.parentSetID} ${roomBeatmap.artist} - ${roomBeatmap.title}"
+                            )
                         } catch (e: Exception) {
-                            ToastLogger.showText(StringTable.format(R.string.multiplayer_room_unable_download, e.message), true)
+                            ToastLogger.showText(
+                                StringTable.format(
+                                    R.string.multiplayer_room_unable_download,
+                                    e.message
+                                ), true
+                            )
                             e.printStackTrace()
                         }
                     }
@@ -851,7 +872,12 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
         room.host = uid
 
-        chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_new_host, room.playersMap[uid]?.name.toString()), "#459FFF")
+        chat.onSystemChatMessage(
+            StringTable.format(
+                R.string.multiplayer_room_new_host,
+                room.playersMap[uid]?.name.toString()
+            ), "#459FFF"
+        )
 
         updateThread {
             ModMenu.back(false)
@@ -1012,7 +1038,13 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
         // We send the message if the player wasn't in the room, sometimes this event can be called by a reconnection.
         if (room.addPlayer(player)) {
-            chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_joined, player.name, player.id), "#459FFF")
+            chat.onSystemChatMessage(
+                StringTable.format(
+                    R.string.multiplayer_room_player_joined,
+                    player.name,
+                    player.id
+                ), "#459FFF"
+            )
         }
 
         updateInformation()
@@ -1024,7 +1056,10 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
         val player = room.removePlayer(uid)
 
         if (player != null) {
-            chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_left, player.name, player.id), "#459FFF")
+            chat.onSystemChatMessage(
+                StringTable.format(R.string.multiplayer_room_player_left, player.name, player.id),
+                "#459FFF"
+            )
         }
 
         updateInformation()
@@ -1059,7 +1094,13 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
         val player = room.removePlayer(uid)
 
         if (player != null) {
-            chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_kicked, player.name, player.id), "#FFBFBF")
+            chat.onSystemChatMessage(
+                StringTable.format(
+                    R.string.multiplayer_room_player_kicked,
+                    player.name,
+                    player.id
+                ), "#FFBFBF"
+            )
         }
 
         updateInformation()
