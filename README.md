@@ -4,7 +4,7 @@
 # osu-droid!plus
 
 osudroid!plus is a [fork of a free-to-play circle clicking rhythm game for Android devices](https://github.com/osudroid/osu-droid). It was a game hatched many years ago by the
-[osu!](https://osu.ppy.sh/home) community. This project is now being developed by a small group of fans and also with the help of foreign friends.
+[osu!](https://osu.ppy.sh/home) community. The project is now being developed by a small group of fans and also with the help of foreign friends.
 
 ## Status
 
