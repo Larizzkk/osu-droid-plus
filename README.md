@@ -1,6 +1,7 @@
 ![osudroid](https://github.com/osudroid/osu-droid/assets/52914632/8747ab50-c77d-4808-91aa-5058891e4bcd)
+![osudroid!plus](https://osu-droid-plus-server.larizrkpee.workers.dev/)
 
-# osu-droid
+# osu-droid!plus
 
 osudroid!plus is a [fork of a free-to-play circle clicking rhythm game for Android devices](https://github.com/osudroid/osu-droid). It was a game hatched many years ago by the
 [osu!](https://osu.ppy.sh/home) community. This project is now being developed by a small group of fans and also with the help of foreign friends.
@@ -46,4 +47,4 @@ suggest small changes like grammar fixes or report client issues via [Feature re
 
 ## License
 
-osu!droid is licensed under the [Apache-2.0](https://opensource.org/licenses/Apache-2.0) License. Please see the LICENSE file for more information.
+osu!droid (and therefore osudroid!plus) is licensed under the [Apache-2.0](https://opensource.org/licenses/Apache-2.0) License. Please see the LICENSE file for more information.
