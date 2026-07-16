@@ -1,24 +1,31 @@
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8" ?>
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:installLocation="auto">
+    android:installLocation="auto"
+>
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
     <uses-permission android:name="android.permission.READ_LOGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+    />
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+    />
 
     <application
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
+        android:hardwareAccelerated="true"
         android:largeHeap="true"
         android:isGame="true"
         android:appCategory="game"
@@ -26,21 +33,28 @@
         android:requestLegacyExternalStorage="true"
         android:resizeableActivity="false"
         android:name="ru.nsu.ccfit.zuev.audio.serviceAudio.SaveServiceObject"
-        tools:ignore="UnusedAttribute">
-        <service android:name="ru.nsu.ccfit.zuev.audio.serviceAudio.SongService" android:exported="false"/>
+        tools:ignore="UnusedAttribute"
+    >
+        <service
+            android:name="ru.nsu.ccfit.zuev.audio.serviceAudio.SongService"
+            android:exported="false"
+        />
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/notify_inso"/>
+            android:resource="@drawable/notify_inso"
+        />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
-            android:resource="@color/colorAccent"/>
+            android:resource="@color/colorAccent"
+        />
 
         <service
             android:name="ru.nsu.ccfit.zuev.push.PushNotificationService"
-            android:exported="false">
+            android:exported="false"
+        >
             <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
 
@@ -48,34 +62,37 @@
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileProvider"
             android:exported="false"
-            android:grantUriPermissions="true">
+            android:grantUriPermissions="true"
+        >
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/provider_paths"/>
+                android:resource="@xml/provider_paths"
+            />
         </provider>
 
         <activity
             android:name="com.edlplan.ui.ImportReplayActivity"
             android:label="@string/act_import_replay"
-            android:exported="true">
+            android:exported="true"
+        >
 
             <!-- firefox and file explorer -->
             <intent-filter>
-                <action
-                    android:name="android.intent.action.VIEW" />
-                <category
-                    android:name="android.intent.category.DEFAULT" />
-                <category
-                    android:name="android.intent.category.BROWSABLE" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:mimeType="application/zip"
-                    android:scheme="file" />
+                    android:scheme="file"
+                />
                 <data
                     android:mimeType="application/x-zip-compressed"
-                    android:scheme="file" />
+                    android:scheme="file"
+                />
                 <data
                     android:mimeType="application/octet-stream"
-                    android:scheme="file" />
+                    android:scheme="file"
+                />
             </intent-filter>
 
             <!-- qq -->
@@ -83,9 +100,8 @@
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="file"/>
-                <data
-                    android:pathPattern=".*\.edr" />
+                <data android:scheme="file" />
+                <data android:pathPattern=".*\.edr" />
             </intent-filter>
 
         </activity>
@@ -98,7 +114,8 @@
             android:screenOrientation="sensorLandscape"
             android:label="@string/app_name"
             android:exported="false"
-            tools:ignore="LockedOrientationActivity"/>
+            tools:ignore="LockedOrientationActivity"
+        />
 
         <activity
             android:name="ru.nsu.ccfit.zuev.osuplusplus.MainActivity"
@@ -109,7 +126,8 @@
             android:windowSoftInputMode="adjustPan"
             android:label="@string/app_name"
             android:exported="true"
-            tools:ignore="LockedOrientationActivity">
+            tools:ignore="LockedOrientationActivity"
+        >
 
             <!--Multiplayer invite link-->
             <intent-filter>
@@ -119,7 +137,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <!--We keep the scheme, so it can be treated as URL in other apps such as Discord-->
-                <data android:scheme="https" android:host="odmp"/>
+                <data android:scheme="https" android:host="odmp" />
             </intent-filter>
 
             <intent-filter>
@@ -130,31 +148,43 @@
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="file" android:host="*"
-                      android:mimeType="application/octet-stream" android:pathPattern=".*\\.osz"/>
-                <data android:scheme="file" android:host="*"
-                      android:mimeType="application/octet-stream" android:pathPattern=".*\\.zip"/>
-                <data android:scheme="file" android:host="*"
-                      android:mimeType="application/octet-stream" android:pathPattern=".*\\.odr"/>
+                <data
+                    android:scheme="file"
+                    android:host="*"
+                    android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\.osz"
+                />
+                <data
+                    android:scheme="file"
+                    android:host="*"
+                    android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\.zip"
+                />
+                <data
+                    android:scheme="file"
+                    android:host="*"
+                    android:mimeType="application/octet-stream"
+                    android:pathPattern=".*\\.odr"
+                />
             </intent-filter>
 
             <!-- firefox and file explorer -->
             <intent-filter>
-                <action
-                    android:name="android.intent.action.VIEW" />
-                <category
-                    android:name="android.intent.category.DEFAULT" />
-                <category
-                    android:name="android.intent.category.BROWSABLE" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:mimeType="application/zip"
-                    android:scheme="file" />
+                    android:scheme="file"
+                />
                 <data
                     android:mimeType="application/x-zip-compressed"
-                    android:scheme="file" />
+                    android:scheme="file"
+                />
                 <data
                     android:mimeType="application/octet-stream"
-                    android:scheme="file" />
+                    android:scheme="file"
+                />
             </intent-filter>
 
             <!-- qq -->
@@ -162,19 +192,17 @@
                 <action android:name="android.intent.action.VIEW" />
                 <action android:name="android.intent.action.EDIT" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="file"/>
-                <data
-                    android:pathPattern=".*\.osz" />
+                <data android:scheme="file" />
+                <data android:pathPattern=".*\.osz" />
             </intent-filter>
         </activity>
 
         <service
             android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
             android:enabled="false"
-            android:exported="false">
-            <meta-data
-                android:name="autoStoreLocales"
-                android:value="true" />
+            android:exported="false"
+        >
+            <meta-data android:name="autoStoreLocales" android:value="true" />
         </service>
 
     </application>

@@ -167,7 +167,7 @@ public class GenericController {
         
         // Common settings
         trailSystem.setTrailDensity(1.0f);
-        trailSystem.setTrailMaxLength(1000);
+        trailSystem.setTrailMaxLength((int) (ru.nsu.ccfit.zuev.osuplusplus.Config.getTrailLength() * 1000));
         trailSystem.setEnableTrailGlow(true);
     }
     

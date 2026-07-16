@@ -194,7 +194,7 @@ public class OnlinePanel extends Entity {
             String.format(
                 Locale.US,
                 "Performance: %,d DPP",
-                Math.round(OnlineManager.getInstance().getPP())
+                Math.round(OnlineManager.getInstance().getTotalDpp())
             )
         );
 

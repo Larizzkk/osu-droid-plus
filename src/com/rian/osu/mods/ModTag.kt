@@ -10,6 +10,8 @@ class ModTag : Mod() {
     override val type = ModType.Automation
     override val isValidForMultiplayer = false
     override val isValidForMultiplayerAsFreeMod = false
+    override val isRanked = true
+    override val scoreMultiplier = 1f
     override val incompatibleMods = super.incompatibleMods + arrayOf(
         ModRelax::class, ModAutopilot::class, ModAutoplay::class, ModPerfect::class, ModSuddenDeath::class
     )

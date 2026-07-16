@@ -1426,4 +1426,101 @@ public class GameplaySlider extends GameObject {
         return tmpPoint;
     }
 
+    /**
+     * Returns the start angle of the slider in radians.
+     * This is the direction from the first path segment.
+     * Mirrors danser-go's {@code GetStartAngleMod}.
+     */
+    public float getSliderStartAngleRad() {
+        if (path == null || path.anchorCount < 2) {
+            return 0f;
+        }
+        float dx = path.getX(1) - path.getX(0);
+        float dy = path.getY(1) - path.getY(0);
+        return Utils.direction(dx, dy);
+    }
+
+    /**
+     * Returns the end angle of the slider in radians.
+     * This is the direction of the last path segment.
+     * Mirrors danser-go's {@code GetEndAngleMod}.
+     */
+    public float getSliderEndAngleRad() {
+        if (path == null || path.anchorCount < 2) {
+            return 0f;
+        }
+        int last = path.anchorCount - 1;
+        float dx = path.getX(last) - path.getX(last - 1);
+        float dy = path.getY(last) - path.getY(last - 1);
+        return Utils.direction(dx, dy);
+    }
+
+    /**
+     * Returns the stacked position of the slider at the given absolute time (ms).
+     * This approximates danser-go's {@code GetStackedPositionAtMod(time, diff)}.
+     */
+    public PointF getStackedPositionAtTime(float timeMs) {
+        if (path == null || path.anchorCount < 2) {
+            return new PointF(position);
+        }
+
+        double durationMsDouble = beatmapSlider.getDuration();
+        if (durationMsDouble <= 0) {
+            return new PointF(position);
+        }
+        float durationMs = (float) durationMsDouble;
+
+        double startTimeDouble = beatmapSlider.startTime;
+        float t = (float) ((timeMs - startTimeDouble) / durationMs);
+        t = Math.max(0f, Math.min(1f, t));
+
+        int left = 0;
+        int right = path.anchorCount - 2;
+        float currentLength = t * path.getLength(path.anchorCount - 1);
+
+        while (left <= right) {
+            int pivot = left + ((right - left) >> 1);
+            float length = path.getLength(pivot);
+
+            if (length < currentLength) {
+                left = pivot + 1;
+            } else if (length > currentLength) {
+                right = pivot - 1;
+            } else {
+                break;
+            }
+        }
+
+        int index = Math.max(0, Math.min(left - 1, path.anchorCount - 2));
+        float segmentLength = path.getLength(index + 1) - path.getLength(index);
+
+        if (segmentLength <= 0) {
+            return new PointF(position.x + path.getX(index), position.y + path.getY(index));
+        }
+
+        float progress = (currentLength - path.getLength(index)) / segmentLength;
+        progress = Math.max(0f, Math.min(1f, progress));
+
+        float x = path.getX(index) + (path.getX(index + 1) - path.getX(index)) * progress;
+        float y = path.getY(index) + (path.getY(index + 1) - path.getY(index)) * progress;
+
+        return new PointF(position.x + x, position.y + y);
+    }
+
+    /**
+     * Returns the distance from this slider's stacked end position to the given point.
+     */
+    public float distanceToEnd(PointF target) {
+        PointF endPos = new PointF(pathEndPosition);
+        return Utils.distance(endPos, target);
+    }
+
+    /**
+     * Returns the distance from this slider's stacked start position to the given point.
+     */
+    public float distanceToStart(PointF target) {
+        return Utils.distance(position, target);
+    }
+
 }
+

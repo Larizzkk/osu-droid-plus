@@ -40,6 +40,9 @@ class FPSCounter(font: Font) : ChangeableText(
     private val averageFpsCalculationInterval = 0.25f
 
     fun updateFps(deltaTime: Float) {
+        // Guard against zero / near-zero delta (can happen during touch burst updates)
+        if (deltaTime <= 0f) return
+
         if (timeUntilNextAverageFpsCalculation <= 0) {
             timeUntilNextAverageFpsCalculation += averageFpsCalculationInterval
             averageFps = if (framesSinceLastAverageFpsCalculation == 0) 0f
@@ -62,11 +65,15 @@ class FPSCounter(font: Font) : ChangeableText(
 
     override fun onManagedUpdate(pSecondsElapsed: Float) {
         super.onManagedUpdate(pSecondsElapsed)
-        if (pSecondsElapsed > 10) return
+        if (pSecondsElapsed > 10 || pSecondsElapsed <= 0f) return
         timeSinceLastUpdate += pSecondsElapsed
         if (!forceUpdate && timeSinceLastUpdate < updateInterval) return
         forceUpdate = false
         timeSinceLastUpdate = 0f
+        // Guard against NaN from burst updates with zero delta
+        if (fps.isNaN() || fps.isInfinite()) {
+            fps = 0f; return
+        }
         val displayedFps = fps.roundToInt()
         if (!forceUpdate && displayedFps == lastDisplayedFps) return
         lastDisplayedFps = displayedFps

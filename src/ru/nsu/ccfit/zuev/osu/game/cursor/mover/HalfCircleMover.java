@@ -34,8 +34,9 @@ public class HalfCircleMover extends BaseMover implements CursorMover {
         Vector2f startV = new Vector2f(startPos);
         Vector2f endV = new Vector2f(endPos);
 
-        // StreamTrigger from config - default 100f means stream trigger is active
-        float streamTrigger = 100f;
+        // StreamTrigger from config - default -1f means stream trigger is disabled
+        // (matches danser-go default; -1 disables inversion-on-stream behavior)
+        float streamTrigger = -1f;
         // RadiusMultiplier from config - default 1.0f
         float radiusMultiplier = 1.0f;
 
@@ -56,7 +57,8 @@ public class HalfCircleMover extends BaseMover implements CursorMover {
     public PointF getPositionAt(float time) {
         if (curve == null) return null;
 
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         t = MUtils.clamp(t, 0, 1);
         return curve.pointAt(t).toPointF();
     }

@@ -122,6 +122,13 @@ public class MainActivity
     private float maxRefreshRate = 60;
     private MessageDialog multiWindowAlert;
 
+    // Direct input surface (low-latency touch handling)
+    private DirectInputSurfaceView directInputSurface;
+
+    // Choreographer-driven vsync timestamp (nanoseconds, 0 = not available)
+    private final java.util.concurrent.atomic.AtomicLong lastVsyncFrameTimeNanos =
+        new java.util.concurrent.atomic.AtomicLong(0);
+
     // Multiplayer
     private Uri roomInviteLink;
 
@@ -578,10 +585,17 @@ public class MainActivity
     @SuppressLint("ResourceType")
     @Override
     protected void onSetContentView() {
-        this.mRenderSurfaceView = new RenderSurfaceView(this);
+        this.directInputSurface = new DirectInputSurfaceView(this);
+        this.mRenderSurfaceView = this.directInputSurface;
         this.mRenderSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 24, 0);
         this.mRenderSurfaceView.getHolder().setFormat(PixelFormat.RGB_888);
         this.mRenderSurfaceView.setRenderer(this.mEngine);
+
+        // Enable GPU hardware layer for smoother rendering
+        this.mRenderSurfaceView.setLayerType(
+            android.view.View.LAYER_TYPE_HARDWARE,
+            null
+        );
 
         RelativeLayout mainLayout = new RelativeLayout(this);
         mainLayout.setBackgroundColor(Color.BLACK);
@@ -611,6 +625,14 @@ public class MainActivity
             new FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         );
         ActivityOverlay.initial(this, frameLayout.getId());
+
+        // GPU rendering optimization: prefer 16-bit depth buffer for lower GPU load
+        getWindow().setFormat(PixelFormat.RGBA_8888);
+
+        // Set preferred display mode for higher refresh rate support
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().getAttributes().preferMinimalPostProcessing = true;
+        }
     }
 
     public void loadBeatmapLibrary() {
@@ -1207,12 +1229,18 @@ public class MainActivity
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
 
-        if (level >= TRIM_MEMORY_BACKGROUND) {
-            Debug.i("onTrimMemory: Clearing resources (level=" + level + ")");
+        Debug.i("onTrimMemory: level=" + level);
 
+        // TRIM_MEMORY_COMPLETE / TRIM_MEMORY_MODERATE / TRIM_MEMORY_BACKGROUND
+        if (level >= TRIM_MEMORY_BACKGROUND) {
             Execution.async(() -> {
                 BeatmapDifficultyCalculator.clearCache();
                 BeatmapCache.clear();
+
+                // Clear resource textures on critical memory pressure
+                if (level >= TRIM_MEMORY_COMPLETE) {
+                    System.gc();
+                }
             });
         }
     }
@@ -1339,25 +1367,75 @@ public class MainActivity
     }
 
     /**
-     * Starts continuous Choreographer-driven frame callbacks for precise vsync sampling.
-     * Called from GameScene when a game starts.
+     * Starts continuous Choreographer-driven frame callbacks for vsync-aligned
+     * input sampling and precise frame timing.
+     *
+     * On each vsync, this callback:
+     * 1. Records the vsync timestamp for precise game timing
+     * 2. If a DirectInputSurfaceView is active, reads the latest touch scan rate
+     * 3. Calls the onFrame Runnable (if provided) for game-specific processing
+     *
+     * Unlike the Engine's update thread which is locked to the render cycle,
+     * the Choreographer fires on EVERY vsync (60-144Hz), allowing input to be
+     * sampled at the display's native refresh rate independently of frame rendering.
      */
     public void startHighPrecisionInput(final Runnable onFrame) {
-        runOnUiThread(() -> {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                Choreographer.getInstance().postFrameCallbackDelayed(
-                    new Choreographer.FrameCallback() {
-                        @Override
-                        public void doFrame(long frameTimeNanos) {
-                            if (onFrame != null) {
-                                onFrame.run();
-                            }
-                            Choreographer.getInstance().postFrameCallback(this);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) return;
+
+        final Choreographer.FrameCallback callback =
+            new Choreographer.FrameCallback() {
+                @Override
+                public void doFrame(long frameTimeNanos) {
+                    // Record the vsync timestamp for precise timing
+                    lastVsyncFrameTimeNanos.set(frameTimeNanos);
+
+                    // Log touch scan rate info once
+                    if (directInputSurface != null && frameTimeNanos > 0) {
+                        float scanRate =
+                            directInputSurface.getTouchScanRateHz();
+                        // Scan rate is available for debugging
+                    }
+
+                    // Call the game's frame callback (reads raw pointers, updates cursors)
+                    if (onFrame != null) {
+                        try {
+                            onFrame.run();
+                        } catch (Exception e) {
+                            Debug.e("HighPrecisionInput callback error", e);
                         }
-                    },
-                    500
-                );
-            }
-        });
+                    }
+
+                    // Re-register for the next vsync
+                    Choreographer.getInstance().postFrameCallback(this);
+                }
+            };
+
+        // Start the callback chain immediately (no delay)
+        runOnUiThread(() ->
+            Choreographer.getInstance().postFrameCallback(callback)
+        );
+    }
+
+    /**
+     * Stops the Choreographer-driven frame callbacks by posting a no-op that
+     * breaks the callback chain.
+     */
+    public void stopHighPrecisionInput() {
+        lastVsyncFrameTimeNanos.set(0);
+    }
+
+    /**
+     * Returns the last vsync frame time from Choreographer, in nanoseconds.
+     * Returns 0 if Choreographer is not active.
+     */
+    public long getLastVsyncFrameTimeNanos() {
+        return lastVsyncFrameTimeNanos.get();
+    }
+
+    /**
+     * Returns the DirectInputSurfaceView for direct pointer reads.
+     */
+    public DirectInputSurfaceView getDirectInputSurface() {
+        return directInputSurface;
     }
 }

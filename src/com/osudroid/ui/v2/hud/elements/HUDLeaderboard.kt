@@ -158,21 +158,23 @@ class HUDLeaderboard : HUDElement() {
                     // first sprite will always be shown so that's why the bound index is exclusive.
                     sprite.isVisible = i == 0 || i == playerPosition || isInBounds
 
-                    sprite.setPosition(0f, when {
+                    sprite.setPosition(
+                        0f, when {
 
-                        // First always on top
-                        i == 0 -> 0f
+                            // First always on top
+                            i == 0 -> 0f
 
-                        // Player always on bottom
-                        i == playerPosition -> maxY
+                            // Player always on bottom
+                            i == playerPosition -> maxY
 
-                        // Sprites outside the bounds will be placed at its respective limit, at this point this sprite
-                        // shouldn't be visible.
-                        !isInBounds -> if (i < minBound) 0f else maxY
+                            // Sprites outside the bounds will be placed at its respective limit, at this point this sprite
+                            // shouldn't be visible.
+                            !isInBounds -> if (i < minBound) 0f else maxY
 
-                        // Placing sprites respectively from maxY accounting for first sprite
-                        else -> maxY - SPRITE_HEIGHT * (playerPosition - i)
-                    })
+                            // Placing sprites respectively from maxY accounting for first sprite
+                            else -> maxY - SPRITE_HEIGHT * (playerPosition - i)
+                        }
+                    )
                     i++
                 }
             }
@@ -258,7 +260,8 @@ class HUDLeaderboard : HUDElement() {
     }
 
 
-    private inner class BoardItem(val data: ScoreBoardItem) : Sprite(0f, 0f, ResourceManager.getInstance().getTexture("menu-button-background")) {
+    private inner class BoardItem(val data: ScoreBoardItem) :
+        Sprite(0f, 0f, ResourceManager.getInstance().getTexture("menu-button-background")) {
 
         val info: ChangeableText
 

@@ -1,10 +1,12 @@
-<?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8" ?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/frg_background"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+>
 
     <EditText
         android:id="@+id/frg_body"
@@ -21,7 +23,8 @@
         android:ems="10"
         android:hint="@string/menu_search_filter"
         android:imeOptions="actionDone|flagNoFullscreen"
-        android:paddingVertical="16dp" />
+        android:paddingVertical="16dp"
+    />
 
     <LinearLayout
         android:id="@+id/options"
@@ -34,7 +37,8 @@
         android:backgroundTint="@color/colorPrimary"
         android:divider="@drawable/divider"
         android:orientation="horizontal"
-        android:showDividers="middle">
+        android:showDividers="middle"
+    >
 
         <CheckBox
             android:id="@+id/showFav"
@@ -45,7 +49,8 @@
             android:checked="false"
             android:drawableLeft="@drawable/search_favorite_checkbox"
             android:drawablePadding="0dp"
-            app:drawableTint="@color/checkbox" />
+            app:drawableTint="@color/checkbox"
+        />
 
         <Button
             android:id="@+id/algorithm_button"
@@ -54,7 +59,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="0"
             android:drawableLeft="@drawable/star_24px"
-            tools:text="osu!standard" />
+            tools:text="osu!standard"
+        />
 
         <Button
             android:id="@+id/sortButton"
@@ -63,7 +69,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="0"
             android:drawableLeft="@drawable/sort_24px"
-            tools:text="Sort" />
+            tools:text="Sort"
+        />
 
         <Button
             android:id="@+id/favFolder"
@@ -73,7 +80,21 @@
             android:layout_weight="0"
             android:drawableLeft="@drawable/folder_24px"
             android:paddingRight="24dp"
-            tools:text="Folder" />
+            tools:text="Folder"
+        />
+
+        <Button
+            android:id="@+id/settingsButton"
+            style="@style/button_borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:drawableLeft="@drawable/settings_24px"
+            android:drawableTint="#8C8CB4"
+            android:text="@string/menu_search_settings"
+            android:textColor="#8C8CB4"
+            tools:text="Settings"
+        />
 
     </LinearLayout>
 

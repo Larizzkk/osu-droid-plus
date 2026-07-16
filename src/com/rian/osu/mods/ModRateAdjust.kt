@@ -30,6 +30,7 @@ sealed class ModRateAdjust(trackRateMultiplier: Float = 1f) : Mod(), IModApplica
         get() = trackRateMultiplier != 1f
 
     final override val isValidForMultiplayerAsFreeMod = false
+    override val isRanked = true
 
     override val scoreMultiplier: Float
         get() = ModRateAdjustHelper(trackRateMultiplier).scoreMultiplier

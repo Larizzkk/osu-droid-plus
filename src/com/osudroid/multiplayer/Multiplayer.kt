@@ -295,4 +295,19 @@ object Multiplayer {
     fun flushLog() {
         logger.flush()
     }
+
+    @JvmStatic
+    fun copyMultiLog() {
+        try {
+            val logText = logger.flushAndGetLog()
+            if (logText.isNotEmpty()) {
+                val clipboard = GlobalManager.getInstance().getMainActivity().getSystemService(android.content.ClipboardManager::class.java)
+                val clip = android.content.ClipData.newPlainText("osu!droid+ Multiplayer Log", logText)
+                clipboard?.setPrimaryClip(clip)
+                log("Multiplayer log copied to clipboard.")
+            }
+        } catch (e: Exception) {
+            log("Failed to copy multiplayer log: ${e.message}")
+        }
+    }
 }

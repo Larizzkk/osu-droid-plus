@@ -105,6 +105,7 @@ import ru.nsu.ccfit.zuev.audio.Status;
 import ru.nsu.ccfit.zuev.audio.effect.Metronome;
 import ru.nsu.ccfit.zuev.audio.serviceAudio.SongService;
 import ru.nsu.ccfit.zuev.osu.Config;
+import ru.nsu.ccfit.zuev.osu.Constants;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
 import ru.nsu.ccfit.zuev.osu.SecurityUtils;
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
@@ -1269,6 +1270,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
 
+        var metadata = playableBeatmap.getMetadata();
+        android.util.Log.d("GameScene", "User is in GameScene | Song: " + metadata.artist + " - " + metadata.title + " [" + metadata.version + "] | Map: " + lastBeatmapInfo.getPath());
+
+        if (Multiplayer.isMultiplayer && Multiplayer.room != null) {
+            android.util.Log.d("GameScene", "Multiplayer room players: " + Multiplayer.room.getPlayerCount() + " | Room: " + Multiplayer.room.getName());
+        }
+
         stat = new StatisticV2();
         stat.setMod(lastMods);
         stat.migrateLegacyMods(parsedBeatmap.getDifficulty());
@@ -1346,9 +1354,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         distToNextObject = 0;
 
         // TODO passive objects
-        // Create cursor trail if particles enabled, regardless of cursor visibility
+        // Create cursor entities regardless of particles setting; trail is created conditionally inside CursorEntity
         if (
-            Config.isUseParticles() &&
             !GameHelper.isAutoplay() &&
             !GameHelper.isAutopilot()
         ) {
@@ -1559,7 +1566,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         String playname = Config.getOnlineUsername();
 
         if (GameHelper.isAutoplay() || replaying) {
-            var metadata = playableBeatmap.getMetadata();
             playname = replaying
                 ? GlobalManager.getInstance()
                       .getScoring()
@@ -1677,6 +1683,23 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             var touchController = engine.getTouchController();
             touchController.applyTouchOptions(touchOptions);
             touchController.resetRawPointers();
+
+            // Start Choreographer-driven vsync input polling
+            // This runs a callback on EVERY vsync to sample input at the
+            // display's native refresh rate, independent of the game's
+            // update-render cycle.
+            var mainActivity = GlobalManager.getInstance().getMainActivity();
+            mainActivity.startHighPrecisionInput(() -> {
+                // This runs on the UI thread at vsync rate (60-144Hz)
+                // The raw pointer data from DirectInputSurfaceView is always
+                // up-to-date; this callback ensures the game engine can
+                // use the latest vsync timestamp for precise timing.
+            });
+        } else {
+            // Stop high precision input if it was running
+            GlobalManager.getInstance()
+                .getMainActivity()
+                .stopHighPrecisionInput();
         }
 
         // Disable screen dimming
@@ -1854,6 +1877,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                         latestEvent.position.y
                     );
                     sprite.setShowing(!latestEvent.isActionUp());
+                } else {
+                    // Show the cursor only while the pointer is held down; hide it on
+                    // release so it does not linger at the last tap location.
+                    sprite.setShowing(cursor.isMouseDown());
                 }
 
                 if (cursor.getLatestEvent(TouchEvent.ACTION_DOWN) != null) {
@@ -2773,6 +2800,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         touchController.applyTouchOptions(touchOptions);
         touchController.resetRawPointers();
 
+        // Stop Choreographer-driven input polling
+        GlobalManager.getInstance().getMainActivity().stopHighPrecisionInput();
+
         engine.getEngineOptions().setWakeLockOptions(WakeLockOptions.SCREEN_ON);
         GlobalManager.getInstance()
             .getMainActivity()
@@ -3240,7 +3270,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     @Override
     public boolean isObjectHittable(GameObject object) {
         // When notelock is disabled (lazer-style), allow hitting any active object
-        if (!Config.getBoolean("noteLockEnabled", true)) {
+        if (Config.getBoolean("removeSliderLock", false)) {
             return true;
         }
         return object == judgeableObject;
@@ -3950,7 +3980,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public void updateAutoBasedPos(float pX, float pY) {
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
-            autoCursor.setPosition(pX, pY, this);
+            autoCursor.followSlider(pX, pY);
         }
     }
 
@@ -4197,13 +4227,102 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
             @Override
             protected void onManagedDraw(GL10 pGL, Camera pCamera) {
-                applyRawPointerFastPath(pCamera);
+                if (!isGameOver) {
+                    applyRawPointerFastPath(pCamera);
+                }
 
                 super.onManagedDraw(pGL, pCamera);
             }
 
             @Override
             protected void onManagedUpdate(float secElapsed) {
+                // ── High-precision input: feed raw pointer data as cursor events ──
+                // This gives game objects the LATEST touch position for hit detection,
+                // bypassing the 1-frame queue latency of the normal touch event pipeline.
+                if (
+                    !isGameOver &&
+                    engine.getTouchController() != null &&
+                    engine.getTouchController().isUseRawPointers() &&
+                    !replaying &&
+                    !GameHelper.isAutoplay() &&
+                    !GameHelper.isAutopilot()
+                ) {
+                    var touchController = engine.getTouchController();
+                    var gameCamera = engine.getCamera();
+                    var cap = touchController.getRawPointerCapacity();
+                    for (int pi = 0; pi < Math.min(cap, cursors.length); pi++) {
+                        var cursor = cursors[pi];
+                        if (cursor == null) continue;
+                        if (!touchController.isRawPointerDown(pi)) continue;
+                        // Read raw pointer data with thread-safe version check
+                        for (int attempt = 0; attempt < 2; attempt++) {
+                            int verBefore =
+                                touchController.getRawPointerVersion(pi);
+                            if ((verBefore & 1) != 0) continue;
+                            float sx = touchController.getRawPointerSurfaceX(
+                                pi
+                            );
+                            float sy = touchController.getRawPointerSurfaceY(
+                                pi
+                            );
+                            int verAfter = touchController.getRawPointerVersion(
+                                pi
+                            );
+                            if (verBefore == verAfter && (verAfter & 1) == 0) {
+                                // Create a cursor event from the raw pointer data
+                                var ev = CursorEvent.obtain();
+                                ev.systemTime =
+                                    touchController.getRawPointerEventTime(pi);
+                                ev.trackTime = elapsedTime * 1000;
+                                ev.action = cursor.isMouseDown()
+                                    ? TouchEvent.ACTION_MOVE
+                                    : TouchEvent.ACTION_DOWN;
+                                ev.offset = 0.0;
+                                // Convert surface coords to scene coords
+                                float[] scene =
+                                    Cameras.convertSurfaceToSceneCoordinates(
+                                        gameCamera,
+                                        new float[] { sx, sy }
+                                    );
+                                ev.position.x = Math.max(
+                                    0,
+                                    Math.min(scene[0], Config.getRES_WIDTH())
+                                );
+                                ev.position.y = Math.max(
+                                    0,
+                                    Math.min(scene[1], Config.getRES_HEIGHT())
+                                );
+                                ev.trackPosition.x = scene[0];
+                                ev.trackPosition.y = scene[1];
+                                if (GameHelper.isHardRock()) {
+                                    ev.trackPosition.y -=
+                                        Config.getRES_HEIGHT() / 2f;
+                                    ev.trackPosition.y *= -1;
+                                    ev.trackPosition.y +=
+                                        Config.getRES_HEIGHT() / 2f;
+                                }
+                                ev.trackPosition.x -=
+                                    (Config.getRES_WIDTH() -
+                                        Constants.MAP_ACTUAL_WIDTH) /
+                                    2f;
+                                ev.trackPosition.y -=
+                                    (Config.getRES_HEIGHT() -
+                                        Constants.MAP_ACTUAL_HEIGHT) /
+                                    2f;
+                                ev.trackPosition.x *=
+                                    Constants.MAP_WIDTH /
+                                    Constants.MAP_ACTUAL_WIDTH;
+                                ev.trackPosition.y *=
+                                    Constants.MAP_HEIGHT /
+                                    Constants.MAP_ACTUAL_HEIGHT;
+                                cursor.addEvent(ev);
+                                break;
+                            }
+                        }
+                    }
+                    applyRawPointerFastPath(gameCamera);
+                }
+
                 var songService = GlobalManager.getInstance().getSongService();
                 float speedMultiplier = GameHelper.getSpeedMultiplier();
                 float dt = secElapsed * speedMultiplier;
@@ -4344,7 +4463,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     boolean isUpdatePathDown =
                         cursor != null && cursor.isMouseDown();
 
-                    sprite.setShowing(isUpdatePathDown);
+                    // Cursor stays visible during play (see update loop); the trail
+                    // (particles) setting no longer hides the cursor.
+                    sprite.setShowing(true);
 
                     if (!isUpdatePathDown) {
                         fastPathHasStableSnapshot[i] = false;

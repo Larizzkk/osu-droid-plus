@@ -17,6 +17,10 @@ public class LinearMoverExact implements CursorMover {
     private boolean simple;
     private int id;
 
+    // Difficulty-derived values (defaults match danser-go; set via setDifficulty when wired)
+    private float preempt = 450f;
+    private float speed = 1.0f;
+
     // Movement state
     private Vector2f startPos;
     private Vector2f endPos;
@@ -51,28 +55,32 @@ public class LinearMoverExact implements CursorMover {
 
         if (simple) {
             // Simple mode logic exactly like danser-go
-            float preempt = 450f; // Default preempt time
-            float speed = 1f; // Default speed multiplier
-            float minDuration = preempt - 100f * speed;
+            float minDuration = this.preempt - 100f * this.speed;
 
             if (endTime - startTime < minDuration) {
                 this.startTime = endTime - minDuration;
             }
         } else {
             // Full mode logic exactly like danser-go
-            // In real implementation, this would use config.WaitForPreempt and config.ReactionTime
-            float preempt = 450f;
             float reactionTime = 100f;
-            float speed = 1f;
             boolean waitForPreempt = true; // Default from danser-go
 
             if (waitForPreempt) {
-                float minDuration = preempt - reactionTime * speed;
+                float minDuration = this.preempt - reactionTime * this.speed;
                 if (endTime - startTime < minDuration) {
                     this.startTime = endTime - minDuration;
                 }
             }
         }
+    }
+
+    /**
+     * Set difficulty-derived preempt/speed. Mirrors BaseMover.setDifficulty so a caller
+     * can inject real map difficulty instead of the 450/1.0 defaults.
+     */
+    public void setDifficulty(float preempt, float speed) {
+        this.preempt = preempt;
+        this.speed = speed;
     }
 
     @Override

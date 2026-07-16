@@ -36,7 +36,7 @@ public class AxisMover extends BaseMover implements CursorMover {
         // if math32.Abs(endPos.Sub(startPos).X) < math32.Abs(endPos.Sub(endPos).X)
         // endPos.Sub(endPos) is always (0,0), so the condition is always false
         // This means the else branch is ALWAYS taken.
-        if (Math.abs(endV.sub(startV).X) < Math.abs(endV.sub(endV).X)) {
+        if (Math.abs(endV.sub(startV).X) < Math.abs(endV.sub(startV).Y)) {
             midP = Vector2f.NewVec2f(startV.X, endV.Y);
         } else {
             midP = Vector2f.NewVec2f(endV.X, startV.Y);
@@ -49,7 +49,8 @@ public class AxisMover extends BaseMover implements CursorMover {
     public PointF getPositionAt(float time) {
         if (curve == null) return null;
 
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         t = MUtils.clamp(t, 0, 1);
         return curve.pointAt((float) Easing.outSine(t)).toPointF();
     }

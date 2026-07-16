@@ -1,14 +1,11 @@
 package ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail;
 
+import java.util.ArrayList;
+import java.util.List;
+import javax.microedition.khronos.opengles.GL10;
 import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.sprite.Sprite;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
-
-import javax.microedition.khronos.opengles.GL10;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorSprite;
@@ -23,6 +20,7 @@ import ru.nsu.ccfit.zuev.skins.OsuSkin;
  * - Memory efficient pooling
  */
 public class CursorTrailOptimized extends Entity {
+
     private final CursorSprite cursor;
     private final TextureRegion trailTexture;
 
@@ -44,12 +42,13 @@ public class CursorTrailOptimized extends Entity {
 
     // Performance optimization
     private static final float MIN_DISTANCE_BETWEEN_POINTS = 2f;
-    private static final int DEFAULT_MAX_POINTS = 100;
+    private static final int DEFAULT_MAX_POINTS = 500; // Increased from 100 to allow longer trails
 
     /**
      * Represents a single point in the trail with position and time
      */
     private static class TrailPoint {
+
         float x, y;
         long time;
         float alpha;
@@ -62,7 +61,10 @@ public class CursorTrailOptimized extends Entity {
         }
     }
 
-    public CursorTrailOptimized(TextureRegion trailTexture, CursorSprite cursor) {
+    public CursorTrailOptimized(
+        TextureRegion trailTexture,
+        CursorSprite cursor
+    ) {
         this.trailTexture = trailTexture;
         this.cursor = cursor;
         this.trailPoints = new ArrayList<>();
@@ -83,17 +85,22 @@ public class CursorTrailOptimized extends Entity {
     }
 
     private int calculateMaxPoints() {
-        // Calculate based on trail length and expected frame rate
         float fadeTimeMs = trailLength * 1000 * GameHelper.getSpeedMultiplier();
-        int fps = 60; // Target FPS
-        return Math.min(DEFAULT_MAX_POINTS, (int) (fadeTimeMs / (1000f / fps) * 1.5f));
+        int fps = 60;
+        return Math.min(
+            5000,
+            (int) ((fadeTimeMs / (1000f / fps)) * 1.5f)
+        );
     }
 
     private void preCreateSprites() {
         for (int i = 0; i < maxTrailPoints; i++) {
             Sprite sprite = new Sprite(0, 0, trailTexture);
             sprite.setVisible(false);
-            sprite.setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
+            sprite.setBlendFunction(
+                GL10.GL_SRC_ALPHA,
+                GL10.GL_ONE_MINUS_SRC_ALPHA
+            );
             trailSprites.add(sprite);
             attachChild(sprite);
         }
@@ -102,8 +109,8 @@ public class CursorTrailOptimized extends Entity {
     /**
      * Update trail with new cursor position
      */
-    public void updatePosition(float x, float y) {
-        currentTime += 16; // Assume ~60fps timing
+    public void updatePosition(float x, float y, float deltaTimeSeconds) {
+        currentTime += deltaTimeSeconds * 1000;
 
         if (isFirstMove) {
             lastX = x;
@@ -153,7 +160,9 @@ public class CursorTrailOptimized extends Entity {
     }
 
     private void updateTrailPoints() {
-        long fadeTimeMs = (long) (trailLength * 1000 * GameHelper.getSpeedMultiplier());
+        long fadeTimeMs = (long) (trailLength *
+            1000 *
+            GameHelper.getSpeedMultiplier());
 
         // Update alpha values and remove expired points
         for (int i = trailPoints.size() - 1; i >= 0; i--) {
@@ -163,7 +172,7 @@ public class CursorTrailOptimized extends Entity {
             if (age > fadeTimeMs) {
                 trailPoints.remove(i);
             } else {
-                float alpha = 1.0f - (age / (float) fadeTimeMs);
+                float alpha = 1.0f - age / (float) fadeTimeMs;
                 point.alpha = Math.max(0, Math.min(1, alpha));
             }
         }
@@ -174,7 +183,10 @@ public class CursorTrailOptimized extends Entity {
         while (trailSprites.size() < trailPoints.size()) {
             Sprite sprite = new Sprite(0, 0, trailTexture);
             sprite.setVisible(false);
-            sprite.setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
+            sprite.setBlendFunction(
+                GL10.GL_SRC_ALPHA,
+                GL10.GL_ONE_MINUS_SRC_ALPHA
+            );
             trailSprites.add(sprite);
             attachChild(sprite);
         }
@@ -215,6 +227,7 @@ public class CursorTrailOptimized extends Entity {
      */
     public void updateTrailLength() {
         this.trailLength = loadTrailLength();
+        this.maxTrailPoints = calculateMaxPoints();
         // Trail points will automatically adjust on next update
     }
 

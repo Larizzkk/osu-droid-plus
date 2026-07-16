@@ -2,6 +2,7 @@ package ru.nsu.ccfit.zuev.osuplusplus;
 
 import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 import ru.nsu.ccfit.zuev.osuplusplus.MainActivity;
+import ru.nsu.ccfit.zuev.osuplusplus.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.Config;
 
 import android.app.Activity;
@@ -248,6 +249,21 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
 
         final String crashReport = getCrashReport(context, ex);
 
+        // Auto-copy logs and crash report to clipboard
+        try {
+            StringBuilder fullLog = new StringBuilder();
+            fullLog.append(crashReport);
+            String toastLog = ToastLogger.getLogText();
+            if (!toastLog.isEmpty()) {
+                fullLog.append("\n\n--- ToastLogger Log ---\n").append(toastLog);
+            }
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) context.getSystemService(Activity.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("osu!droid+ Crash Log", fullLog.toString());
+            clipboard.setPrimaryClip(clip);
+        } catch (Exception e) {
+            Log.e("AppException", "Failed to copy log to clipboard", e);
+        }
+
         new Thread() {
             public void run() {
                 Looper.prepare();
@@ -255,7 +271,23 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
                 AlertDialog alert = new AlertDialog.Builder(context)
                     .setTitle(com.osudroid.resources.R.string.crash)
                     .setMessage(Log.getStackTraceString(ex))
-                    .setPositiveButton("Restart game", (dialog, which) -> {
+                    .setPositiveButton("Copy Log", (dialog, which) -> {
+                        try {
+                            StringBuilder fullLog = new StringBuilder();
+                            fullLog.append(Log.getStackTraceString(ex));
+                            String toastLog = ToastLogger.getLogText();
+                            if (!toastLog.isEmpty()) {
+                                fullLog.append("\n\n--- ToastLogger Log ---\n").append(toastLog);
+                            }
+                            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) context.getSystemService(Activity.CLIPBOARD_SERVICE);
+                            android.content.ClipData clip = android.content.ClipData.newPlainText("osu!droid+ Crash Log", fullLog.toString());
+                            clipboard.setPrimaryClip(clip);
+                            ToastLogger.showText("Log copied to clipboard.", false);
+                        } catch (Exception e) {
+                            ToastLogger.showText("Failed to copy log.", true);
+                        }
+                    })
+                    .setNeutralButton("Restart game", (dialog, which) -> {
                         Intent intent = new Intent(context, MainActivity.class);
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                         context.startActivity(intent);

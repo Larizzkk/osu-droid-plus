@@ -6,16 +6,15 @@ import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.curves.Bezi
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.mutils.MUtils;
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.vector.Vector2f;
 
-/**
- * Exact port of danser-go BezierMover
- * Based on https://github.com/wieku/danser-go/blob/master/app/dance/movers/bezier.go
- */
-public class BezierMover extends BaseMover implements CursorMover {
+public class BezierMover extends BaseMover implements SliderAwareMover {
 
     private Bezier curve;
     private Vector2f pt;
     private float previousSpeed;
     private float invert;
+
+    private float aggressiveness = 1.0f;
+    private float sliderAggressiveness = 1.0f;
 
     public BezierMover() {
         init();
@@ -34,52 +33,49 @@ public class BezierMover extends BaseMover implements CursorMover {
 
     @Override
     public void setMovement(PointF startPos, PointF endPos, float startTime, float endTime) {
-        this.startTime = startTime;
-        this.endTime = endTime;
+        setMovement(SliderMovementContext.of(startPos, endPos, startTime, endTime));
+    }
 
-        Vector2f startV = new Vector2f(startPos);
-        Vector2f endV = new Vector2f(endPos);
+    @Override
+    public void setMovement(SliderMovementContext ctx) {
+        this.startTime = ctx.startTime;
+        this.endTime = ctx.endTime;
 
+        Vector2f startV = new Vector2f(ctx.startPos);
+        Vector2f endV = new Vector2f(ctx.endPos);
+
+        float duration = Math.max(ctx.endTime - ctx.startTime, 1f);
         float dst = startV.dst(endV);
 
         if (previousSpeed < 0) {
-            previousSpeed = dst / (endTime - startTime);
+            previousSpeed = dst / duration;
         }
-
-        // In danser-go, these check start/end for ILongObject (slider) interface.
-        // We don't have access to objects, so always false (placeholders).
-        boolean ok1 = false;
-        boolean ok2 = false;
-
-        float genScale = previousSpeed;
-        float aggressiveness = 1.0f;
-        float sliderAggressiveness = 1.0f;
 
         Vector2f[] points;
 
         if (startV.equals(endV)) {
             points = new Vector2f[]{startV, endV};
-        } else if (ok1 && ok2) {
-            // Both are sliders (placeholder - never taken)
-            float endAngle = 0;
-            float startAngle = 0;
-            pt = Vector2f.NewVec2fRad(endAngle, dst * aggressiveness * sliderAggressiveness / 10f).add(startV);
-            Vector2f pt2 = Vector2f.NewVec2fRad(startAngle, dst * aggressiveness * sliderAggressiveness / 10f).add(endV);
-            points = new Vector2f[]{startV, pt, pt2, endV};
-        } else if (ok1) {
-            // Start is slider (placeholder - never taken)
-            float endAngle = 0;
-            Vector2f pt1 = Vector2f.NewVec2fRad(endAngle, dst * aggressiveness * sliderAggressiveness / 10f).add(startV);
-            pt = Vector2f.NewVec2fRad(endV.angleRV(pt), genScale * aggressiveness).add(endV);
-            points = new Vector2f[]{startV, pt1, pt, endV};
-        } else if (ok2) {
-            // End is slider (placeholder - never taken)
-            float startAngle = 0;
-            pt = Vector2f.NewVec2fRad(startV.angleRV(pt), genScale * aggressiveness).add(startV);
-            Vector2f pt1 = Vector2f.NewVec2fRad(startAngle, dst * aggressiveness * sliderAggressiveness / 10f).add(endV);
-            points = new Vector2f[]{startV, pt, pt1, endV};
+        } else if (ctx.startIsSlider && ctx.endIsSlider) {
+            Vector2f pt1 = Vector2f.NewVec2fRad(ctx.startAngle, ctx.startDistance * aggressiveness * sliderAggressiveness / 10f).add(startV);
+            Vector2f pt2 = Vector2f.NewVec2fRad(ctx.endAngle, ctx.endDistance * aggressiveness * sliderAggressiveness / 10f).add(endV);
+            points = new Vector2f[]{startV, pt1, pt2, endV};
+        } else if (ctx.startIsSlider) {
+            Vector2f pt1 = Vector2f.NewVec2fRad(ctx.startAngle, ctx.startDistance * aggressiveness * sliderAggressiveness / 10f).add(startV);
+            float angle = endV.angleRV(this.pt);
+            if (Float.isNaN(angle)) {
+                angle = 0;
+            }
+            this.pt = Vector2f.NewVec2fRad(angle, previousSpeed * aggressiveness).add(endV);
+            points = new Vector2f[]{startV, pt1, this.pt, endV};
+        } else if (ctx.endIsSlider) {
+            float angle = startV.angleRV(this.pt);
+            if (Float.isNaN(angle)) {
+                angle = 0;
+            }
+            this.pt = Vector2f.NewVec2fRad(angle, previousSpeed * aggressiveness).add(startV);
+            Vector2f pt2 = Vector2f.NewVec2fRad(ctx.endAngle, ctx.endDistance * aggressiveness * sliderAggressiveness / 10f).add(endV);
+            points = new Vector2f[]{startV, this.pt, pt2, endV};
         } else {
-            // Neither is slider
             float angle = startV.angleRV(pt);
             if (Float.isNaN(angle)) {
                 angle = 0;
@@ -89,14 +85,15 @@ public class BezierMover extends BaseMover implements CursorMover {
         }
 
         curve = new Bezier(points, false);
-        previousSpeed = (dst + 1.0f) / (endTime - startTime);
+        previousSpeed = (dst + 1.0f) / duration;
     }
 
     @Override
     public PointF getPositionAt(float time) {
         if (curve == null) return null;
 
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         t = MUtils.clamp(t, 0, 1);
         return curve.pointAt(t).toPointF();
     }
@@ -126,6 +123,5 @@ public class BezierMover extends BaseMover implements CursorMover {
 
     @Override
     public void setMultiPointMovement(PointF[] positions, float[] times, float startTime) {
-        // Handled by scheduler with consecutive setMovement calls
     }
 }

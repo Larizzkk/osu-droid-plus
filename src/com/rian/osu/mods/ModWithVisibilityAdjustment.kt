@@ -11,6 +11,8 @@ import kotlinx.coroutines.ensureActive
  * depending on the user's "increase first object visibility" setting.
  */
 sealed class ModWithVisibilityAdjustment : Mod(), IModApplicableToBeatmap {
+    override val isRanked = true
+    override val scoreMultiplier = 1f
     /**
      * The first adjustable [HitObject].
      */

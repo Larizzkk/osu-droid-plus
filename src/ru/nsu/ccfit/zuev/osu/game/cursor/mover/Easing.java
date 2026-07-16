@@ -151,24 +151,24 @@ public class Easing {
         return 0.5f * (p * p * ((s + 1f) * p + s) + 2f);
     }
     
-    // Elastic easing functions
+    // Elastic easing functions (exact port of danser-go)
     public static float inElastic(float t) {
         if (t == 0f || t == 1f) return t;
-        return -0.5f * (float) Math.pow(2f, 10f * (t - 1f)) * (float) Math.sin((t - 1.1f) * 5f * Math.PI);
+        return -(float) Math.pow(2f, 10f * (t - 1f)) * (float) Math.sin((t - 1.1f) * 5f * Math.PI);
     }
     
     public static float outElastic(float t) {
         if (t == 0f || t == 1f) return t;
-        return 0.5f * (float) Math.pow(2f, -10f * t) * (float) Math.sin((t - 0.1f) * 5f * Math.PI) + 1f;
+        return (float) Math.pow(2f, -10f * t) * (float) Math.sin((t - 0.1f) * 5f * Math.PI) + 1f;
     }
     
     public static float inOutElastic(float t) {
         if (t == 0f) return 0f;
         if (t == 1f) return 1f;
         if (t < 0.5f) {
-            return -0.5f * (float) Math.pow(2f, 20f * t - 10f) * (float) Math.sin((t - 0.1f) * 5f * Math.PI);
+            return -0.5f * (float) Math.pow(2f, 20f * t - 10f) * (float) Math.sin((20f * t - 11.125f) * Math.PI / 4.5f);
         }
-        return 0.5f * (float) Math.pow(2f, -20f * t + 10f) * (float) Math.sin((t - 0.1f) * 5f * Math.PI) + 1f;
+        return 0.5f * (float) Math.pow(2f, -20f * t + 10f) * (float) Math.sin((20f * t - 11.125f) * Math.PI / 4.5f) + 1f;
     }
     
     // Bounce easing functions

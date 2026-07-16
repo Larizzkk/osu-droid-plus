@@ -1840,7 +1840,8 @@ public class SongMenu
                 beatmapInfo.getTitle(),
                 beatmapInfo.getArtist(),
                 beatmapInfo.getVersion(),
-                beatmapInfo.getCreator()
+                beatmapInfo.getCreator(),
+                beatmapInfo.getSetId() != null && beatmapInfo.getSetId() > 0 ? beatmapInfo.getSetId().longValue() : null
             );
         } else {
             RoomAPI.changeBeatmap();

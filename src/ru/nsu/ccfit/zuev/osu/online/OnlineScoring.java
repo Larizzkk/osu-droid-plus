@@ -206,7 +206,7 @@ public class OnlineScoring {
                             mgr.getRank(),
                             mgr.getScore(),
                             mgr.getAccuracy(),
-                            mgr.getPP()
+                            mgr.getTotalDpp()
                         );
                         break;
                     }

@@ -209,7 +209,7 @@ public abstract class GameObject {
         }
 
         // Lazer-style: when notelock is disabled, allow hitting any time the cursor is on the object
-        if (!Config.getBoolean("noteLockEnabled", true)) {
+        if (Config.getBoolean("removeSliderLock", false)) {
             return true;
         }
 

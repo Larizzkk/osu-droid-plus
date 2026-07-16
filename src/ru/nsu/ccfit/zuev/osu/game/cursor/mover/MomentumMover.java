@@ -6,19 +6,13 @@ import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.curves.Bezi
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.mutils.MUtils;
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.vector.Vector2f;
 
-/**
- * Exact port of danser-go MomentumMover
- * Based on https://github.com/wieku/danser-go/blob/master/app/dance/movers/momentum.go
- * Adapted from https://github.com/TechnoJo4/osu/blob/master/osu.Game.Rulesets.Osu/Replays/Movers/MomentumMover.cs
- */
-public class MomentumMover extends BaseMover implements CursorMover {
+public class MomentumMover extends BaseMover implements SliderAwareMover {
 
     private Bezier curve;
     private Vector2f last;
     private boolean first;
     private boolean wasStream;
 
-    // Configuration defaults matching danser-go
     private float distanceMultOut = 1.0f;
     private float streamMult = 1.0f;
     private float distanceMult = 1.0f;
@@ -43,12 +37,10 @@ public class MomentumMover extends BaseMover implements CursorMover {
         wasStream = false;
     }
 
-    // Helper: same position check matching danser-go
     private boolean same(Vector2f p1, Vector2f p2) {
         return p1.equals(p2) || (skipStackAngles && Float.compare(p1.X, p2.X) == 0 && Float.compare(p1.Y, p2.Y) == 0);
     }
 
-    // Helper: normalize angle to [0, 2*PI)
     private static float anorm(float a) {
         float pi2 = 2f * (float) Math.PI;
         a = a % pi2;
@@ -56,7 +48,6 @@ public class MomentumMover extends BaseMover implements CursorMover {
         return a;
     }
 
-    // Helper: normalize angle to [-PI, PI]
     private static float anorm2(float a) {
         a = anorm(a);
         if (a > (float) Math.PI) {
@@ -67,21 +58,22 @@ public class MomentumMover extends BaseMover implements CursorMover {
 
     @Override
     public void setMovement(PointF startPos, PointF endPos, float startTime, float endTime) {
-        this.startTime = startTime;
-        this.endTime = endTime;
+        setMovement(SliderMovementContext.of(startPos, endPos, startTime, endTime));
+    }
 
-        Vector2f startV = new Vector2f(startPos);
-        Vector2f endV = new Vector2f(endPos);
+    @Override
+    public void setMovement(SliderMovementContext ctx) {
+        this.startTime = ctx.startTime;
+        this.endTime = ctx.endTime;
+
+        Vector2f startV = new Vector2f(ctx.startPos);
+        Vector2f endV = new Vector2f(ctx.endPos);
 
         float dst = startV.dst(endV);
 
-        // In danser-go, this iterates through future objects to find the exit angle (a2).
-        // Since we don't have them, use last.angleRV(startV) like danser-go does
-        // when iterating through all objects and finding no ILongObject/non-same positions.
         float a2 = last.angleRV(startV);
-        boolean fromLong = false; // Placeholder: never a slider
+        boolean fromLong = ctx.startIsSlider;
 
-        // Stream detection (simplified from danser-go which looks at next next object)
         boolean stream = false;
         if (!fromLong && streamRestrict) {
             float min = 25.0f;
@@ -89,17 +81,17 @@ public class MomentumMover extends BaseMover implements CursorMover {
 
             float sq1 = startV.dstSq(endV);
 
-            if (sq1 >= min && sq1 <= max && (wasStream || (sq1 >= min && sq1 <= max))) {
+            if (sq1 >= min && sq1 <= max && wasStream) {
                 stream = true;
             }
         }
 
         wasStream = stream;
 
-        // Angle computation for start control point (a1)
         float a1;
-        // Placeholder: danser-go checks for start ILongObject
-        if (first) {
+        if (ctx.startIsSlider) {
+            a1 = ctx.startAngle;
+        } else if (first) {
             a1 = a2 + (float) Math.PI;
         } else {
             a1 = startV.angleRV(last);
@@ -107,7 +99,6 @@ public class MomentumMover extends BaseMover implements CursorMover {
 
         float mult = distanceMultOut;
 
-        // Angle restriction logic
         float ac = a2 - endV.angleRV(startV);
         float area = restrictArea * (float) Math.PI / 180.0f;
 
@@ -129,13 +120,9 @@ public class MomentumMover extends BaseMover implements CursorMover {
                 a2 = a - offset;
             }
             mult = distanceMult;
-        } else {
-            // danser-go does r = sq1/(sq1+sq2) with next object, but we don't have it
-            // Just use the angle as-is
         }
 
-        // Duration trigger
-        float duration = endTime - startTime;
+        float duration = ctx.endTime - ctx.startTime;
         if (durationTrigger > 0 && duration >= durationTrigger) {
             mult *= durationMult * (duration / durationTrigger);
         }
@@ -157,7 +144,8 @@ public class MomentumMover extends BaseMover implements CursorMover {
     public PointF getPositionAt(float time) {
         if (curve == null) return null;
 
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         t = MUtils.clamp(t, 0, 1);
         return curve.pointAt(t).toPointF();
     }
@@ -187,6 +175,5 @@ public class MomentumMover extends BaseMover implements CursorMover {
 
     @Override
     public void setMultiPointMovement(PointF[] positions, float[] times, float startTime) {
-        // Handled by scheduler with consecutive setMovement calls
     }
 }

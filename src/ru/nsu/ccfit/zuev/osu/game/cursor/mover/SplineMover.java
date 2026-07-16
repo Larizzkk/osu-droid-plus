@@ -12,18 +12,8 @@ import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.vector.Vect
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Exact port of danser-go SplineMover
- * Based on https://github.com/wieku/danser-go/blob/master/app/dance/movers/spline.go
- *
- * Note: danser-go's SplineMover processes MULTIPLE objects at once (stream handling with
- * wobble, half-circle, and rotational force). The setMovement interface gives us 2 points
- * at a time, so the stream detection parts of the algorithm only activate with 3+ accumulated
- * objects (via setMultiPointMovement or manual accumulation).
- */
-public class SplineMover extends BaseMover implements CursorMover {
+public class SplineMover extends BaseMover implements SliderAwareMover {
 
-    // Stream detection constants from danser-go
     private static final float STREAM_ENTRY_MIN = 25f;
     private static final float STREAM_ENTRY_MAX = 4000f;
     private static final float STREAM_ESCAPE = 8000f;
@@ -31,15 +21,17 @@ public class SplineMover extends BaseMover implements CursorMover {
     private Spline spline;
     private Vector2f lastStartPos;
 
-    // Stream state (persistent across calls like danser-go)
     private float angle = 0;
     private boolean stream = false;
 
-    // Accumulated points/timings for multi-object processing
+    private boolean rotationalForce = false;
+    private boolean streamWobble = false;
+    private boolean streamHalfCircle = false;
+    private float wobbleScale = 1.0f;
+
     private List<Vector2f> accumulatedPoints = new ArrayList<>();
     private List<Float> accumulatedTimings = new ArrayList<>();
 
-    // For hit-through in update (danser-go keeps objects list)
     private float lastTime = Float.NEGATIVE_INFINITY;
 
     public SplineMover() {
@@ -49,12 +41,9 @@ public class SplineMover extends BaseMover implements CursorMover {
         this.id = id;
     }
 
-    /**
-     * Process a batch of points using the full danser-go SplineMover algorithm.
-     * This mirrors SetObjects in danser-go but with resolved positions.
-     */
-    private void processBatch(List<Vector2f> points, List<Float> timings) {
-        // Build the timing and point arrays like danser-go
+    private void processBatch(List<Vector2f> points, List<Float> timings,
+                              boolean firstIsSlider, float firstAngle,
+                              boolean lastIsSlider, float lastAngle) {
         List<Vector2f> splinePoints = new ArrayList<>();
         List<Float> splineTiming = new ArrayList<>();
 
@@ -63,15 +52,15 @@ public class SplineMover extends BaseMover implements CursorMover {
 
         for (int i = 0; i < points.size(); i++) {
             if (i == 0) {
-                // First object - just store start point and control point
                 Vector2f cEnd = points.get(i);
                 Vector2f nStart = points.get(i + 1);
 
                 Vector2f wPoint;
-
-                // Placeholder: danser-go checks for ILongObject here
-                // Using the "default" branch (not a slider)
-                wPoint = cEnd.lerp(nStart, 0.333f);
+                if (firstIsSlider) {
+                    wPoint = cEnd.add(Vector2f.NewVec2fRad(firstAngle, cEnd.dst(nStart) * 0.7f));
+                } else {
+                    wPoint = cEnd.lerp(nStart, 0.333f);
+                }
 
                 splinePoints.add(cEnd);
                 splinePoints.add(wPoint);
@@ -82,18 +71,19 @@ public class SplineMover extends BaseMover implements CursorMover {
                 continue;
             }
 
-            // Check if this is the last object (or a slider - placeholder: never slider)
             boolean isLast = (i == points.size() - 1);
-            boolean isLongObject = false; // Placeholder: never a slider
+            boolean isLongObject = lastIsSlider && isLast;
 
             if (isLongObject || isLast) {
                 Vector2f pEnd = points.get(i - 1);
                 Vector2f cStart = points.get(i);
 
                 Vector2f wPoint;
-
-                // Placeholder: danser-go checks for ILongObject here
-                wPoint = cStart.lerp(pEnd, 0.333f);
+                if (isLongObject) {
+                    wPoint = cStart.add(Vector2f.NewVec2fRad(lastAngle, cStart.dst(pEnd) * 0.7f));
+                } else {
+                    wPoint = cStart.lerp(pEnd, 0.333f);
+                }
 
                 splinePoints.add(wPoint);
                 splinePoints.add(cStart);
@@ -103,7 +93,6 @@ public class SplineMover extends BaseMover implements CursorMover {
 
                 break;
             } else if (i > 1 && i < points.size() - 1) {
-                // Intermediate objects - stream detection
                 Vector2f pos1 = points.get(i - 1);
                 Vector2f pos2 = points.get(i);
                 Vector2f pos3 = points.get(i + 1);
@@ -116,13 +105,6 @@ public class SplineMover extends BaseMover implements CursorMover {
 
                 float sq1 = pos1.dstSq(pos2);
                 float sq2 = pos2.dstSq(pos3);
-
-                // Rotational force (config.RotationalForce - placeholder, disabled)
-                boolean rotationalForce = false;
-
-                // StreamWobble and StreamHalfCircle (config - placeholder, disabled)
-                boolean streamWobble = false;
-                boolean streamHalfCircle = false;
 
                 if (sq1 > maxV && sq2 > maxV && rotationalForce) {
                     if (stream) {
@@ -165,7 +147,7 @@ public class SplineMover extends BaseMover implements CursorMover {
 
                     float scale = 1.0f;
                     if (stream && !streamHalfCircle) {
-                        scale = 1.0f; // config.WobbleScale placeholder
+                        scale = wobbleScale;
                     }
 
                     if (stream && streamHalfCircle) {
@@ -191,11 +173,9 @@ public class SplineMover extends BaseMover implements CursorMover {
             splineTiming.add(timings.get(i));
         }
 
-        // Solve B-spline with points
         Vector2f[] pointsArray = splinePoints.toArray(new Vector2f[0]);
 
         if (pointsArray.length < 4) {
-            // Fallback for insufficient points
             spline = null;
             return;
         }
@@ -213,12 +193,10 @@ public class SplineMover extends BaseMover implements CursorMover {
 
             if (j < timeDiff.size() && timeDiff.get(j) > 600) {
                 float scl = timeDiff.get(j) / 2f;
-                // getPoints() returns a clone, so we modify the clone and create a new Bezier
                 Vector2f[] bp = b.getPoints();
                 if (bp.length >= 4) {
                     bp[1] = bp[0].add(bp[1].sub(bp[0]).nor().scl(scl));
                     bp[2] = bp[3].add(bp[2].sub(bp[3]).nor().scl(scl));
-                    // Create new Bezier with modified points (matches NewBezierNA)
                     bezierCurves.add(new Bezier(bp, false));
                     continue;
                 }
@@ -227,13 +205,11 @@ public class SplineMover extends BaseMover implements CursorMover {
             bezierCurves.add(b);
         }
 
-        // Create weights array for weighted spline
         float[] weights = new float[timeDiff.size()];
         for (int j = 0; j < timeDiff.size(); j++) {
             weights[j] = timeDiff.get(j) > 0 ? timeDiff.get(j) : 1f;
         }
 
-        // Adjust weights to match number of beziers
         if (weights.length != bezierCurves.size()) {
             weights = new float[bezierCurves.size()];
             for (int j = 0; j < weights.length; j++) {
@@ -246,26 +222,31 @@ public class SplineMover extends BaseMover implements CursorMover {
 
     @Override
     public void setMovement(PointF startPos, PointF endPos, float startTime, float endTime) {
-        this.startTime = startTime;
-        this.endTime = endTime;
+        setMovement(SliderMovementContext.of(startPos, endPos, startTime, endTime));
+    }
 
-        Vector2f startV = new Vector2f(startPos);
-        Vector2f endV = new Vector2f(endPos);
+    @Override
+    public void setMovement(SliderMovementContext ctx) {
+        this.startTime = ctx.startTime;
+        this.endTime = ctx.endTime;
 
-        // Reset accumulated state for a new batch
+        Vector2f startV = new Vector2f(ctx.startPos);
+        Vector2f endV = new Vector2f(ctx.endPos);
+
         accumulatedPoints.clear();
         accumulatedTimings.clear();
 
-        // The minimal case: 2 objects, neither is a slider, no stream
         List<Vector2f> points = new ArrayList<>();
         List<Float> timings = new ArrayList<>();
 
         points.add(startV);
         points.add(endV);
-        timings.add(startTime);
-        timings.add(endTime);
+        timings.add(ctx.startTime);
+        timings.add(ctx.endTime);
 
-        processBatch(points, timings);
+        processBatch(points, timings,
+                ctx.startIsSlider, ctx.startAngle,
+                ctx.endIsSlider, ctx.endAngle);
 
         lastStartPos = startV;
     }
@@ -274,7 +255,8 @@ public class SplineMover extends BaseMover implements CursorMover {
     public PointF getPositionAt(float time) {
         if (spline == null) return null;
 
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         t = MUtils.clamp(t, 0, 1);
         return spline.pointAt(t).toPointF();
     }
@@ -314,14 +296,13 @@ public class SplineMover extends BaseMover implements CursorMover {
         accumulatedPoints.clear();
         accumulatedTimings.clear();
 
-        // Accumulate all positions as Vector2f
         for (int i = 0; i < positions.length; i++) {
             accumulatedPoints.add(new Vector2f(positions[i]));
             accumulatedTimings.add(times[i]);
         }
 
-        // Process with the full Go algorithm
-        processBatch(accumulatedPoints, accumulatedTimings);
+        processBatch(accumulatedPoints, accumulatedTimings,
+                false, 0f, false, 0f);
 
         this.startTime = times[0];
         this.endTime = times[times.length - 1];

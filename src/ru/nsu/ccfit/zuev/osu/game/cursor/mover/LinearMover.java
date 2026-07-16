@@ -13,13 +13,17 @@ import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.curves.Line
 public class LinearMover extends BaseMover implements CursorMover {
 
     private LinearCurve line;
+    private boolean simple;
 
     public LinearMover() {}
 
-    public LinearMover(boolean simple) {}
+    public LinearMover(boolean simple) {
+        this.simple = simple;
+    }
 
     public LinearMover(boolean simple, int id) {
         this.id = id;
+        this.simple = simple;
     }
 
     @Override
@@ -32,10 +36,11 @@ public class LinearMover extends BaseMover implements CursorMover {
 
         this.line = new LinearCurve(vStart, vEnd);
 
-        // Adjust timing for more natural movement
-        float preempt = 600f; // Default preempt time
-        float speed = 1.0f;
-        adjustStartTime(preempt, speed);
+        if (simple) {
+            this.startTime = Math.max(this.startTime, this.endTime - (preempt - 100f * speed));
+        } else {
+            adjustStartTime(preempt, speed);
+        }
     }
 
     @Override
@@ -47,7 +52,8 @@ public class LinearMover extends BaseMover implements CursorMover {
     public PointF getPositionAt(float time) {
         if (line == null) return null;
 
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         // Clamp to [0, 1] to match danser-go behavior
         t = Math.max(0, Math.min(1, t));
         // Apply OutQuad easing like in danser-go

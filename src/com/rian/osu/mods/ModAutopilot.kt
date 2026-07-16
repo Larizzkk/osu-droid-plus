@@ -10,6 +10,7 @@ class ModAutopilot : Mod() {
     override val type = ModType.Automation
     override val iconTextureNameSuffix = "relax2"
     override val scoreMultiplier = 1e-3f
+    override val isRanked = true
     override val incompatibleMods = super.incompatibleMods + arrayOf(
         ModRelax::class, ModAutoplay::class, ModNoFail::class
     )

@@ -56,6 +56,7 @@ public class OnlineManager {
     private long score = 0;
     private float accuracy = 0;
     private float pp = 0;
+    private float totalDpp = 0;
     private String avatarURL = "";
     private int mapRank;
     private String profileBannerURL;
@@ -201,6 +202,9 @@ public class OnlineManager {
         rank = Integer.parseInt(params[2]);
         score = Long.parseLong(params[3]);
         pp = Float.parseFloat(params[4]);
+        // login.php returns cumulative DPP in params[4]; surface it so the
+        // profile card (getTotalDpp) shows the real value instead of 0.
+        totalDpp = pp;
         accuracy = Float.parseFloat(params[5]);
         this.username = params[6];
         if (params.length >= 8) {
@@ -289,6 +293,10 @@ public class OnlineManager {
         rank = Integer.parseInt(params[0]);
         score = Long.parseLong(params[1]);
         pp = Float.parseFloat(params[4]);
+        // params[5] = total DPP (cumulative), optional
+        if (params.length >= 6) {
+            totalDpp = Float.parseFloat(params[5]);
+        }
 
         return true;
     }
@@ -520,6 +528,10 @@ public class OnlineManager {
 
     public float getPP() {
         return pp;
+    }
+
+    public float getTotalDpp() {
+        return totalDpp;
     }
 
     public float getAccuracy() {

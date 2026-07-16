@@ -24,11 +24,9 @@ public class PippiMover extends BaseMover implements CursorMover {
     private float rotationSpeed = 1.0f;
     private float radiusMultiplier = 1.0f;
     private float spinnerRadius = 50f;
-    private float circleRadius = 64f; // Default circle radius
 
-    // Preempt from difficulty (defaults)
-    private float preempt = 1200f;
-    private float speed = 1.0f;
+    // circleRadius, preempt and speed are inherited from BaseMover (set via setDifficulty);
+    // defaults match danser-go (64, 450, 1.0) and are overridden by map difficulty when wired.
 
     public PippiMover() {
     }
@@ -119,7 +117,8 @@ public class PippiMover extends BaseMover implements CursorMover {
         if (curve == null) return null;
 
         // Danser-go uses OutQuad easing on t
-        float t = (time - startTime) / (endTime - startTime);
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
         t = MUtils.clamp(t, 0, 1);
         return curve.pointAt((float) Easing.outQuad(t)).toPointF();
     }

@@ -2,14 +2,14 @@ package ru.nsu.ccfit.zuev.osu.game.cursor.main;
 
 import com.edlplan.framework.easing.Easing;
 import com.reco1l.andengine.modifier.Modifiers;
-
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.game.GameObject;
 import ru.nsu.ccfit.zuev.osu.game.GameObjectListener;
-import ru.nsu.ccfit.zuev.osu.game.ISliderListener;
 import ru.nsu.ccfit.zuev.osu.game.GameplaySpinner;
+import ru.nsu.ccfit.zuev.osu.game.ISliderListener;
 
 public class AutoCursor extends CursorEntity implements ISliderListener {
+
     /**
      * The ID of the object that the cursor is currently active on.
      */
@@ -17,16 +17,26 @@ public class AutoCursor extends CursorEntity implements ISliderListener {
 
     public AutoCursor() {
         super();
-        this.setPosition(Config.getRES_WIDTH() / 2f, Config.getRES_HEIGHT() / 2f);
+        this.setPosition(
+            Config.getRES_WIDTH() / 2f,
+            Config.getRES_HEIGHT() / 2f
+        );
         this.setShowing(true);
     }
 
     private void doEasingAutoMove(float pX, float pY, float durationS) {
         clearEntityModifiers();
-        registerEntityModifier(Modifiers.move(durationS, getX(), pX, getY(), pY, null, Easing.Out));
+        registerEntityModifier(
+            Modifiers.move(durationS, getX(), pX, getY(), pY, null, Easing.Out)
+        );
     }
 
-    private void doAutoMove(float pX, float pY, float durationS, GameObjectListener listener) {
+    private void doAutoMove(
+        float pX,
+        float pY,
+        float durationS,
+        GameObjectListener listener
+    ) {
         if (durationS <= 0) {
             setPosition(pX, pY, listener);
             click();
@@ -55,7 +65,11 @@ public class AutoCursor extends CursorEntity implements ISliderListener {
      * @param secPassed    The amount of seconds that have passed since the game has started.
      * @param listener     The listener that listens to when this cursor is moved.
      */
-    public void moveToObject(GameObject object, float secPassed, GameObjectListener listener) {
+    public void moveToObject(
+        GameObject object,
+        float secPassed,
+        GameObjectListener listener
+    ) {
         if (object == null || currentObjectId == object.getId()) {
             return;
         }

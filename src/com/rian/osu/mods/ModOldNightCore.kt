@@ -29,4 +29,5 @@ class ModOldNightCore : ModNightCore() {
 
     // Force the score multiplier to be 1.12x, as it was the value used in the old versions (due to 1.5x rate).
     override val scoreMultiplier = 1.12f
+    override val isRanked = true
 }

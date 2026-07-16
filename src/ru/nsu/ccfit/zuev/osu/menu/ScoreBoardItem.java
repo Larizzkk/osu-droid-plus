@@ -2,27 +2,31 @@ package ru.nsu.ccfit.zuev.osu.menu;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import com.osudroid.multiplayer.api.data.WinCondition;
 import com.osudroid.multiplayer.Multiplayer;
-import org.json.JSONObject;
-
+import com.osudroid.multiplayer.api.data.WinCondition;
 import java.text.NumberFormat;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.Objects;
+import org.json.JSONObject;
 
 public class ScoreBoardItem implements Cloneable {
 
-    private static final NumberFormat NUMBER_FORMAT = NumberFormat.getNumberInstance(Locale.US);
-
+    private static final NumberFormat NUMBER_FORMAT =
+        NumberFormat.getNumberInstance(Locale.US);
 
     private static final StringBuilder accSb = new StringBuilder();
-    private static final Formatter DECIMAL_FORMAT = new Formatter(accSb, Locale.ENGLISH);
-
+    private static final Formatter DECIMAL_FORMAT = new Formatter(
+        accSb,
+        Locale.ENGLISH
+    );
 
     public String userName;
     public int playScore;
     public int scoreId;
+    public int pp;
+    public String grade = "";
+    public String avatarUrl = "";
 
     /**
      * The rank position in the leaderboard.
@@ -45,17 +49,21 @@ public class ScoreBoardItem implements Cloneable {
      */
     public boolean isAlive = true;
 
-
     public ScoreBoardItem() {}
 
-    public ScoreBoardItem(String userName, int playScore, int maxCombo, float accuracy, boolean isAlive) {
+    public ScoreBoardItem(
+        String userName,
+        int playScore,
+        int maxCombo,
+        float accuracy,
+        boolean isAlive
+    ) {
         this.userName = userName;
         this.playScore = playScore;
         this.maxCombo = maxCombo;
         this.accuracy = accuracy;
         this.isAlive = isAlive;
     }
-
 
     public void set(int rankPos, String name, int combo, int score, int id) {
         rank = rankPos;
@@ -65,16 +73,17 @@ public class ScoreBoardItem implements Cloneable {
         scoreId = id;
     }
 
-
     public String get() {
         var text = userName + "\n" + NUMBER_FORMAT.format(playScore) + "\n";
 
         //noinspection DataFlowIssue
-        if (Multiplayer.isConnected() && Multiplayer.room.getWinCondition() == WinCondition.HighestAccuracy) {
+        if (
+            Multiplayer.isConnected() &&
+            Multiplayer.room.getWinCondition() == WinCondition.HighestAccuracy
+        ) {
             accSb.setLength(0);
             text += DECIMAL_FORMAT.format("%2.2f%%", accuracy * 100f);
-        } else
-            text += NUMBER_FORMAT.format(maxCombo) + "x";
+        } else text += NUMBER_FORMAT.format(maxCombo) + "x";
 
         return text;
     }
@@ -83,35 +92,35 @@ public class ScoreBoardItem implements Cloneable {
      * Converts the item into a JSONObject, it is used specifically for Multiplayer.
      */
     public JSONObject toJson() {
-        return new JSONObject() {{
-            try {
-                put("accuracy", accuracy);
-                put("score", playScore);
-                put("combo", maxCombo);
-                put("isAlive", isAlive);
-            } catch (Exception e) {
-                Multiplayer.log(e);
+        return new JSONObject() {
+            {
+                try {
+                    put("accuracy", accuracy);
+                    put("score", playScore);
+                    put("combo", maxCombo);
+                    put("isAlive", isAlive);
+                } catch (Exception e) {
+                    Multiplayer.log(e);
+                }
             }
-        }};
+        };
     }
 
-
     @Override
-    public boolean equals(@Nullable Object o)
-    {
-        if (o == this)
-            return true;
+    public boolean equals(@Nullable Object o) {
+        if (o == this) return true;
 
-        if (!(o instanceof ScoreBoardItem))
-            return false;
+        if (!(o instanceof ScoreBoardItem)) return false;
 
         var other = (ScoreBoardItem) o;
 
-        return Objects.equals(other.userName, userName)
-                && other.playScore == playScore
-                && other.maxCombo == maxCombo
-                && other.accuracy == accuracy
-                && other.isAlive == isAlive;
+        return (
+            Objects.equals(other.userName, userName) &&
+            other.playScore == playScore &&
+            other.maxCombo == maxCombo &&
+            other.accuracy == accuracy &&
+            other.isAlive == isAlive
+        );
     }
 
     @NonNull

@@ -218,6 +218,15 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
                 difficultyAlgorithmButton.text = "osu!standard"
             }
 
+            val settingsButton = findViewById<Button>(R.id.settingsButton)!!
+            settingsButton.setOnClickListener {
+                filter.clearFocus()
+                context?.getSystemService<InputMethodManager>()
+                    ?.hideSoftInputFromWindow(filter.windowToken, 0)
+                hideMenu()
+                com.osudroid.ui.v1.SettingsFragment().show()
+            }
+
         }
     }
 
@@ -334,4 +343,3 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
         fun restoreState() = Triple(folder, favOnly, filter)
     }
 }
-

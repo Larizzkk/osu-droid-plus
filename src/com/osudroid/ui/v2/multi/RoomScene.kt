@@ -3,6 +3,8 @@ package com.osudroid.ui.v2.multi
 import com.osudroid.BuildSettings
 import com.osudroid.beatmaplisting.BeatmapDownloader
 import com.osudroid.beatmaplisting.BeatmapListing
+import com.osudroid.beatmaplisting.BeatmapMirrorSearchRequestModel.OrderType
+import com.osudroid.beatmaplisting.BeatmapMirrorSearchRequestModel.SortType
 import com.osudroid.multiplayer.Multiplayer
 import com.osudroid.multiplayer.api.IPlayerEventListener
 import com.osudroid.multiplayer.api.IRoomEventListener
@@ -22,6 +24,7 @@ import com.osudroid.ui.v2.GameLoaderScene
 import com.osudroid.ui.v2.ModsIndicator
 import com.osudroid.ui.v2.modmenu.ModMenu
 import com.osudroid.utils.async
+import com.osudroid.utils.mainThread
 import com.osudroid.utils.updateThread
 import com.reco1l.andengine.Anchor
 import com.reco1l.andengine.Axes
@@ -51,6 +54,7 @@ import com.reco1l.andengine.ui.UILabeledBadge
 import com.reco1l.andengine.ui.UIMessageDialog
 import com.reco1l.andengine.ui.UITextButton
 import com.reco1l.framework.Color4
+import com.reco1l.framework.net.JsonArrayRequest
 import com.reco1l.framework.math.Vec4
 import com.reco1l.osu.ui.MessageDialog
 import com.reco1l.toolkt.kotlin.runSafe
@@ -133,6 +137,8 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
 
     init {
+        android.util.Log.d("RoomScene", "User is in Multiplayer (RoomScene) | Room: " + room.name + " | Players: " + room.playerCount + "/" + room.maxPlayers)
+
         ResourceManager.getInstance().loadHighQualityAsset("mods", "mods.png")
         ResourceManager.getInstance().loadHighQualityAsset("logout", "logout.png")
         ResourceManager.getInstance().loadHighQualityAsset("swap", "swap.png")
@@ -512,6 +518,13 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
         val shouldReload = currentPlayers.size != room.playersMap.size
                 || !currentPlayers.all { room.playersMap.containsKey(it) }
 
+        if (shouldReload) {
+            android.util.Log.d(
+                "RoomScene",
+                "Multiplayer room member count changed | Room: ${room.name} | Players: ${room.activePlayers.size}/${room.maxPlayers}"
+            )
+        }
+
         updateThread {
             playersContainer.apply {
 
@@ -620,6 +633,59 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
                         isEnabled = false
                         leadingIcon = UISprite(ResourceManager.getInstance().getTexture("download_off"))
                         setText(R.string.multiplayer_room_not_available_beatmap)
+
+                        // Async mirror search fallback — try to resolve set ID by title
+                        async {
+                            try {
+                                val query = "${roomBeatmap.artist} ${roomBeatmap.title}".trim()
+                                val url = BeatmapListing.mirror.search.request(
+                                    query, 0, 5,
+                                    SortType.Title,
+                                    OrderType.Descending,
+                                    null
+                                )
+                                JsonArrayRequest(url).use { request ->
+                                    request.buildRequest { header("User-Agent", "Chrome/Android") }
+                                    val results = BeatmapListing.mirror.search.response(request.execute().json)
+                                    val match = results.firstOrNull { r ->
+                                        r.title.equals(roomBeatmap.title, true) && r.artist.equals(roomBeatmap.artist, true)
+                                    } ?: results.firstOrNull()
+
+                                    if (match != null) {
+                                        roomBeatmap.parentSetID = match.id
+                                        mainThread {
+                                            isEnabled = true
+                                            leadingIcon = UISprite(ResourceManager.getInstance().getTexture("download"))
+                                            setText(R.string.multiplayer_room_download_beatmap)
+                                            onActionUp = {
+                                                val url = BeatmapListing.mirror.download.request(
+                                                    roomBeatmap.parentSetID!!,
+                                                    !Config.isPreferNoVideoDownloads()
+                                                ).toString()
+                                                async {
+                                                    try {
+                                                        BeatmapDownloader.download(
+                                                            url,
+                                                            "${roomBeatmap.parentSetID} ${roomBeatmap.artist} - ${roomBeatmap.title}"
+                                                        )
+                                                    } catch (e: Exception) {
+                                                        ToastLogger.showText(
+                                                            StringTable.format(
+                                                                R.string.multiplayer_room_unable_download,
+                                                                e.message
+                                                            ), true
+                                                        )
+                                                        e.printStackTrace()
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // Silently fail — button stays disabled
+                            }
+                        }
                         return@apply
                     }
                 }
@@ -841,6 +907,13 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
         GlobalManager.getInstance().selectedBeatmap = LibraryManager.findBeatmapByMD5(beatmap?.md5)
 
+        val beatmapLog = if (beatmap != null) {
+            " | Beatmap: ${beatmap.artist} - ${beatmap.title} [${beatmap.version}]"
+        } else {
+            " | Beatmap: none"
+        }
+        android.util.Log.d("RoomScene", "Room beatmap changed | Room: " + room.name + " | Players: " + room.playerCount + beatmapLog)
+
         if (GlobalManager.getInstance().engine.scene != this) {
             updateBeatmapInfo()
             isWaitingForBeatmapChange = false
@@ -934,12 +1007,15 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
     /**This method is used purely to update UI in other clients*/
     override fun onPlayerModsChange(uid: Long, mods: RoomMods) {
 
-        room.playersMap[uid]!!.mods = mods
+        val target = room.playersMap[uid] ?: return
+        target.mods = mods
 
         updatePlayerList()
 
         if (uid == Multiplayer.player!!.id) {
             isWaitingForModsChange = false
+            // Keep the local player reference pointing to the live instance.
+            Multiplayer.player = target
             updateBeatmapInfo()
         }
     }
@@ -985,18 +1061,27 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
     override fun onRoomMatchPlay() {
 
-        val global = GlobalManager.getInstance()
+        val player = Multiplayer.player ?: return
 
-        if (Multiplayer.player!!.status != PlayerStatus.MissingBeatmap && global.engine.scene != global.gameScene.scene) {
+        if (player.status == PlayerStatus.MissingBeatmap) {
+            Multiplayer.log("INFO: MissingBeatmap — sending immediate beatmapLoadComplete ACK")
+            RoomAPI.notifyBeatmapLoaded()
+        }
 
-            if (GlobalManager.getInstance().selectedBeatmap == null) {
-                Multiplayer.log("WARNING: Attempt to start match with null track.")
-                return
+        updateThread {
+            val global = GlobalManager.getInstance()
+
+            if (player.status != PlayerStatus.MissingBeatmap && global.engine.scene != global.gameScene.scene) {
+
+                if (global.selectedBeatmap == null) {
+                    Multiplayer.log("WARNING: Attempt to start match with null track.")
+                    return@updateThread
+                }
+
+                global.songMenu.stopMusic()
+                global.gameScene.startGame(global.selectedBeatmap, null, ModMenu.enabledMods)
+
             }
-
-            global.songMenu.stopMusic()
-            global.gameScene.startGame(global.selectedBeatmap, null, ModMenu.enabledMods)
-
         }
 
         updatePlayerList()
@@ -1045,6 +1130,13 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
                     player.id
                 ), "#459FFF"
             )
+        }
+
+        // The server echoes `playerJoined` for the local player too, which replaces the
+        // RoomPlayer instance held inside the room. Re-point Multiplayer.player to the live
+        // instance so subsequent status/team/mods updates are reflected on the local UI.
+        if (player.id == Multiplayer.player?.id) {
+            Multiplayer.player = player
         }
 
         updateInformation()
@@ -1109,10 +1201,18 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
     override fun onPlayerStatusChange(uid: Long, status: PlayerStatus) {
 
-        room.playersMap[uid]!!.status = status
+        val target = room.playersMap[uid] ?: run {
+            Multiplayer.log("WARNING: onPlayerStatusChange — unknown uid $uid, player may have already left")
+            return
+        }
+        target.status = status
 
+        // Keep the local player reference pointing to the live instance. The server echoes a
+        // `playerJoined` for the local player which replaces the RoomPlayer instance in the room,
+        // leaving Multiplayer.player stale otherwise (the Ready/Start button would never update).
         if (uid == Multiplayer.player!!.id) {
             isWaitingForStatusChange = false
+            Multiplayer.player = target
         }
 
         updateInformation()
@@ -1121,7 +1221,13 @@ class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventLis
 
     override fun onPlayerTeamChange(uid: Long, team: RoomTeam?) {
 
-        room.playersMap[uid]!!.team = team
+        val target = room.playersMap[uid] ?: return
+        target.team = team
+
+        if (uid == Multiplayer.player!!.id) {
+            // Keep the local player reference pointing to the live instance.
+            Multiplayer.player = target
+        }
 
         updatePlayerList()
         updateInformation()

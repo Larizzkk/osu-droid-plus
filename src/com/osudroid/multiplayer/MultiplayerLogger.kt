@@ -88,6 +88,29 @@ class MultiplayerLogger : AutoCloseable {
         }
     }
 
+    /**
+     * Flushes the writer and reads the entire log file contents.
+     */
+    fun flushAndGetLog(): String {
+        if (isClosed) {
+            return ""
+        }
+
+        try {
+            writer.flush()
+            writer.close()
+            isClosed = true
+
+            val file = File("${Config.getDefaultCorePath()}/Log", "multi_log.txt")
+            if (file.exists()) {
+                return file.readText()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return ""
+    }
+
     private fun write(str: String) {
         if (isClosed) {
             return

@@ -72,6 +72,7 @@ public class ScoringScene {
     public StatisticV2 currentStatistic;
 
     private StatisticSelector selector;
+    private boolean hasAddedFlashOverlay = false;
 
     public ScoringScene(
         final Engine pEngine,
@@ -984,7 +985,7 @@ public class ScoringScene {
                                 OnlineManager.getInstance().getRank(),
                                 OnlineManager.getInstance().getScore(),
                                 OnlineManager.getInstance().getAccuracy(),
-                                OnlineManager.getInstance().getPP()
+                                OnlineManager.getInstance().getTotalDpp()
                             );
                             scene.registerTouchArea(sp.getDismissTouchArea());
                             scene.attachChild(sp);
@@ -1068,26 +1069,30 @@ public class ScoringScene {
         }
 
         // White flash overlay that fades out when ranking appears
-        var flashRect = new org.anddev.andengine.entity.primitive.Rectangle(
-            0,
-            0,
-            Config.getRES_WIDTH(),
-            Config.getRES_HEIGHT()
-        );
-        flashRect.setColor(1f, 1f, 1f);
-        flashRect.setAlpha(1f);
-        flashRect.setIgnoreUpdate(true);
-        if (scene != null) {
-            scene.attachChild(flashRect);
-            flashRect.registerEntityModifier(
-                new org.anddev.andengine.entity.modifier.SequenceEntityModifier(
-                    new org.anddev.andengine.entity.modifier.AlphaModifier(
-                        0.3f,
-                        1f,
-                        0f
-                    )
-                )
+        // Only add this once when the scene loads, not on every leaderboard update
+        // In multiplayer, this would create multiple white overlays that stack and cover the screen
+        if (!hasAddedFlashOverlay) {
+            var flashRect = new org.anddev.andengine.entity.primitive.Rectangle(
+                0,
+                0,
+                Config.getRES_WIDTH(),
+                Config.getRES_HEIGHT()
             );
+            flashRect.setColor(1f, 1f, 1f);
+            flashRect.setAlpha(1f);
+            if (scene != null) {
+                scene.attachChild(flashRect);
+                flashRect.registerEntityModifier(
+                    new org.anddev.andengine.entity.modifier.SequenceEntityModifier(
+                        new org.anddev.andengine.entity.modifier.AlphaModifier(
+                            0.3f,
+                            1f,
+                            0f
+                        )
+                    )
+                );
+            }
+            hasAddedFlashOverlay = true;
         }
     }
 

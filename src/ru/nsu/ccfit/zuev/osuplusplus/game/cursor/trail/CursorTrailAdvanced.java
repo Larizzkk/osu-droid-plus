@@ -1,14 +1,11 @@
 package ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail;
 
+import java.util.ArrayList;
+import java.util.List;
+import javax.microedition.khronos.opengles.GL10;
 import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.sprite.Sprite;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
-
-import javax.microedition.khronos.opengles.GL10;
-
-import java.util.ArrayList;
-import java.util.List;
-
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorSprite;
@@ -26,13 +23,14 @@ import ru.nsu.ccfit.zuev.skins.OsuSkin;
  * - Memory-efficient with object pooling
  */
 public class CursorTrailAdvanced extends Entity {
+
     private final CursorSprite cursor;
     private final TextureRegion trailTexture;
 
     // Trail data structures
     private final List<TrailVertex> trailVertices;
     private final List<Sprite> trailSprites;
-    private final int maxVertices;
+    private int maxVertices;
 
     // Movement tracking
     private float lastX, lastY;
@@ -59,6 +57,7 @@ public class CursorTrailAdvanced extends Entity {
      * Represents a vertex in the trail mesh
      */
     private static class TrailVertex {
+
         float x, y;
         long time;
         float alpha;
@@ -75,7 +74,10 @@ public class CursorTrailAdvanced extends Entity {
         }
     }
 
-    public CursorTrailAdvanced(TextureRegion trailTexture, CursorSprite cursor) {
+    public CursorTrailAdvanced(
+        TextureRegion trailTexture,
+        CursorSprite cursor
+    ) {
         this.trailTexture = trailTexture;
         this.cursor = cursor;
         this.trailVertices = new ArrayList<>();
@@ -109,21 +111,30 @@ public class CursorTrailAdvanced extends Entity {
         trailWidth = widthValue / 10.0f; // Convert to float
 
         // Clamp values to reasonable ranges
-        pointSpacing = Math.max(MIN_SPACING, Math.min(MAX_SPACING, pointSpacing));
+        pointSpacing = Math.max(
+            MIN_SPACING,
+            Math.min(MAX_SPACING, pointSpacing)
+        );
         trailWidth = Math.max(0.5f, Math.min(3f, trailWidth));
     }
 
     private int calculateMaxVertices() {
         float fadeTimeMs = trailLength * 1000 * GameHelper.getSpeedMultiplier();
         int fps = 60;
-        return Math.min(DEFAULT_MAX_VERTICES, (int) (fadeTimeMs / (1000f / fps) * 2f));
+        return Math.min(
+            5000,
+            (int) ((fadeTimeMs / (1000f / fps)) * 2f)
+        );
     }
 
     private void preCreateSprites() {
         for (int i = 0; i < maxVertices; i++) {
             Sprite sprite = new Sprite(0, 0, trailTexture);
             sprite.setVisible(false);
-            sprite.setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
+            sprite.setBlendFunction(
+                GL10.GL_SRC_ALPHA,
+                GL10.GL_ONE_MINUS_SRC_ALPHA
+            );
             trailSprites.add(sprite);
             attachChild(sprite);
         }
@@ -132,8 +143,8 @@ public class CursorTrailAdvanced extends Entity {
     /**
      * Update trail with new cursor position
      */
-    public void updatePosition(float x, float y) {
-        currentTime += 16; // Assume ~60fps
+    public void updatePosition(float x, float y, float deltaTimeSeconds) {
+        currentTime += deltaTimeSeconds * 1000;
 
         if (isFirstMove) {
             lastX = x;
@@ -178,7 +189,9 @@ public class CursorTrailAdvanced extends Entity {
         // Variable width based on speed
         if (trailVertices.size() > 0) {
             TrailVertex last = trailVertices.get(trailVertices.size() - 1);
-            float speed = (float) Math.sqrt((x - last.x) * (x - last.x) + (y - last.y) * (y - last.y));
+            float speed = (float) Math.sqrt(
+                (x - last.x) * (x - last.x) + (y - last.y) * (y - last.y)
+            );
             vertex.width = Math.max(0.5f, Math.min(1.5f, 1f + speed * 0.1f));
         }
 
@@ -191,7 +204,9 @@ public class CursorTrailAdvanced extends Entity {
     }
 
     private void updateTrailVertices() {
-        long fadeTimeMs = (long) (trailLength * 1000 * GameHelper.getSpeedMultiplier());
+        long fadeTimeMs = (long) (trailLength *
+            1000 *
+            GameHelper.getSpeedMultiplier());
 
         // Update alpha values and remove expired vertices
         for (int i = trailVertices.size() - 1; i >= 0; i--) {
@@ -202,12 +217,14 @@ public class CursorTrailAdvanced extends Entity {
                 trailVertices.remove(i);
             } else {
                 // Update alpha based on age
-                float alpha = 1.0f - (age / (float) fadeTimeMs);
+                float alpha = 1.0f - age / (float) fadeTimeMs;
                 vertex.alpha = Math.max(0, Math.min(1, alpha));
 
                 // Apply style-specific effects
-                if (trailStyle == 1) { // Fade style
-                    vertex.alpha *= (1f - (i / (float) trailVertices.size()) * 0.5f);
+                if (trailStyle == 1) {
+                    // Fade style
+                    vertex.alpha *=
+                        1f - (i / (float) trailVertices.size()) * 0.5f;
                 }
             }
         }
@@ -221,7 +238,10 @@ public class CursorTrailAdvanced extends Entity {
         while (trailSprites.size() < trailVertices.size()) {
             Sprite sprite = new Sprite(0, 0, trailTexture);
             sprite.setVisible(false);
-            sprite.setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
+            sprite.setBlendFunction(
+                GL10.GL_SRC_ALPHA,
+                GL10.GL_ONE_MINUS_SRC_ALPHA
+            );
             trailSprites.add(sprite);
             attachChild(sprite);
         }
@@ -239,7 +259,8 @@ public class CursorTrailAdvanced extends Entity {
 
                 // Set alpha and scale
                 sprite.setAlpha(vertex.alpha);
-                float scale = cursor.baseSize * vertex.alpha * vertex.width * trailWidth;
+                float scale =
+                    cursor.baseSize * vertex.alpha * vertex.width * trailWidth;
                 sprite.setScale(scale);
 
                 // Apply color effects (rainbow removed)
@@ -267,6 +288,8 @@ public class CursorTrailAdvanced extends Entity {
     public void updateTrailLength() {
         this.trailLength = loadTrailLength();
         loadConfiguration();
+        // Recalculate maxVertices based on the new trail length
+        this.maxVertices = calculateMaxVertices();
     }
 
     /**
@@ -329,34 +352,48 @@ public class CursorTrailAdvanced extends Entity {
      */
     public void setTrailWidth(float width) {
         this.trailWidth = Math.max(0.5f, Math.min(3f, width));
-        Config.setInt("trailWidth", (int)(this.trailWidth * 10)); // Convert to integer
+        Config.setInt("trailWidth", (int) (this.trailWidth * 10)); // Convert to integer
     }
 
     /**
      * Set point spacing
      */
     public void setPointSpacing(float spacing) {
-        this.pointSpacing = Math.max(MIN_SPACING, Math.min(MAX_SPACING, spacing));
-        Config.setInt("trailSpacing", (int)(this.pointSpacing * 10)); // Convert to integer
+        this.pointSpacing = Math.max(
+            MIN_SPACING,
+            Math.min(MAX_SPACING, spacing)
+        );
+        Config.setInt("trailSpacing", (int) (this.pointSpacing * 10)); // Convert to integer
     }
 
     /**
      * Get current trail statistics
      */
     public TrailStats getStats() {
-        return new TrailStats(trailVertices.size(), maxVertices, trailLength, trailStyle);
+        return new TrailStats(
+            trailVertices.size(),
+            maxVertices,
+            trailLength,
+            trailStyle
+        );
     }
 
     /**
      * Trail statistics for debugging
      */
     public static class TrailStats {
+
         public final int activeVertices;
         public final int maxVertices;
         public final float trailLength;
         public final int trailStyle;
 
-        TrailStats(int activeVertices, int maxVertices, float trailLength, int trailStyle) {
+        TrailStats(
+            int activeVertices,
+            int maxVertices,
+            float trailLength,
+            int trailStyle
+        ) {
             this.activeVertices = activeVertices;
             this.maxVertices = maxVertices;
             this.trailLength = trailLength;
@@ -365,8 +402,13 @@ public class CursorTrailAdvanced extends Entity {
 
         @Override
         public String toString() {
-            return String.format("Trail: %d/%d vertices, length=%.2fs, style=%d",
-                activeVertices, maxVertices, trailLength, trailStyle);
+            return String.format(
+                "Trail: %d/%d vertices, length=%.2fs, style=%d",
+                activeVertices,
+                maxVertices,
+                trailLength,
+                trailStyle
+            );
         }
     }
 }

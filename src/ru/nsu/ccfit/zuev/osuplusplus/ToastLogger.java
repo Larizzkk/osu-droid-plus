@@ -1,6 +1,8 @@
 package ru.nsu.ccfit.zuev.osuplusplus;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.widget.Toast;
 
 import androidx.annotation.StringRes;
@@ -28,6 +30,8 @@ public class ToastLogger {
             return;
         }
 
+        instance.debugLog.add(message);
+
         instance.activity.runOnUiThread(() -> 
             Toast.makeText(instance.activity, message,
                 showlong ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT).show());
@@ -42,6 +46,31 @@ public class ToastLogger {
             return null;
         }
         return instance.debugLog;
+    }
+
+    public static String getLogText() {
+        if (instance == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (String line : instance.debugLog) {
+            sb.append(line).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public static void copyLogToClipboard() {
+        if (instance == null || instance.activity == null) {
+            return;
+        }
+
+        try {
+            ClipboardManager clipboard = (ClipboardManager) instance.activity.getSystemService(Activity.CLIPBOARD_SERVICE);
+            ClipData clip = ClipData.newPlainText("osu!droid+ Log", getLogText());
+            clipboard.setPrimaryClip(clip);
+        } catch (Exception e) {
+            // Ignore clipboard errors
+        }
     }
 
     public static float getPercentage() {

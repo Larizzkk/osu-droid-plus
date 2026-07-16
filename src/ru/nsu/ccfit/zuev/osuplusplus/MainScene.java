@@ -391,13 +391,10 @@ public class MainScene implements IUpdateHandler {
                                 "<a href=\"https://osudroid.moe\">Visit official osu!droid website ↗</a>\n" +
                                 "<br>\n" +
                                 "<br>\n" +
-                                "<a href=\"https://discord.gg/nyD92cE\">Join the official Discord server ↗</a>\n" +
-                                "<br>\n" +
-                                "<br>\n" +
                                 "<a href=\"https://osu-droid-plus-server.larizrkpee.workers.dev\">Visit osu!droid+ Server ↗</a>\n",
                             true
                         )
-                        .addButton("Changelog", dialog -> {
+                                .addButton("Changelog", dialog -> {
                             dialog.dismiss();
 
                             try {
@@ -1754,6 +1751,8 @@ public class MainScene implements IUpdateHandler {
         if (LibraryManager.getSizeOfBeatmaps() != 0) {
             beatmapInfo = LibraryManager.getCurrentBeatmapSet().getBeatmap(0);
 
+            android.util.Log.d("MainScene", "User is in MainScene | Song: " + beatmapInfo.getArtistText() + " - " + beatmapInfo.getTitleText() + " [" + beatmapInfo.getVersion() + "]");
+
             if (musicInfoText == null) {
                 musicInfoText = new ChangeableText(
                     Utils.toRes(Config.getRES_WIDTH() - 500),
@@ -2158,6 +2157,8 @@ public class MainScene implements IUpdateHandler {
     public void show() {
         GlobalManager.getInstance().getSongService().setGaming(false);
         GlobalManager.getInstance().getEngine().setScene(getScene());
+
+        android.util.Log.d("MainScene", "User is in MainScene (main menu)");
 
         // Restore the repeat/loop state from saved preferences
         musicRepeat = Config.getBoolean("musicRepeat", false);

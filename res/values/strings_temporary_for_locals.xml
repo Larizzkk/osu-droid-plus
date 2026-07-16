@@ -322,4 +322,5 @@
         name="opt_server_summary"
     >Visit the osu!droid+ server website</string>
 
+    <string name="menu_search_settings">Settings</string>
 </resources>

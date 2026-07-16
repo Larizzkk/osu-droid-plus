@@ -27,7 +27,7 @@ public class Config {
 
     private static String corePath, defaultCorePath, beatmapPath, cachePath, skinPath, skinTopPath, scorePath, onlineUsername, onlinePassword, onlineDeviceID;
 
-    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements;
+    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements;
 
     private static int RES_WIDTH, RES_HEIGHT, spinnerStyle, metronomeSwitch, minimumGameplaySynchronizationTime, backButtonPressTime;
 
@@ -186,6 +186,7 @@ public class Config {
         // other
         playMusicPreview = prefs.getBoolean("musicpreview", true);
         showCursor = prefs.getBoolean("showcursor", false);
+        trailDelayEnabled = prefs.getBoolean("trailDelayEnabled", true);
         fixFrameOffset = prefs.getBoolean("fixFrameOffset", true);
         removeSliderLock = prefs.getBoolean("removeSliderLock", false);
         displayScoreStatistics = prefs.getBoolean(
@@ -494,6 +495,14 @@ public class Config {
 
     public static void setShowCursor(final boolean showCursor) {
         Config.showCursor = showCursor;
+    }
+
+    public static boolean isTrailDelayEnabled() {
+        return trailDelayEnabled;
+    }
+
+    public static void setTrailDelayEnabled(final boolean trailDelayEnabled) {
+        Config.trailDelayEnabled = trailDelayEnabled;
     }
 
     public static String getOnlineUsername() {
@@ -1031,7 +1040,7 @@ public class Config {
     }
 
     public static float getTrailLength() {
-        return getInt("trailLength", 100) / 100f;
+        return getInt("trailLength", 200) / 100f;
     }
 
     public static void setTrailLength(float trailLength) {

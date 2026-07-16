@@ -15,11 +15,11 @@ import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2
  */
 fun jsonToScoreboardItem(json: JSONObject) = ScoreBoardItem().apply {
 
-    userName = json.getString("username")
-    playScore = json.getInt("score")
-    maxCombo = json.getInt("combo")
-    accuracy = json.getDouble("accuracy").toFloat()
-    isAlive = json.getBoolean("isAlive")
+    userName = json.optString("username", "")
+    playScore = json.optInt("score", 0)
+    maxCombo = json.optInt("combo", 0)
+    accuracy = json.optDouble("accuracy", 0.0).toFloat()
+    isAlive = json.optBoolean("isAlive", true)
 }
 
 /**
@@ -27,16 +27,16 @@ fun jsonToScoreboardItem(json: JSONObject) = ScoreBoardItem().apply {
  */
 fun jsonToStatistic(json: JSONObject) = StatisticV2().apply {
 
-    playerName = json.getString("username")
-    setForcedScore(json.getInt("score"))
+    playerName = json.optString("username", "")
+    setForcedScore(json.optInt("score", 0))
     time = System.currentTimeMillis()
     mod = ModUtils.deserializeMods(json.optJSONArray("mods")?.toString() ?: "")
-    scoreMaxCombo = json.optInt("maxCombo")
-    hit300k = json.optInt("geki")
-    hit300 = json.optInt("perfect")
-    hit100k = json.optInt("katu")
-    hit100 = json.optInt("good")
-    hit50 = json.optInt("bad")
-    misses = json.optInt("miss")
-    isAlive = json.getBoolean("isAlive")
+    scoreMaxCombo = json.optInt("maxCombo", 0)
+    hit300k = json.optInt("geki", 0)
+    hit300 = json.optInt("perfect", 0)
+    hit100k = json.optInt("katu", 0)
+    hit100 = json.optInt("good", 0)
+    hit50 = json.optInt("bad", 0)
+    misses = json.optInt("miss", 0)
+    isAlive = json.optBoolean("isAlive", true)
 }

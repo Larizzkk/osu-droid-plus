@@ -66,4 +66,30 @@
         <item>3</item>
     </string-array>
 
+    <!-- Particle Shape Arrays -->
+    <string-array name="particle_shape_names">
+        <item>Triangle</item>
+        <item>Circle</item>
+        <item>Square</item>
+    </string-array>
+
+    <string-array name="particle_shape_values">
+        <item>triangle</item>
+        <item>circle</item>
+        <item>square</item>
+    </string-array>
+
+    <!-- Particle Direction Arrays -->
+    <string-array name="particle_direction_names">
+        <item>Top to Bottom</item>
+        <item>Left to Right</item>
+        <item>Right to Left</item>
+    </string-array>
+
+    <string-array name="particle_direction_values">
+        <item>down</item>
+        <item>right</item>
+        <item>left</item>
+    </string-array>
+
 </resources>
