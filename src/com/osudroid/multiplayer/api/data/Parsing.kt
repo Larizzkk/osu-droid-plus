@@ -8,7 +8,7 @@ import org.json.JSONObject
  * Parse a [JSONObject] of player to [RoomPlayer]
  */
 fun parsePlayer(o: JSONObject) = RoomPlayer(
-    id = o.getString("id").toLong(),
+    id = o.optLong("id", o.optString("id", "0").toLongOrNull() ?: 0),
     name = o.getString("username"),
     status = PlayerStatus[o.getInt("status")],
     team = if (o.isNull("team")) null else o.getInt("team").let { n -> RoomTeam[n] },

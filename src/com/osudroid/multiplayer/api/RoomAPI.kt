@@ -179,7 +179,7 @@ object RoomAPI {
         val activePlayers = players.filterNotNull()
 
         val room = Room(
-            id = json.getString("id").toLong(),
+            id = json.optLong("id", json.optString("id", "0").toLongOrNull() ?: 0),
             name = json.getString("name"),
             isLocked = json.getBoolean("isLocked"),
             maxPlayers = json.getInt("maxPlayers"),
@@ -193,7 +193,8 @@ object RoomAPI {
         )
 
         room.players = players
-        room.host = json.getJSONObject("host").getString("id").toLong()
+        val hostObj = json.getJSONObject("host")
+        room.host = hostObj.optLong("id", hostObj.optString("id", "0").toLongOrNull() ?: 0)
         room.beatmap = parseBeatmap(json.optJSONObject("beatmap"))
         room.status = RoomStatus[json.getInt("status")]
 

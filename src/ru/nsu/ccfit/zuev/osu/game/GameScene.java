@@ -132,7 +132,7 @@ import ru.nsu.ccfit.zuev.skins.OsuSkin;
 public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public static final int CursorCount = 10;
-    private final int maximumActiveCursorCount = 3;
+    private final int maximumActiveCursorCount = CursorCount;
     private final UIEngine engine;
     private Cursor[] cursors = new Cursor[CursorCount];
     private ru.nsu.ccfit.zuev.osuplusplus.ScreenShake screenShake;

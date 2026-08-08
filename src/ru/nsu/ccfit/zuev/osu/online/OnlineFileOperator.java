@@ -46,10 +46,12 @@ public class OnlineFileOperator {
                     BufferedSink sink = Okio.buffer(Okio.sink(file));
                     sink.writeAll(response.body().source());
                     sink.close();
+                    return true;
+                } else {
+                    Debug.e("downloadFile failed: HTTP " + response.code() + " for " + urlstr);
+                    return false;
                 }
             }
-
-            return true;
         } catch (final IOException e) {
             Debug.e("downloadFile IOException " + e.getMessage(), e);
             return false;

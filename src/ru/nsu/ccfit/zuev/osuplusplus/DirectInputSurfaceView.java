@@ -39,7 +39,7 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
     /**
      * Maximum number of simultaneous touch pointers.
      */
-    private static final int MAX_POINTERS = 10;
+    private static final int MAX_POINTERS = 100;
 
     /**
      * Atomic version counter for thread-safe raw pointer reads.
