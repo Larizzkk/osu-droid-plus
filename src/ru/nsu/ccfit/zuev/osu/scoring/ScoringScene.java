@@ -985,7 +985,7 @@ public class ScoringScene {
                                 OnlineManager.getInstance().getRank(),
                                 OnlineManager.getInstance().getScore(),
                                 OnlineManager.getInstance().getAccuracy(),
-                                OnlineManager.getInstance().getPP()
+                                OnlineManager.getInstance().getTotalDpp()
                             );
                             scene.registerTouchArea(sp.getDismissTouchArea());
                             scene.attachChild(sp);
@@ -1032,7 +1032,7 @@ public class ScoringScene {
                     OnlineManager.getInstance().getRank(),
                     OnlineManager.getInstance().getScore(),
                     OnlineManager.getInstance().getAccuracy(),
-                    OnlineManager.getInstance().getPP()
+                    OnlineManager.getInstance().getTotalDpp()
                 );
 
                 scene.registerTouchArea(sendingPanel.getDismissTouchArea());
