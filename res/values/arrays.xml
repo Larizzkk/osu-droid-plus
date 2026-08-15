@@ -92,4 +92,19 @@
         <item>left</item>
     </string-array>
 
+    <!-- Frame Limiter Arrays -->
+    <string-array name="frame_limiter_names">
+        <item>Unlimited</item>
+        <item>Power Saving (30 FPS)</item>
+        <item>VSync (Display Refresh)</item>
+        <item>Optimal (8x Refresh, ~1ms)</item>
+    </string-array>
+
+    <string-array name="frame_limiter_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
 </resources>

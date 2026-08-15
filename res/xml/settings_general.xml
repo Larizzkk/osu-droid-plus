@@ -76,17 +76,6 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/opt_category_server">
-
-        <Preference
-            android:key="serverLink"
-            android:summary="@string/opt_server_summary"
-            android:title="@string/opt_server_title"
-            app:layout="@layout/settings_preference"
-        />
-
-    </PreferenceCategory>
-
     <PreferenceCategory android:title="@string/opt_category_updates">
 
         <Preference

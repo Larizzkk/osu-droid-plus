@@ -29,6 +29,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceManager
+import androidx.preference.ListPreference
 import androidx.preference.SeekBarPreference
 import com.acivev.VibratorManager
 import com.edlplan.framework.easing.Easing
@@ -73,6 +74,8 @@ import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
+
+import org.anddev.andengine.util.FrameLimiter
 import ru.nsu.ccfit.zuev.osuplusplus.R
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager
 
@@ -222,7 +225,7 @@ class SettingsFragment : SettingsFragment() {
         }
 
         createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
-        createSectionButton("Autoplay", R.drawable.play_arrow_24px, Section.Autoplay)
+        createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
 
 
@@ -249,7 +252,7 @@ class SettingsFragment : SettingsFragment() {
         Section.Library -> handleLibrarySectionPreferences()
         Section.Advanced -> handleAdvancedSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
-        Section.Autoplay -> {}
+        Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
         Section.Player -> handlePlayerSectionPreferences()
         Section.Room -> handleRoomSectionPreferences()
     }
@@ -529,13 +532,74 @@ class SettingsFragment : SettingsFragment() {
     }
 
 
-    private fun handleAdvancedSectionPreferences() {
+    private fun handleOsuDroidPlusSectionPreferences() {
         findPreference<CheckBoxPreference>("forceMaxRefreshRate")?.apply {
-            // Obtaining supported refresh rates is only available on Android 12 and above.
-            // See https://developer.android.com/reference/android/view/Display.Mode#getAlternativeRefreshRates().
             isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         }
 
+        findPreference<ListPreference>("frameLimiterMode")?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                val mode = (newValue as String).toInt()
+                val displayRate = getDisplayRefreshRate()
+                Config.setString("frameLimiterMode", mode.toString())
+                val customFps = Config.getInt("customFrameRate", 0)
+                FrameLimiter.getInstance().configure(mode, customFps, displayRate)
+                applyEngineFrameRate(mode, displayRate)
+                true
+            }
+        }
+
+        findPreference<SeekBarPreference>("customFrameRate")?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                val fps = newValue as Int
+                val mode = Config.getString("frameLimiterMode", "0")?.toIntOrNull() ?: 0
+                val displayRate = getDisplayRefreshRate()
+                Config.setInt("customFrameRate", fps)
+                FrameLimiter.getInstance().configure(mode, fps, displayRate)
+                applyEngineFrameRate(mode, displayRate)
+                true
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getDisplayRefreshRate(): Float {
+        val activity = requireActivity()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.display?.refreshRate ?: 60f
+        } else {
+            @Suppress("DEPRECATION")
+            activity.windowManager.defaultDisplay.refreshRate
+        }
+    }
+
+    private fun applyEngineFrameRate(mode: Int, displayRate: Float) {
+        val engine = GlobalManager.getInstance().engine ?: return
+        val camera = GlobalManager.getInstance().camera
+
+        val effectiveFps = when (mode) {
+            1 -> 30                                    // MODE_POWER_SAVE: always 30
+            2 -> displayRate.toInt()                   // MODE_VSYNC
+            3 -> (displayRate * 4).toInt().coerceAtMost(480) // MODE_OPTIMAL
+            else -> {
+                val custom = Config.getInt("customFrameRate", 0)
+                if (custom > 0) custom else 0           // MODE_UNLIMITED
+            }
+        }
+
+        if (effectiveFps > 0) {
+            engine.setFrameRate(effectiveFps)
+            val velocity = effectiveFps * 30f
+            (camera as? org.anddev.andengine.engine.camera.SmoothCamera)?.apply {
+                setMaxVelocityX(velocity)
+                setMaxVelocityY(velocity)
+            }
+        } else {
+            engine.setFrameRate(0)
+        }
+    }
+
+    private fun handleAdvancedSectionPreferences() {
         findPreference<InputPreference>("skinTopPath")?.setOnPreferenceChangeListener { it, newValue ->
 
             it as InputPreference
@@ -743,7 +807,7 @@ class SettingsFragment : SettingsFragment() {
         Audio(R.xml.settings_audio),
         Library(R.xml.settings_library),
         Input(R.xml.settings_input),
-        Autoplay(R.xml.settings_autoplay),
+        OsuDroidPlus(R.xml.settings_osudroidplus),
         Advanced(R.xml.settings_advanced),
 
         // Multiplayer exclusive

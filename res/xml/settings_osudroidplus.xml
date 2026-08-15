@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
+
+    <PreferenceCategory android:title="Frame Rate &amp; Performance">
+
+        <ListPreference
+            android:defaultValue="0"
+            android:key="frameLimiterMode"
+            android:title="Frame Limiter"
+            android:summary="Control frame rate to balance performance and battery"
+            android:entries="@array/frame_limiter_names"
+            android:entryValues="@array/frame_limiter_values"
+            app:layout="@layout/settings_preference"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="0"
+            android:key="customFrameRate"
+            android:max="960"
+            android:title="Custom Frame Rate"
+            android:summary="Set a custom FPS cap (only used when Frame Limiter is Unlimited)"
+            app:min="0"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="forceMaxRefreshRate"
+            android:title="Force Max Display Refresh Rate"
+            android:summary="Force display to its highest supported refresh rate"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Server">
+
+        <Preference
+            android:key="serverLink"
+            android:summary="@string/opt_server_summary"
+            android:title="@string/opt_server_title"
+            app:layout="@layout/settings_preference"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Gameplay Extras">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="manualSubmitEnabled"
+            android:title="@string/opt_manual_submit_title"
+            android:summary="@string/opt_manual_submit_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="unrestrictedMods"
+            android:title="Unrestricted Mods"
+            android:summary="Allow selecting any mods regardless of compatibility"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Kiai Effects">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="kiaiParticles"
+            android:title="Kiai Particles"
+            android:summary="Show star particles during kiai sections"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="kiaiFlash"
+            android:title="Kiai Flash"
+            android:summary="Show white flash effect when kiai starts"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="hitCirclePulse"
+            android:title="Hit Circle Pulse"
+            android:summary="Pulse hit circles in rhythm during kiai"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="menuKiaiFlash"
+            android:title="Menu Kiai Flash"
+            android:summary="Show beat pulse in song selection menu"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="30"
+            android:key="kiaiFlashBrightness"
+            android:max="100"
+            android:summary="@string/opt_kiai_flash_brightness_summary"
+            android:title="@string/opt_kiai_flash_brightness_title"
+            app:min="5"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Particles &amp; Visual Effects">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="trianglesEnabled"
+            android:title="Triangles"
+            android:summary="Show floating triangle particles"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="15"
+            android:key="triangleSize"
+            android:max="300"
+            android:title="Triangle Size"
+            android:summary="Size of floating triangles in song menu"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="25"
+            android:key="triangleCount"
+            android:max="300"
+            android:title="Triangle Count"
+            android:summary="Maximum number of triangles on screen"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <ListPreference
+            android:defaultValue="triangle"
+            android:key="triangleShape"
+            android:title="Particle Shape"
+            android:summary="Select the shape of floating particles"
+            android:entries="@array/particle_shape_names"
+            android:entryValues="@array/particle_shape_values"
+            app:layout="@layout/settings_preference"
+        />
+
+        <ListPreference
+            android:defaultValue="down"
+            android:key="triangleDirection"
+            android:title="Particle Direction"
+            android:summary="Select movement direction of particles"
+            android:entries="@array/particle_direction_names"
+            android:entryValues="@array/particle_direction_values"
+            app:layout="@layout/settings_preference"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="triangleRotate"
+            android:title="Particle Rotation"
+            android:summary="When ON, particles rotate while moving. When OFF, they fly straight."
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="snowfallEnabled"
+            android:title="Snowfall Effect"
+            android:summary="Show falling snowflakes in the main menu"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Cursor Enhancements">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="trailLength"
+            android:max="500"
+            android:summary="@string/opt_trail_length_summary"
+            android:title="@string/opt_trail_length_title"
+            app:min="0"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="trailDelayEnabled"
+            android:summary="When ON, trail appears after a short delay (1s). When OFF, trail appears instantly."
+            android:title="Trail Delay"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Skin">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="removeUnsupportedSkinElements"
+            android:summary="Remove unsupported game mode elements (@2x, @mania, @catch, @taiko) from skin loading"
+            android:title="Remove Unsupported Skin Elements"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Audio Extras">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="20"
+            android:key="gameAudioSynchronizationThreshold"
+            app:min="0"
+            android:max="100"
+            android:title="@string/opt_gameAudioSynchronizationThreshold_title"
+            android:summary="@string/opt_gameAudioSynchronizationThreshold_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="heartbeatVolume"
+            android:max="100"
+            android:title="Heartbeat Volume"
+            android:summary="Volume of the heartbeat sound effect in main menu"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Autoplay Movement Settings">
+
+        <ListPreference
+            android:key="autoplayStyle"
+            android:title="@string/autoplay_movement_type"
+            android:summary="Select autoplay movement style"
+            android:entries="@array/autoplay_movement_names"
+            android:entryValues="@array/autoplay_movement_values"
+            android:defaultValue="linear"
+            app:layout="@layout/settings_preference_bottom"
+        />
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>
