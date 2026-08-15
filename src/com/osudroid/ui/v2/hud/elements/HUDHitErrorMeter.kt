@@ -15,7 +15,7 @@ import kotlin.math.abs
 class HUDHitErrorMeter : HUDElement() {
 
     private val expiredIndicators = SynchronizedPool<Indicator>(20)
-    private val activeIndicators = mutableListOf<Indicator>()
+    @Volatile private var activeIndicators = arrayOf<Indicator>()
 
     private val hitWindow = GlobalManager.getInstance().gameScene.hitWindow
 
@@ -102,7 +102,7 @@ class HUDHitErrorMeter : HUDElement() {
             else -> mehColor
         }
 
-        activeIndicators.add(indicator)
+        activeIndicators = (activeIndicators + indicator)
     }
 
 
@@ -110,7 +110,9 @@ class HUDHitErrorMeter : HUDElement() {
 
     override fun onDrawChildren(gl: GL10, camera: Camera) {
         super.onDrawChildren(gl, camera)
-        activeIndicators.fastForEach {
+        val snapshot = activeIndicators
+        for (i in snapshot.indices) {
+            val it = snapshot[i]
             indicatorBox.x = it.x
             indicatorBox.color = it.color
             indicatorBox.alpha = it.alpha
@@ -119,7 +121,10 @@ class HUDHitErrorMeter : HUDElement() {
     }
 
     override fun onManagedUpdate(deltaTimeSec: Float) {
-        activeIndicators.fastForEach(Indicator::update)
+        val snapshot = activeIndicators
+        for (i in snapshot.indices) {
+            snapshot[i].update()
+        }
         super.onManagedUpdate(deltaTimeSec)
     }
 
@@ -138,7 +143,7 @@ class HUDHitErrorMeter : HUDElement() {
                 alpha = 0f
                 expiredIndicators.release(this)
                 updateThread {
-                    activeIndicators.remove(this)
+                    activeIndicators = activeIndicators.filter { it !== this }.toTypedArray()
                 }
             }
         }

@@ -70,8 +70,14 @@ class UITriangleMesh : UIComponent() {
     override fun doDraw(gl: GL10, camera: Camera) {
         super.doDraw(gl, camera)
 
-        if (vertices.length != 0) {
-            TriangleRenderer.get().renderTriangles(vertices, gl)
+        val v = vertices
+        val len = v.length
+        if (len > 0 && len <= v.ary.size) {
+            val snapshot = FloatArraySlice()
+            snapshot.ary = v.ary.copyOf()
+            snapshot.offset = 0
+            snapshot.length = len
+            TriangleRenderer.get().renderTriangles(snapshot, gl)
         }
     }
 
