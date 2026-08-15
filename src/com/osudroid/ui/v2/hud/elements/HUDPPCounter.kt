@@ -37,8 +37,8 @@ class HUDPPCounter : HUDElement() {
         counter.update(secondsElapsed * 1000)
 
         // The NaN check here is necessary as calculations may result in NaN values, which should not be displayed.
-        // This is not a foolproof solution, but is enough to prevent crashes from happening.
-        // Until the source of the NaN values is found and fixed, this must remain in place.
+// This is not a foolproof solution, but is enough to prevent crashes from happening.
+// Until the source of the NaN values is found and fixed, this must remain in place.
         counter.targetValue = game.stat.pp.takeIf { !it.isNaN() } ?: 0.0
         value = counter.currentValue.roundToInt()
     }
