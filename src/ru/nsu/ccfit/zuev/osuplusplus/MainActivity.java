@@ -78,6 +78,7 @@ import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.extension.input.touch.controller.MultiTouch;
 import org.anddev.andengine.extension.input.touch.controller.MultiTouchController;
 import org.anddev.andengine.input.touch.TouchEvent;
+import org.anddev.andengine.util.FrameLimiter;
 import org.anddev.andengine.opengl.view.RenderSurfaceView;
 import org.anddev.andengine.sensor.accelerometer.AccelerometerData;
 import org.anddev.andengine.sensor.accelerometer.IAccelerometerListener;
@@ -163,6 +164,7 @@ public class MainActivity
             public void onDisplayChanged(int displayId) {
                 if (displayId == display.getDisplayId()) {
                     currentRefreshRate = display.getRefreshRate();
+                    FrameLimiter.getInstance().setDisplayRefreshRate(currentRefreshRate);
                 }
             }
         };
@@ -205,7 +207,6 @@ public class MainActivity
         UIEngine engine = new UIEngine(this, opt);
 
         if (!MultiTouch.isSupported(this)) {
-            // Warning player that they will have to single tap forever.
             ToastLogger.showText(
                 StringTable.get(
                     com.osudroid.resources.R.string.message_info_multitouch
@@ -214,6 +215,22 @@ public class MainActivity
             );
         }
         engine.setTouchController(new MultiTouchController());
+
+        // Configure the GL-level FrameLimiter (hybrid sleep+yield+spin)
+        FrameLimiter.getInstance().configure(
+            Config.getFrameLimiterMode(),
+            Config.getCustomFrameRate(),
+            currentRefreshRate
+        );
+
+        // Also configure UIEngine's internal limiter as a fallback for the update thread
+        int effectiveFps = Config.getEffectiveFrameRate(currentRefreshRate);
+        if (effectiveFps > 0) {
+            engine.setFrameRate(effectiveFps);
+            float cameraVelocity = effectiveFps * 30f;
+            ((SmoothCamera) mCamera).setMaxVelocityX(cameraVelocity);
+            ((SmoothCamera) mCamera).setMaxVelocityY(cameraVelocity);
+        }
 
         GlobalManager.getInstance().setCamera(mCamera);
         GlobalManager.getInstance().setEngine(engine);
@@ -501,6 +518,9 @@ public class MainActivity
                                 .getScene()
                         );
                 }
+
+                // Enable decoupled mode only after the main scene is loaded
+                GlobalManager.getInstance().getEngine().setSceneReady(true);
 
                 GlobalManager.getInstance().getMainScene().loadBeatmap();
                 initPreferences();
@@ -1013,16 +1033,33 @@ public class MainActivity
             }
         }
 
-        getWindow()
-            .getDecorView()
-            .setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                    View.SYSTEM_UI_FLAG_FULLSCREEN |
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            );
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            getWindow().setDecorFitsSystemWindows(false);
+            android.view.WindowInsetsController ctrl = getWindow().getInsetsController();
+            if (ctrl != null) {
+                ctrl.hide(
+                    android.view.WindowInsets.Type.statusBars()
+                    | android.view.WindowInsets.Type.navigationBars()
+                );
+                ctrl.setSystemBarsBehavior(
+                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                );
+            }
+        } else {
+            getWindow()
+                .getDecorView()
+                .setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                );
+        }
+
+        // Low-latency input flags
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     @Override
@@ -1059,73 +1096,29 @@ public class MainActivity
 
     @Override
     public boolean onKeyMultiple(int keyCode, int repeatCount, KeyEvent event) {
-        if (this.mEngine == null) {
-            return false;
-        }
-
-        if (AccessibilityDetector.isIllegalServiceDetected()) {
-            return false;
-        }
-
-        if (GlobalManager.getInstance().getEngine() == null) {
-            return super.onKeyMultiple(keyCode, repeatCount, event);
-        }
-
-        var action = event.getAction();
-
-        // See:
-        // - https://stackoverflow.com/a/7232186
-        // - https://developer.android.com/reference/android/view/KeyEvent#ACTION_MULTIPLE
-        // For now, we are only interested in using this for input to support characters that require multiple key
-        // presses to be inputted.
-        if (
-            action == KeyEvent.ACTION_MULTIPLE &&
-            UIEngine.getCurrent().onKeyPress(keyCode, event)
-        ) {
-            return true;
-        }
-
-        return super.onKeyMultiple(keyCode, repeatCount, event);
+        return false;
     }
 
     @Override
     public boolean onKeyDown(final int keyCode, final KeyEvent event) {
-        if (this.mEngine == null) {
-            return false;
-        }
-
-        if (AccessibilityDetector.isIllegalServiceDetected()) return false;
-
-        if (GlobalManager.getInstance().getEngine() == null) {
-            return super.onKeyDown(keyCode, event);
-        }
-
-        if (UIEngine.getCurrent().onKeyPress(keyCode, event)) {
+        if (keyCode != KeyEvent.KEYCODE_BACK) {
             return true;
         }
 
         if (event.getAction() != KeyEvent.ACTION_DOWN) {
-            return super.onKeyDown(keyCode, event);
+            return true;
         }
 
-        Scene currentScene = GlobalManager.getInstance().getEngine().getScene();
-
-        if (
-            event.getAction() == TouchEvent.ACTION_DOWN &&
-            keyCode == KeyEvent.KEYCODE_BACK &&
-            ActivityOverlay.onBackPress()
-        ) {
+        if (ActivityOverlay.onBackPress()) {
             return true;
         }
 
         var gameScene = GlobalManager.getInstance().getGameScene();
+        Scene currentScene = GlobalManager.getInstance().getEngine() != null
+            ? GlobalManager.getInstance().getEngine().getScene()
+            : null;
 
-        if (
-            gameScene != null &&
-            currentScene == gameScene.getScene() &&
-            (keyCode == KeyEvent.KEYCODE_BACK ||
-                keyCode == KeyEvent.KEYCODE_MENU)
-        ) {
+        if (gameScene != null && currentScene == gameScene.getScene()) {
             if (gameScene.isPaused()) {
                 Execution.updateThread(gameScene::resume);
             } else {
@@ -1135,94 +1128,47 @@ public class MainActivity
         }
 
         var scoringScene = GlobalManager.getInstance().getScoring();
-
-        if (
-            scoringScene != null &&
-            keyCode == KeyEvent.KEYCODE_BACK &&
-            currentScene == scoringScene.getScene()
-        ) {
+        if (scoringScene != null && currentScene == scoringScene.getScene()) {
             scoringScene.back();
             return true;
         }
 
         var songMenu = GlobalManager.getInstance().getSongMenu();
-
-        if (
-            (keyCode == KeyEvent.KEYCODE_BACK ||
-                keyCode == KeyEvent.KEYCODE_ENTER) &&
-            songMenu != null &&
-            currentScene == songMenu.getScene() &&
-            songMenu.getScene().hasChildScene()
-        ) {
-            var searchBar = songMenu.getSearchBar();
-
-            if (
-                searchBar != null &&
-                songMenu.getScene().getChildScene() == searchBar.getScene()
-            ) {
-                searchBar.hideMenu();
-            }
-
-            if (songMenu.getScene().getChildScene() == ModMenu.INSTANCE) {
-                ModMenu.INSTANCE.back();
-            }
-
-            return true;
-        }
-
-        if (
-            songMenu != null &&
-            keyCode == KeyEvent.KEYCODE_MENU &&
-            currentScene == songMenu.getScene() &&
-            !songMenu.getScene().hasChildScene()
-        ) {
-            songMenu.stopScroll(0);
-            songMenu.showPropertiesMenu(null);
-            return true;
-        }
-
-        if (keyCode == KeyEvent.KEYCODE_BACK && songMenu != null) {
-            if (currentScene == songMenu.getScene()) {
-                //SongMenu 界面按返回按钮（系统按钮）
-                songMenu.back();
-            } else {
-                if (currentScene instanceof LoadingScreen.LoadingScene) {
-                    return true;
+        if (songMenu != null && currentScene == songMenu.getScene()) {
+            if (songMenu.getScene().hasChildScene()) {
+                if (songMenu.getScene().getChildScene() == ModMenu.INSTANCE) {
+                    ModMenu.INSTANCE.back();
                 }
-
-                if (Multiplayer.isMultiplayer) {
-                    if (currentScene instanceof LobbyScene lobbyScene) {
-                        lobbyScene.back();
-                        return true;
-                    }
-
-                    if (currentScene == Multiplayer.roomScene) {
-                        if (
-                            Multiplayer.roomScene.hasChildScene() &&
-                            Multiplayer.roomScene.getChildScene() ==
-                                ModMenu.INSTANCE
-                        ) {
-                            ModMenu.INSTANCE.back();
-                            return true;
-                        }
-                        runOnUiThread(
-                            Multiplayer.roomScene.getLeaveDialog()::show
-                        );
-                        return true;
-                    }
-                } else if (
-                    currentScene instanceof GameLoaderScene loaderScene
-                ) {
-                    loaderScene.cancel();
-                    return true;
-                }
-
-                GlobalManager.getInstance().getMainScene().showExitDialog();
+                return true;
             }
+            songMenu.back();
             return true;
         }
 
-        return super.onKeyDown(keyCode, event);
+        if (Multiplayer.isMultiplayer) {
+            if (currentScene instanceof LobbyScene lobbyScene) {
+                lobbyScene.back();
+                return true;
+            }
+            if (currentScene == Multiplayer.roomScene) {
+                runOnUiThread(
+                    Multiplayer.roomScene.getLeaveDialog()::show
+                );
+                return true;
+            }
+        }
+
+        if (currentScene instanceof GameLoaderScene loaderScene) {
+            loaderScene.cancel();
+            return true;
+        }
+
+        if (currentScene instanceof LoadingScreen.LoadingScene) {
+            return true;
+        }
+
+        GlobalManager.getInstance().getMainScene().showExitDialog();
+        return true;
     }
 
     @Override

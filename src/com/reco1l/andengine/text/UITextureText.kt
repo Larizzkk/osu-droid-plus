@@ -59,7 +59,7 @@ open class UITextureText(val characters: MutableMap<Char, TextureRegion>) : UIBu
         }
 
 
-    private val textureRegions = mutableListOf<TextureRegion>()
+    @Volatile private var textureRegions = arrayOf<TextureRegion>()
 
 
     init {
@@ -79,14 +79,14 @@ open class UITextureText(val characters: MutableMap<Char, TextureRegion>) : UIBu
         var contentWidth = 0f
         var contentHeight = 0f
 
-        textureRegions.clear()
+        val regions = mutableListOf<TextureRegion>()
         for (i in text.indices) {
 
             val textureRegion = characters[text[i]] ?: continue
             val textureWidth = textureRegion.width * textureScaleX
             val textureHeight = textureRegion.height * textureScaleY
 
-            textureRegions.add(textureRegion)
+            regions.add(textureRegion)
 
             contentWidth += textureWidth + spacing
             contentHeight = max(contentHeight, textureHeight)
@@ -96,6 +96,7 @@ open class UITextureText(val characters: MutableMap<Char, TextureRegion>) : UIBu
 
         super.contentWidth = contentWidth
         super.contentHeight = contentHeight
+        textureRegions = regions.toTypedArray()
     }
 
     override fun beginDraw(gl: GL10) {
@@ -109,10 +110,11 @@ open class UITextureText(val characters: MutableMap<Char, TextureRegion>) : UIBu
         beginDraw(gl)
 
         var offsetX = 0f
+        val regions = textureRegions
 
-        for (i in textureRegions.indices) {
+        for (i in regions.indices) {
 
-            val texture = textureRegions[i]
+            val texture = regions[i]
             val textureWidth = texture.width * textureScaleX
             val textureHeight = texture.height * textureScaleY
 

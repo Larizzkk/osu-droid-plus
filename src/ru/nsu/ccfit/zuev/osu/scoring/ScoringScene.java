@@ -985,7 +985,7 @@ public class ScoringScene {
                                 OnlineManager.getInstance().getRank(),
                                 OnlineManager.getInstance().getScore(),
                                 OnlineManager.getInstance().getAccuracy(),
-                                OnlineManager.getInstance().getTotalDpp()
+                                OnlineManager.getInstance().getPP()
                             );
                             scene.registerTouchArea(sp.getDismissTouchArea());
                             scene.attachChild(sp);
@@ -993,10 +993,10 @@ public class ScoringScene {
                                 beatmap,
                                 stat,
                                 sp,
-                                replayPath
+                                replayPath,
+                                null
                             );
 
-                            // Remove the submit button
                             detachSelf();
                             scene.unregisterTouchArea(this);
                             return true;
@@ -1042,7 +1042,8 @@ public class ScoringScene {
                     beatmap,
                     stat,
                     sendingPanel,
-                    replayPath
+                    replayPath,
+                    null
                 );
             }
         }

@@ -292,6 +292,8 @@ public class OnlineManager {
 
         rank = Integer.parseInt(params[0]);
         score = Long.parseLong(params[1]);
+        accuracy = Float.parseFloat(params[2]);
+        mapRank = Integer.parseInt(params[3]);
         pp = Float.parseFloat(params[4]);
         // params[5] = total DPP (cumulative), optional
         if (params.length >= 6) {

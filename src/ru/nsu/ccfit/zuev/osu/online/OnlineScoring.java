@@ -153,11 +153,16 @@ public class OnlineScoring {
         });
     }
 
+    public interface ScoreResultCallback {
+        void onResult(long rank, long score, float accuracy, float pp);
+    }
+
     public void sendRecord(
         final BeatmapInfo beatmap,
         final StatisticV2 record,
         final SendingPanel panel,
-        final String replayPath
+        final String replayPath,
+        final ScoreResultCallback callback
     ) {
         if (!OnlineManager.getInstance().isStayOnline()) return;
 
@@ -208,6 +213,14 @@ public class OnlineScoring {
                             mgr.getAccuracy(),
                             mgr.getTotalDpp()
                         );
+                        if (callback != null) {
+                            callback.onResult(
+                                mgr.getRank(),
+                                mgr.getScore(),
+                                mgr.getAccuracy(),
+                                mgr.getTotalDpp()
+                            );
+                        }
                         break;
                     }
 

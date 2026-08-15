@@ -1,7 +1,9 @@
 package ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import javax.microedition.khronos.opengles.GL10;
 import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.sprite.Sprite;
@@ -24,8 +26,9 @@ public class CursorTrailOptimized extends Entity {
     private final CursorSprite cursor;
     private final TextureRegion trailTexture;
 
-    // Trail points management
-    private final List<TrailPoint> trailPoints;
+    // Trail points management — CopyOnWriteArrayList for thread safety
+    // with the fire-and-forget update/render pipeline.
+    private final CopyOnWriteArrayList<TrailPoint> trailPoints;
     private final List<Sprite> trailSprites;
     private int maxTrailPoints = 20;
     private float trailDuration = 0.5f; // seconds
@@ -67,7 +70,7 @@ public class CursorTrailOptimized extends Entity {
     ) {
         this.trailTexture = trailTexture;
         this.cursor = cursor;
-        this.trailPoints = new ArrayList<>();
+        this.trailPoints = new CopyOnWriteArrayList<>();
         this.trailSprites = new ArrayList<>();
         this.trailLength = loadTrailLength();
         this.maxTrailPoints = calculateMaxPoints();
@@ -164,13 +167,15 @@ public class CursorTrailOptimized extends Entity {
             1000 *
             GameHelper.getSpeedMultiplier());
 
-        // Update alpha values and remove expired points
-        for (int i = trailPoints.size() - 1; i >= 0; i--) {
-            TrailPoint point = trailPoints.get(i);
+        // Snapshot to avoid CME with CopyOnWriteArrayList
+        Object[] snapshot = trailPoints.toArray();
+        for (int i = snapshot.length - 1; i >= 0; i--) {
+            TrailPoint point = (TrailPoint) snapshot[i];
+            if (point == null) continue;
             long age = currentTime - point.time;
 
             if (age > fadeTimeMs) {
-                trailPoints.remove(i);
+                trailPoints.remove(point);
             } else {
                 float alpha = 1.0f - age / (float) fadeTimeMs;
                 point.alpha = Math.max(0, Math.min(1, alpha));
@@ -179,8 +184,12 @@ public class CursorTrailOptimized extends Entity {
     }
 
     private void updateTrailSprites() {
+        // Snapshot trail points for thread safety
+        TrailPoint[] points = trailPoints.toArray(new TrailPoint[0]);
+        int pointCount = points.length;
+
         // Ensure we have enough sprites
-        while (trailSprites.size() < trailPoints.size()) {
+        while (trailSprites.size() < pointCount) {
             Sprite sprite = new Sprite(0, 0, trailTexture);
             sprite.setVisible(false);
             sprite.setBlendFunction(
@@ -192,22 +201,20 @@ public class CursorTrailOptimized extends Entity {
         }
 
         // Update sprites to match trail points
-        for (int i = 0; i < trailPoints.size(); i++) {
+        for (int i = 0; i < pointCount; i++) {
             if (i < trailSprites.size()) {
-                TrailPoint point = trailPoints.get(i);
+                TrailPoint point = points[i];
+                if (point == null) continue;
                 Sprite sprite = trailSprites.get(i);
 
-                // Position sprite at trail point
                 float offsetX = -trailTexture.getWidth() / 2f;
                 float offsetY = -trailTexture.getHeight() / 2f;
                 sprite.setPosition(point.x + offsetX, point.y + offsetY);
 
-                // Set alpha and scale
                 sprite.setAlpha(point.alpha);
                 float scale = cursor.baseSize * point.alpha;
                 sprite.setScale(scale);
 
-                // Apply rotation if enabled
                 if (OsuSkin.get().isRotateCursorTrail()) {
                     sprite.setRotation(cursor.getRotation());
                 }
@@ -217,7 +224,7 @@ public class CursorTrailOptimized extends Entity {
         }
 
         // Hide unused sprites
-        for (int i = trailPoints.size(); i < trailSprites.size(); i++) {
+        for (int i = pointCount; i < trailSprites.size(); i++) {
             trailSprites.get(i).setVisible(false);
         }
     }
@@ -244,6 +251,13 @@ public class CursorTrailOptimized extends Entity {
         for (Sprite sprite : trailSprites) {
             sprite.setVisible(false);
         }
+    }
+
+    /**
+     * Thread-safe access to check if trail has points.
+     */
+    public boolean hasPoints() {
+        return !trailPoints.isEmpty();
     }
 
     /**

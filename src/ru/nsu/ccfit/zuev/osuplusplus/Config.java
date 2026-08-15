@@ -29,6 +29,14 @@ public class Config {
 
     private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements;
 
+    public static final int FRAME_LIMITER_UNLIMITED = 0;
+    public static final int FRAME_LIMITER_POWER_SAVE = 1;
+    public static final int FRAME_LIMITER_VSYNC = 2;
+    public static final int FRAME_LIMITER_OPTIMAL = 3;
+
+    private static int frameLimiterMode;
+    private static int customFrameRate;
+
     private static int RES_WIDTH, RES_HEIGHT, spinnerStyle, metronomeSwitch, minimumGameplaySynchronizationTime, backButtonPressTime;
 
     private static float soundVolume, bgmVolume, offset, backgroundBrightness, playfieldSize, playfieldHorizontalPosition, playfieldVerticalPosition, cursorSize, trailLength;
@@ -61,8 +69,8 @@ public class Config {
         // graphics
         useCustomSkins = prefs.getBoolean("skin", false);
         useCustomSounds = prefs.getBoolean("beatmapSounds", true);
+corovans = prefs.getBoolean("images", false);
         comboburst = prefs.getBoolean("comboburst", false);
-        corovans = prefs.getBoolean("images", false);
         showFPS = prefs.getBoolean("fps", true);
         spinnerStyle = Integer.parseInt(prefs.getString("spinnerstyle", "1"));
         showFirstApproachCircle = prefs.getBoolean(
@@ -81,6 +89,14 @@ public class Config {
         noChangeDimInBreaks = prefs.getBoolean("noChangeDimInBreaks", false);
         dimHitObjects = prefs.getBoolean("dimHitObjects", true);
         forceMaxRefreshRate = prefs.getBoolean("forceMaxRefreshRate", false);
+
+        try {
+            frameLimiterMode = Integer.parseInt(prefs.getString("frameLimiterMode", "0"));
+        } catch (ClassCastException e) {
+            frameLimiterMode = prefs.getInt("frameLimiterMode", 0);
+            prefs.edit().putString("frameLimiterMode", String.valueOf(frameLimiterMode)).apply();
+        }
+        customFrameRate = prefs.getInt("customFrameRate", 0);
 
         measureDisplaySize();
         setPlayfieldSize(prefs.getInt("playfieldSize", 100) / 100f);
@@ -345,20 +361,20 @@ public class Config {
         setBoolean("showscoreboard", showScoreboard);
     }
 
-    public static boolean isCorovans() {
-        return corovans;
-    }
-
-    public static void setCorovans(final boolean corovans) {
-        Config.corovans = corovans;
-    }
-
     public static float getSoundVolume() {
         return soundVolume;
     }
 
     public static void setSoundVolume(final float volume) {
         Config.soundVolume = volume;
+    }
+
+    public static boolean isCorovans() {
+        return corovans;
+    }
+
+    public static void setCorovans(final boolean corovans) {
+        Config.corovans = corovans;
     }
 
     public static float getBgmVolume() {
@@ -817,6 +833,23 @@ public class Config {
 
     public static boolean isForceMaxRefreshRate() {
         return forceMaxRefreshRate;
+    }
+
+    public static int getFrameLimiterMode() {
+        return frameLimiterMode;
+    }
+
+    public static int getCustomFrameRate() {
+        return customFrameRate;
+    }
+
+    public static int getEffectiveFrameRate(float displayRefreshRate) {
+        return switch (frameLimiterMode) {
+            case FRAME_LIMITER_POWER_SAVE -> 30;
+            case FRAME_LIMITER_VSYNC -> (int) displayRefreshRate;
+            case FRAME_LIMITER_OPTIMAL -> Math.min((int) (displayRefreshRate * 4), 480);
+            default -> customFrameRate > 0 ? customFrameRate : 0;
+        };
     }
 
     public static boolean isShiftPitchInRateChange() {

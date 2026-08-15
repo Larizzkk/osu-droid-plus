@@ -44,12 +44,19 @@ public class CursorEntity extends Entity {
     public void setShowing(boolean showing) {
         isShowing = showing;
         setVisible(showing);
-        if (trail != null)
+        cursorSprite.setVisible(showing);
+        if (trail != null) {
             trail.setParticlesSpawnEnabled(showing);
+            if (!showing) {
+                trail.reset();
+            }
+        }
     }
 
     public void click() {
-        cursorSprite.handleClick();
+        if (isShowing) {
+            cursorSprite.handleClick();
+        }
     }
 
     public void update(float pSecondsElapsed) {
@@ -71,10 +78,20 @@ public class CursorEntity extends Entity {
         fgScene.attachChild(this);
     }
 
+    private float lastX = -1000, lastY = -1000;
+
     @Override
     public void setPosition(float pX, float pY) {
-        if (emitter != null)
-            emitter.setCenter(pX + particleOffsetX, pY + particleOffsetY);
+        if (emitter != null) {
+            float dx = pX - lastX;
+            float dy = pY - lastY;
+            // Avoid emitter teleportation/flickering on high FPS
+            if (dx * dx + dy * dy > 0.5f) {
+                emitter.setCenter(pX + particleOffsetX, pY + particleOffsetY);
+                lastX = pX;
+                lastY = pY;
+            }
+        }
 
         super.setPosition(pX, pY);
     }

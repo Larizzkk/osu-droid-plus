@@ -86,6 +86,7 @@ import org.anddev.andengine.engine.camera.SmoothCamera;
 import org.anddev.andengine.engine.handler.IUpdateHandler;
 import org.anddev.andengine.engine.options.TouchOptions;
 import org.anddev.andengine.engine.options.WakeLockOptions;
+import org.anddev.andengine.util.FrameLimiter;
 import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.IEntity;
 import org.anddev.andengine.entity.modifier.LoopEntityModifier;
@@ -1672,13 +1673,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             !GameHelper.isAutoplay() &&
             !GameHelper.isAutopilot()
         ) {
-            // Enable historical event processing for more frequent ACTION_MOVE reports depending on user configuration.
+            // Enable historical event processing and raw pointer for sub-frame precision.
+            // In decoupled mode (target FPS > display rate), always enable for lowest latency.
+            boolean useHighPrecision = Config.isHighPrecisionInput()
+                || FrameLimiter.getInstance().getTargetFps() > FrameLimiter.getInstance().getDisplayRefreshRate();
+
             var touchOptions = new TouchOptions();
             touchOptions.setRunOnUpdateThread(true);
-            touchOptions.setProcessHistoricalEvents(
-                Config.isHighPrecisionInput()
-            );
-            touchOptions.setUseRawPointer(Config.isHighPrecisionInput());
+            touchOptions.setProcessHistoricalEvents(useHighPrecision);
+            touchOptions.setUseRawPointer(useHighPrecision);
 
             var touchController = engine.getTouchController();
             touchController.applyTouchOptions(touchOptions);
@@ -3306,6 +3309,40 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return false;
         }
 
+        // When raw pointers are active, the high-precision path in onManagedUpdate
+        // handles DOWN and MOVE events at the game's update rate (up to 900 Hz).
+        // We only need the normal path for UP events (which the raw pointer path
+        // doesn't generate) and for the max-active-cursor limit check.
+        var touchCtrl = engine.getTouchController();
+        boolean rawPointersActive = touchCtrl != null &&
+            touchCtrl.isUseRawPointers() &&
+            !GameHelper.isAutoplay() && !GameHelper.isAutopilot();
+
+        if (rawPointersActive && !event.isActionUp() && !event.isActionCancel() && !event.isActionOutside()) {
+            // DOWN and MOVE are handled by the raw pointer path — skip duplicates.
+            // But still enforce the max-active-cursor limit on DOWN.
+            if (event.isActionDown()) {
+                var cursor = cursors[id];
+                if (cursor.mouseBlocked) {
+                    cursor.mouseBlocked = false;
+                    return true;
+                }
+                int activeCursorCount = 0;
+                for (int i = 0; i < cursors.length; ++i) {
+                    if (activeCursorCount >= maximumActiveCursorCount) break;
+                    if (cursors[i].isMouseDown()) ++activeCursorCount;
+                }
+                if (activeCursorCount >= maximumActiveCursorCount) {
+                    return false;
+                }
+                // Inform HUD of touch down timing (no cursor event — raw path handles it)
+                if (!GameHelper.isAutoplay()) {
+                    hud.onGameplayTouchDown(eventTime / 1000f);
+                }
+            }
+            return true;
+        }
+
         var cursor = cursors[id];
 
         if (event.isActionDown()) {
@@ -3361,7 +3398,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             if (replay != null) {
                 replay.addPress(eventTime, cursorEvent.trackPosition, id);
             }
-        } else if (cursor.isMouseDown() && event.isActionMove()) {
+        } else if (event.isActionMove()) {
             if (sprite != null) {
                 sprite.setShowing(true);
             }
@@ -3371,7 +3408,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             if (replay != null) {
                 replay.addMove(eventTime, cursorEvent.trackPosition, id);
             }
-        } else if (cursor.isMouseDown() && event.isActionUp()) {
+        } else if (event.isActionUp()) {
             if (sprite != null) {
                 sprite.setShowing(false);
             }
@@ -4217,12 +4254,22 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             // Reused buffer to avoid allocations.
             private final float[] fastPathSurfaceCoords = new float[2];
 
+            // Reused buffer for coordinate conversion (avoids new float[] per tick).
+            private final float[] tmpSurfaceCoords = new float[2];
+
             // Stable fallback cache per pointer (surface space).
             private final boolean[] fastPathHasStableSnapshot =
                 new boolean[CursorCount];
             private final float[] fastPathLastStableX = new float[CursorCount];
             private final float[] fastPathLastStableY = new float[CursorCount];
 
+            // Deduplication: last event timestamp per pointer.
+            // Raw pointer data only changes at the OS touch rate (~120 Hz).
+            // We only create a CursorEvent when the MotionEvent timestamp changes,
+            // avoiding ~7 redundant events per 120 Hz cycle at 900 Hz game rate.
+            private final long[] rawLastEventTime = new long[CursorCount];
+
+            // Reset deduplication state each tick.
             private boolean isInterpolating;
 
             @Override
@@ -4269,20 +4316,40 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                                 pi
                             );
                             if (verBefore == verAfter && (verAfter & 1) == 0) {
+                                // ── Deduplication: only emit when raw data actually changed ──
+                                // Android MotionEvents arrive at display refresh rate (~120 Hz).
+                                // Between events, raw pointer arrays are stale.
+                                // Creating a CursorEvent on every 900 Hz tick with the same
+                                // position floods the event list with identical entries.
+                                long rawEventTime = touchController.getRawPointerEventTime(pi);
+                                if (rawEventTime == rawLastEventTime[pi]) {
+                                    break; // No new touch data — skip this tick
+                                }
+                                rawLastEventTime[pi] = rawEventTime;
+
+                                // Compute sub-frame offset from the touch event timestamp
+                                // vs the last game frame boundary, same as onSceneTouchEvent.
+                                double frameOffset =
+                                    previousFrameTime > 0
+                                        ? (rawEventTime - previousFrameTime) *
+                                          GameHelper.getSpeedMultiplier()
+                                        : 0;
+
                                 // Create a cursor event from the raw pointer data
                                 var ev = CursorEvent.obtain();
-                                ev.systemTime =
-                                    touchController.getRawPointerEventTime(pi);
+                                ev.systemTime = rawEventTime;
                                 ev.trackTime = elapsedTime * 1000;
                                 ev.action = cursor.isMouseDown()
                                     ? TouchEvent.ACTION_MOVE
                                     : TouchEvent.ACTION_DOWN;
-                                ev.offset = 0.0;
+                                ev.offset = frameOffset;
                                 // Convert surface coords to scene coords
+                                tmpSurfaceCoords[0] = sx;
+                                tmpSurfaceCoords[1] = sy;
                                 float[] scene =
                                     Cameras.convertSurfaceToSceneCoordinates(
                                         gameCamera,
-                                        new float[] { sx, sy }
+                                        tmpSurfaceCoords
                                     );
                                 ev.position.x = Math.max(
                                     0,
@@ -4320,7 +4387,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                             }
                         }
                     }
-                    applyRawPointerFastPath(gameCamera);
                 }
 
                 var songService = GlobalManager.getInstance().getSongService();
@@ -4459,18 +4525,19 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                         continue;
                     }
 
-                    var cursor = cursors[i];
-                    boolean isUpdatePathDown =
-                        cursor != null && cursor.isMouseDown();
+                    // Use the hardware touch state directly instead of
+                    // cursor.isMouseDown(), which relies on event processing
+                    // and can lag behind the actual finger state.
+                    boolean isFingerDown =
+                        touchController.isRawPointerDown(i);
 
-                    // Cursor stays visible during play (see update loop); the trail
-                    // (particles) setting no longer hides the cursor.
-                    sprite.setShowing(true);
-
-                    if (!isUpdatePathDown) {
+                    if (!isFingerDown) {
+                        sprite.setShowing(false);
                         fastPathHasStableSnapshot[i] = false;
                         continue;
                     }
+
+                    sprite.setShowing(true);
 
                     if (updatePathActiveCount >= maximumActiveCursorCount) {
                         continue;
