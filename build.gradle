@@ -1,7 +1,7 @@
 buildscript {
     ext {
-        kotlin_version = '2.1.10'
-        room_version = '2.6.1'
+        kotlin_version = '2.1.20'
+        room_version = '2.7.0-alpha13'
     }
     repositories {
         google()
@@ -14,11 +14,8 @@ buildscript {
         classpath 'com.google.firebase:firebase-crashlytics-gradle:3.0.3'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
+        classpath 'com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:2.1.20-2.0.0'
     }
-}
-
-plugins {
-    id 'com.google.devtools.ksp' version '2.1.10-1.0.29'
 }
 
 allprojects {
@@ -53,6 +50,7 @@ apply plugin: 'com.google.gms.google-services'
 apply plugin: 'com.google.firebase.crashlytics'
 apply plugin: 'kotlin-android'
 apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
+apply plugin: 'com.google.devtools.ksp'
 
 android {
     namespace 'ru.nsu.ccfit.zuev.osuplusplus'
@@ -127,6 +125,7 @@ android {
         main {
             manifest.srcFile 'AndroidManifest.xml'
             java.srcDirs = ['src']
+            java.exclude 'ru/nsu/ccfit/osu-droid/**'
             res.srcDirs = ['res']
             assets.srcDirs = ['assets']
             jniLibs.srcDirs = ['libs']
