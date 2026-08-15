@@ -10,6 +10,7 @@ import com.reco1l.andengine.ui.*
 import org.anddev.andengine.engine.Engine
 import org.anddev.andengine.engine.camera.hud.*
 import org.anddev.andengine.engine.options.EngineOptions
+import org.anddev.andengine.util.FrameLimiter
 import org.anddev.andengine.entity.IEntity
 import org.anddev.andengine.entity.scene.*
 import org.anddev.andengine.input.touch.*
@@ -28,6 +29,11 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
      * The resource manager for loading and accessing UI resources (fonts, textures, etc).
      */
     val resources = UIResourceManager(context)
+
+    /**
+     * Frame limiter: nanoseconds per frame. 0 = unlimited.
+     */
+    var preferredFrameLengthNanoseconds: Long = 0L
 
     /**
      * The current focused entity.
@@ -60,6 +66,32 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
     init {
         current = this
         camera.hud = overlay
+    }
+
+    fun setFrameRate(fps: Int) {
+        preferredFrameLengthNanoseconds = if (fps > 0) NANOSECONDSPERSECOND / fps else 0L
+    }
+
+    @Throws(InterruptedException::class)
+    override fun onUpdate(pNanosecondsElapsed: Long) {
+        // In decoupled mode (target > 120 AND scene loaded), the Engine.onTickUpdate()
+        // handles timing. Skip UIEngine limiter to avoid double-sleep.
+        // During loading (scene not ready), always use normal coupled mode.
+        if (isSceneReady && FrameLimiter.getInstance().targetFps > FrameLimiter.getInstance().displayRefreshRate) {
+            super.onUpdate(pNanosecondsElapsed)
+            return
+        }
+
+        val frameLength = preferredFrameLengthNanoseconds
+        if (frameLength > 0) {
+            val delta = frameLength - pNanosecondsElapsed
+            if (delta > 0) {
+                Thread.sleep(delta / NANOSECONDSPERMILLISECOND)
+                super.onUpdate(pNanosecondsElapsed + delta)
+                return
+            }
+        }
+        super.onUpdate(pNanosecondsElapsed)
     }
 
 

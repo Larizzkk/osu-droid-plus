@@ -51,6 +51,7 @@ import org.anddev.andengine.sensor.orientation.IOrientationListener;
 import org.anddev.andengine.sensor.orientation.OrientationData;
 import org.anddev.andengine.sensor.orientation.OrientationSensorOptions;
 import org.anddev.andengine.util.Debug;
+import org.anddev.andengine.util.FrameLimiter;
 import org.anddev.andengine.util.constants.TimeConstants;
 
 /**
@@ -96,11 +97,23 @@ public class Engine
     volatile boolean mTouchInterrupt = false;
 
     /**
+     * Indicates that at least one scene has finished loading via onLoadComplete().
+     * Decoupled mode (high FPS update thread) is only enabled after this flag is set,
+     * preventing deadlocks during splash/loading screens where GL resources are being
+     * uploaded and the render thread needs yieldDraw() to proceed.
+     */
+    volatile boolean mSceneReady = false;
+
+    /**
      * Signals that a new touch event has arrived. Wakes up the update thread
      * if it's waiting for the render thread.
      */
     public void signalTouchInterrupt() {
         this.mTouchInterrupt = true;
+        // Wake the update thread from limitFrame() sleep immediately.
+        // Without this, the touch event waits up to the full frame budget
+        // (e.g. 2ms at 480Hz) before being processed.
+        FrameLimiter.getInstance().signalTouchInterrupt();
     }
 
     private final UpdateThread mUpdateThread = new UpdateThread();
@@ -187,7 +200,12 @@ public class Engine
     public synchronized void stop() {
         if (this.mRunning) {
             this.mRunning = false;
+            this.mSceneReady = false;
         }
+    }
+
+    public boolean isSceneReady() {
+        return this.mSceneReady;
     }
 
     public Scene getScene() {
@@ -562,52 +580,71 @@ public class Engine
         this.setScene(pScene);
     }
 
+    public void setSceneReady(boolean ready) {
+        this.mSceneReady = ready;
+    }
+
     void onTickUpdate() throws InterruptedException {
         if (this.mRunning) {
-            // Process touch events in adaptive bursts. Each cycle drains the
-            // touch queue and updates game state. If new events arrive during
-            // processing, we loop back immediately instead of blocking on render.
-            //
-            // During slider drag, Android fires MOVE events at 120-240Hz.
-            // By processing up to 16 cycles per render, we handle every event
-            // before the next vsync, giving smooth sub-frame slider tracking.
-            //
-            // SAFETY: We NEVER touch mDrawing. The render thread stays blocked
-            // in waitUntilCanDraw() while we process multiple updates.
-            final float frameBudgetSec = 1f / 60f;
-            float elapsedThisFrame = 0;
-            int burstCount = 0;
-            do {
+            final FrameLimiter limiter = FrameLimiter.getInstance();
+            final int targetFps = limiter.getTargetFps();
+            final float displayRate = FrameLimiter.getInstance().getDisplayRefreshRate();
+            final boolean decoupledMode = mSceneReady && targetFps > 0 && targetFps > displayRate;
+
+            if (decoupledMode) {
+                // DECOUPLED MODE: Update thread runs at target FPS (e.g. 480Hz),
+                // render thread runs at vsync rate (e.g. 120Hz).
+                //
+                // Fire-and-forget: kick the renderer but don't block on it.
+                // If the renderer is busy, the update thread keeps pushing
+                // the next logic tick immediately. The renderer picks up
+                // the latest snapshot on its next vsync.
+                final long startNs = System.nanoTime();
                 final long nanos = this.getNanosecondsElapsed();
 
-                // Skip micro-updates with <1ms elapsed — these happen during
-                // touch bursts when the previous cycle already advanced mLastTick
-                // to the current time. Processing them would pass zero-delta
-                // to scene entities, causing NaN in FPS counters and other math.
                 if (nanos >= 1_000_000L) {
-                    final float secs =
-                        (float) nanos / TimeConstants.NANOSECONDSPERSECOND;
-                    elapsedThisFrame += secs;
                     this.onUpdate(nanos);
                 }
 
-                burstCount++;
+                // Fire-and-forget: notify render thread to draw when idle.
+                // Do NOT wait — the update thread moves on to the next tick.
+                final State threadLocker = this.mThreadLocker;
+                synchronized (threadLocker) {
+                    threadLocker.mDrawing = true;
+                    threadLocker.notifyAll();
+                }
 
-                // Continue processing if:
-                // 1. New touch events arrived during processing
-                // 2. We haven't exceeded the frame budget (don't starve render)
-                // 3. We haven't processed too many cycles (cap to prevent runaway)
-            } while (
-                this.mTouchInterrupt &&
-                burstCount < 16 &&
-                elapsedThisFrame < frameBudgetSec
-            );
+                // Precise frame timing using hybrid sleep+parkNanos+yield
+                limiter.limitFrame(startNs);
+            } else {
+                // NORMAL MODE: Update and render are coupled via yieldDraw().
+                // Process touch events in adaptive bursts.
+                final float frameBudgetSec = 1f / 60f;
+                float elapsedThisFrame = 0;
+                int burstCount = 0;
+                do {
+                    final long nanos = this.getNanosecondsElapsed();
 
-            this.mTouchInterrupt = false;
-            this.yieldDraw();
+                    if (nanos >= 1_000_000L) {
+                        final float secs =
+                            (float) nanos / TimeConstants.NANOSECONDSPERSECOND;
+                        elapsedThisFrame += secs;
+                        this.onUpdate(nanos);
+                    }
+
+                    burstCount++;
+
+                } while (
+                    this.mTouchInterrupt &&
+                    burstCount < 16 &&
+                    elapsedThisFrame < frameBudgetSec
+                );
+
+                this.mTouchInterrupt = false;
+                this.yieldDraw();
+            }
         } else {
             this.yieldDraw();
-
             Thread.sleep(16);
         }
     }

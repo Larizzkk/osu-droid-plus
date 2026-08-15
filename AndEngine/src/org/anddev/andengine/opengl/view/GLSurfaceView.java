@@ -23,6 +23,9 @@ import javax.microedition.khronos.egl.EGLSurface;
 import javax.microedition.khronos.opengles.GL;
 import javax.microedition.khronos.opengles.GL10;
 
+import org.anddev.andengine.util.Debug;
+import org.anddev.andengine.util.FrameLimiter;
+
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
@@ -618,8 +621,12 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 
 					/*
 					 * Once we're done with GL, we need to call swapBuffers() to
-					 * instruct the system to display the rendered frame
+					 * instruct the system to display the rendered frame.
+					 *
+					 * Re-apply swap interval every frame so that changing the frame
+					 * limiter mode at runtime takes effect immediately.
 					 */
+					this.mEglHelper.setSwapInterval();
 					this.mEglHelper.swap();
 				}
 			}
@@ -800,8 +807,7 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 		/*
 		 * React to the creation of a new surface by creating and returning an
 		 * OpenGL interface that renders to that surface.
-		 */
-		public GL createSurface(final SurfaceHolder holder) {
+		 */			public GL createSurface(final SurfaceHolder holder) {
 			/*
 			 * The window size has changed, so we need to create a new surface.
 			 */
@@ -825,6 +831,13 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 			 */
 			this.mEgl.eglMakeCurrent(this.mEglDisplay, this.mEglSurface, this.mEglSurface, this.mEglContext);
 
+			/*
+			 * Set swap interval based on frame limiter mode.
+			 * VSync (MODE_VSYNC): eglSwapInterval(1) — block until next vsync.
+			 * Others (MODE_UNLIMITED/OPTIMAL/POWER_SAVE): eglSwapInterval(0) — no vsync blocking.
+			 */
+			setSwapInterval();
+
 			GL gl = this.mEglContext.getGL();
 			if(GLSurfaceView.this.mGLWrapper != null) {
 				gl = GLSurfaceView.this.mGLWrapper.wrap(gl);
@@ -846,17 +859,39 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 		 * Display the current render surface.
 		 * 
 		 * @return false if the context has been lost.
-		 */
-		public boolean swap() {
-			this.mEgl.eglSwapBuffers(this.mEglDisplay, this.mEglSurface);
+		 */			public boolean swap() {
+				this.mEgl.eglSwapBuffers(this.mEglDisplay, this.mEglSurface);
 
-			/*
-			 * Always check for EGL_CONTEXT_LOST, which means the context and
-			 * all associated data were lost (For instance because the device
-			 * went to sleep). We need to sleep until we get a new surface.
+				/*
+				 * Always check for EGL_CONTEXT_LOST, which means the context and
+				 * all associated data were lost (For instance because the device
+				 * went to sleep). We need to sleep until we get a new surface.
+				 */
+				return this.mEgl.eglGetError() != EGL11.EGL_CONTEXT_LOST;
+			}
+
+			/**
+			 * Apply eglSwapInterval to the current EGL surface.
+			 * interval=1 enables VSync (block until next vsync).
+			 * interval=0 disables VSync (swap returns immediately).
 			 */
-			return this.mEgl.eglGetError() != EGL11.EGL_CONTEXT_LOST;
-		}
+			public void setSwapInterval() {
+				try {
+					/*
+					 * Use android.opengl.EGL14 for eglSwapInterval on API 17+.
+					 * Falls back to 0 (no VSync) on older devices.
+					 */
+					if (android.os.Build.VERSION.SDK_INT >= 17) {
+						int interval = (FrameLimiter.getInstance().getMode() == FrameLimiter.MODE_VSYNC) ? 1 : 0;
+						android.opengl.EGL14.eglSwapInterval(
+							android.opengl.EGL14.eglGetCurrentDisplay(),
+							interval
+						);
+					}
+				} catch (Exception e) {
+					Debug.d("eglSwapInterval not supported, using default.");
+				}
+			}
 
 		public void finish() {
 			if(this.mEglSurface != null) {

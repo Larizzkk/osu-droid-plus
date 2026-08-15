@@ -8,6 +8,7 @@ import org.anddev.andengine.entity.primitive.Rectangle
 import org.anddev.andengine.entity.text.ChangeableText
 import org.anddev.andengine.opengl.font.Font
 import com.osudroid.utils.MainActivityHelper
+import org.anddev.andengine.util.FrameLimiter
 import java.util.Locale
 import javax.microedition.khronos.opengles.GL10
 
@@ -49,7 +50,8 @@ class FPSCounter(font: Font) : ChangeableText(
             else framesSinceLastAverageFpsCalculation / timeSinceLastAverageFpsCalculation
             timeSinceLastAverageFpsCalculation = 0f
             framesSinceLastAverageFpsCalculation = 0
-            maximumFps = MainActivityHelper.getRefreshRate()
+            val limiterFps = FrameLimiter.getInstance().targetFps
+            maximumFps = if (limiterFps > 0) limiterFps.toFloat() else MainActivityHelper.getRefreshRate()
         }
         framesSinceLastAverageFpsCalculation++
         timeUntilNextAverageFpsCalculation -= deltaTime
