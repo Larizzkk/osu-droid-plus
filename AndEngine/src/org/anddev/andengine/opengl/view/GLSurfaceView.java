@@ -619,14 +619,10 @@ public class GLSurfaceView extends SurfaceView implements SurfaceHolder.Callback
 					/* draw a frame here */
 					this.mRenderer.onDrawFrame(gl);
 
-					/*
-					 * Once we're done with GL, we need to call swapBuffers() to
-					 * instruct the system to display the rendered frame.
-					 *
-					 * Re-apply swap interval every frame so that changing the frame
-					 * limiter mode at runtime takes effect immediately.
-					 */
-					this.mEglHelper.setSwapInterval();
+					// Only re-apply swap interval when frame limiter mode changes.
+					if (FrameLimiter.getInstance().isSwapIntervalDirty()) {
+						this.mEglHelper.setSwapInterval();
+					}
 					this.mEglHelper.swap();
 				}
 			}

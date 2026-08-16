@@ -588,36 +588,21 @@ public class Engine
         if (this.mRunning) {
             final FrameLimiter limiter = FrameLimiter.getInstance();
             final int targetFps = limiter.getTargetFps();
-            final float displayRate = FrameLimiter.getInstance().getDisplayRefreshRate();
+            final float displayRate = limiter.getDisplayRefreshRate();
             final boolean decoupledMode = mSceneReady && targetFps > 0 && targetFps > displayRate;
 
             if (decoupledMode) {
-                // DECOUPLED MODE: Update thread runs at target FPS (e.g. 480Hz),
-                // render thread runs at vsync rate (e.g. 120Hz).
-                //
-                // Fire-and-forget: kick the renderer but don't block on it.
-                // If the renderer is busy, the update thread keeps pushing
-                // the next logic tick immediately. The renderer picks up
-                // the latest snapshot on its next vsync.
+                // Decoupled: update at target FPS, render at display rate.
+                // yieldDraw() ensures render consumes state before next update,
+                // preventing mid-draw state corruption.
                 final long startNs = System.nanoTime();
                 final long nanos = this.getNanosecondsElapsed();
 
-                if (nanos >= 1_000_000L) {
-                    this.onUpdate(nanos);
-                }
-
-                // Fire-and-forget: notify render thread to draw when idle.
-                // Do NOT wait — the update thread moves on to the next tick.
-                final State threadLocker = this.mThreadLocker;
-                synchronized (threadLocker) {
-                    threadLocker.mDrawing = true;
-                    threadLocker.notifyAll();
-                }
-
-                // Precise frame timing using hybrid sleep+parkNanos+yield
+                this.onUpdate(nanos);
+                this.yieldDraw();
                 limiter.limitFrame(startNs);
             } else {
-                // NORMAL MODE: Update and render are coupled via yieldDraw().
+                // Normal: coupled update+render via yieldDraw().
                 // Process touch events in adaptive bursts.
                 final float frameBudgetSec = 1f / 60f;
                 float elapsedThisFrame = 0;
@@ -625,12 +610,10 @@ public class Engine
                 do {
                     final long nanos = this.getNanosecondsElapsed();
 
-                    if (nanos >= 1_000_000L) {
-                        final float secs =
-                            (float) nanos / TimeConstants.NANOSECONDSPERSECOND;
-                        elapsedThisFrame += secs;
-                        this.onUpdate(nanos);
-                    }
+                    final float secs =
+                        (float) nanos / TimeConstants.NANOSECONDSPERSECOND;
+                    elapsedThisFrame += secs;
+                    this.onUpdate(nanos);
 
                     burstCount++;
 

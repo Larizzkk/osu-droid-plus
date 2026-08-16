@@ -1,18 +1,14 @@
 package org.anddev.andengine.util;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 
 /**
  * High-precision frame limiter matching osu!stable's four modes.
  *
- * Timing uses a hybrid approach:
- *   1. coarse sleep (Thread.sleep) for the bulk of the wait
- *   2. LockSupport.parkNanos for the fine-grained tail
- *   3. Thread.yield() for the final sub-ms precision
- *
- * This avoids Thread.sleep()'s ~15ms Android quantization error
- * and keeps frame times stable even at 240–480+ FPS targets.
- * LockSupport.parkNanos avoids busy-spinning the CPU.
+ * Two-phase wait: coarse sleep (Thread.sleep) + fine parkNanos.
+ * touchInterrupted is an AtomicBoolean to avoid race conditions
+ * when signal arrives between checks.
  */
 public final class FrameLimiter {
 
@@ -30,10 +26,13 @@ public final class FrameLimiter {
     private volatile long targetFrameNs = 0;
 
     /**
-     * Set by the update thread when a touch interrupt arrives.
-     * limitFrame() checks this to abort sleeping early.
+     * Atomic flag to abort limitFrame() early on touch input.
+     * Uses getAndSet(false) to avoid losing signals between reads.
      */
-    private volatile boolean touchInterrupted = false;
+    private final AtomicBoolean touchInterrupted = new AtomicBoolean(false);
+
+    /** Tracks whether the current mode requires eglSwapInterval to be re-applied. */
+    private volatile boolean swapIntervalDirty = true;
 
     private static final FrameLimiter INSTANCE = new FrameLimiter();
 
@@ -44,15 +43,24 @@ public final class FrameLimiter {
     private FrameLimiter() {}
 
     public void configure(int mode, int customFps, float displayRefreshRate) {
+        int oldMode = this.mode;
         this.mode = mode;
         this.customFps = customFps;
         this.displayRefreshRate = displayRefreshRate;
         recomputeTarget();
+        // Signal swap interval needs update when mode changes.
+        if (mode != oldMode) {
+            this.swapIntervalDirty = true;
+        }
     }
 
     public void setMode(int mode) {
+        int oldMode = this.mode;
         this.mode = mode;
         recomputeTarget();
+        if (mode != oldMode) {
+            this.swapIntervalDirty = true;
+        }
     }
 
     public void setDisplayRefreshRate(float hz) {
@@ -61,12 +69,26 @@ public final class FrameLimiter {
     }
 
     /**
-     * Called from the UI thread when a touch event arrives.
-     * Causes limitFrame() to abort sleeping early so the update thread
-     * processes input with minimal latency.
+     * Called from the UI thread on touch input.
+     * Uses getAndSet to ensure no signal is lost even if limitFrame()
+     * is between check-and-reset.
      */
     public void signalTouchInterrupt() {
-        this.touchInterrupted = true;
+        this.touchInterrupted.set(true);
+    }
+
+    /**
+     * Returns true if the swap interval needs re-application.
+     * Caller should call markSwapIntervalApplied() after applying.
+     */
+    public boolean isSwapIntervalDirty() {
+        boolean dirty = this.swapIntervalDirty;
+        this.swapIntervalDirty = false;
+        return dirty;
+    }
+
+    public void markSwapIntervalApplied() {
+        this.swapIntervalDirty = false;
     }
 
     private void recomputeTarget() {
@@ -91,16 +113,11 @@ public final class FrameLimiter {
 
     /**
      * Blocks the calling thread until the next frame is due.
-     * Uses a hybrid sleep+parkNanos+yield approach:
-     *   1. Thread.sleep for the coarse chunk (~remaining - 5ms)
-     *   2. LockSupport.parkNanos for the fine chunk (~remaining - 100us)
-     *   3. Thread.yield for the final sub-ms precision
+     * Two phases: coarse Thread.sleep + fine parkNanos.
+     * Aborted early if touchInterrupted is set.
      *
-     * If a touch interrupt arrives during sleep, the remaining wait is
-     * aborted so the update thread processes input immediately.
-     *
-     * @param startNs The System.nanoTime() at the start of this frame.
-     * @return The actual elapsed time in nanoseconds for this frame.
+     * @param startNs System.nanoTime() at frame start.
+     * @return Actual elapsed nanoseconds.
      */
     public long limitFrame(long startNs) {
         final long targetNs = this.targetFrameNs;
@@ -108,15 +125,15 @@ public final class FrameLimiter {
             return System.nanoTime() - startNs;
         }
 
-        this.touchInterrupted = false;
+        // Clear any leftover interrupt from previous frame.
+        touchInterrupted.set(false);
 
-        // Phase 1: coarse sleep — sleep in short chunks so we can
-        // abort early when touchInterrupted is set.
+        // Phase 1: coarse sleep in chunks (checkable for touch interrupts).
         long remaining = targetNs - (System.nanoTime() - startNs);
         if (remaining > 5_000_000L) {
             try {
                 long sleepNs = remaining - 4_000_000L;
-                while (sleepNs > 1_000_000L && !this.touchInterrupted) {
+                while (sleepNs > 1_000_000L && !touchInterrupted.get()) {
                     long chunk = Math.min(sleepNs, 2_000_000L);
                     Thread.sleep(chunk / 1_000_000L);
                     sleepNs -= chunk;
@@ -129,40 +146,33 @@ public final class FrameLimiter {
             }
         }
 
-        // Early exit on touch interrupt — skip remaining precision phases.
-        if (this.touchInterrupted) {
-            this.touchInterrupted = false;
+        // Abort on touch interrupt.
+        if (touchInterrupted.getAndSet(false)) {
             return System.nanoTime() - startNs;
         }
 
-        // Phase 2: parkNanos — precise nanosecond sleep without busy-spinning.
+        // Phase 2: parkNanos for the fine tail.
         remaining = targetNs - (System.nanoTime() - startNs);
-        if (remaining > 200_000L) {
-            LockSupport.parkNanos(remaining - 100_000L);
-        }
-
-        // Phase 3: yield — final sub-millisecond precision without burning CPU.
-        while (System.nanoTime() - startNs < targetNs) {
-            if (this.touchInterrupted) {
-                this.touchInterrupted = false;
-                break;
+        if (remaining > 100_000L) {
+            // Park in small windows so touch interrupts can still abort.
+            while (remaining > 100_000L) {
+                if (touchInterrupted.getAndSet(false)) {
+                    return System.nanoTime() - startNs;
+                }
+                LockSupport.parkNanos(Math.min(remaining, 500_000L));
+                remaining = targetNs - (System.nanoTime() - startNs);
             }
-            Thread.yield();
         }
 
         return System.nanoTime() - startNs;
     }
 
-    /**
-     * Returns the target FPS for the current mode.
-     */
+    /** Returns the target FPS for the current mode. */
     public int getTargetFps() {
         return targetFrameNs > 0 ? (int) (NS_PER_S / targetFrameNs) : 0;
     }
 
-    /**
-     * Returns the target frame time in nanoseconds.
-     */
+    /** Returns the target frame time in nanoseconds. */
     public long getTargetFrameNs() {
         return targetFrameNs;
     }
