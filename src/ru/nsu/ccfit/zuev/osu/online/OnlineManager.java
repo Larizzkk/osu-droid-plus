@@ -214,6 +214,7 @@ public class OnlineManager {
         }
 
         profileBannerURL = getProfileBannerURL(userId);
+
         fetchTags();
         Bundle bParams = new Bundle();
         bParams.putString(FirebaseAnalytics.Param.METHOD, "ingame");

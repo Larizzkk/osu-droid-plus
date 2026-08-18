@@ -1265,6 +1265,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     private void prepareScene() {
         scene.setOnSceneTouchListener(this);
+
         var playableBeatmap = this.playableBeatmap;
 
         if (playableBeatmap == null) {
@@ -1865,20 +1866,26 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.update(dt);
-            autoCursor.updateMovement(dt);
-        } else if (cursorSprites != null) {
+            autoCursor.updateMovement(dt);            } else if (cursorSprites != null) {
             for (int i = 0; i < cursorSprites.length; i++) {
                 var sprite = cursorSprites[i];
-                sprite.update(dt);
-
                 var cursor = cursors[i];
                 var latestEvent = cursor.getLatestEvent();
 
-                if (replaying && latestEvent != null) {
+                // Set cursor sprite position from the latest event BEFORE calling
+                // sprite.update(dt), so the trail (which reads getX()/getY() inside
+                // CursorEntity.update()) sees the current frame's position instead of
+                // the previous frame's.
+                if (latestEvent != null) {
                     sprite.setPosition(
                         latestEvent.position.x,
                         latestEvent.position.y
                     );
+                }
+
+                sprite.update(dt);
+
+                if (replaying && latestEvent != null) {
                     sprite.setShowing(!latestEvent.isActionUp());
                 } else {
                     // Show the cursor only while the pointer is held down; hide it on
@@ -2025,7 +2032,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             }
 
             if (breakAnimator.isOver()) {
-                // Ensure the chat is dismissed if it's still shown
+                // Ensure the multiplayer chat is dismissed if it's still shown
                 if (Multiplayer.isConnected()) {
                     Multiplayer.roomScene.getChat().hide();
                 }
@@ -3300,7 +3307,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return false;
         }
 
-        if (isGameOver) {
+        if (paused || isGameOver) {
             return false;
         }
 
@@ -4287,7 +4294,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 // This gives game objects the LATEST touch position for hit detection,
                 // bypassing the 1-frame queue latency of the normal touch event pipeline.
                 if (
-                    !isGameOver &&
+                    !isGameOver && !paused &&
                     engine.getTouchController() != null &&
                     engine.getTouchController().isUseRawPointers() &&
                     !replaying &&
@@ -4484,9 +4491,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 }
 
                 super.onManagedUpdate(dt);
-            }
-
-            private void applyRawPointerFastPath(final Camera camera) {
+            }            private void applyRawPointerFastPath(final Camera camera) {
                 var touchController = engine.getTouchController();
 
                 if (
@@ -4497,9 +4502,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 }
 
                 if (
-                    replaying ||
-                    GameHelper.isAutoplay() ||
-                    GameHelper.isAutopilot()
+                    paused || replaying ||
+                    GameHelper.isAutoplay() || GameHelper.isAutopilot()
                 ) {
                     return;
                 }
@@ -4545,7 +4549,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
                     ++updatePathActiveCount;
 
-                    if (tryReadRawPointer(i)) {
+                    boolean readOk = tryReadRawPointer(i);
+                    if (readOk) {
                         fastPathLastStableX[i] = fastPathSurfaceCoords[0];
                         fastPathLastStableY[i] = fastPathSurfaceCoords[1];
                         fastPathHasStableSnapshot[i] = true;
@@ -4602,6 +4607,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                         fastPathSurfaceCoords[1] = y;
                         return true;
                     }
+
                 }
 
                 return false;

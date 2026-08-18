@@ -334,6 +334,9 @@ public class SongMenu
 
         scene.registerUpdateHandler(this);
 
+        // Global chat overlay
+
+
         scrollbar = new ScrollBar(scene);
 
         final TextureRegion songSelectTopTexture =

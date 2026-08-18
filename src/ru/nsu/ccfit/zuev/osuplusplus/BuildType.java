@@ -4,7 +4,8 @@ import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 
 public class BuildType {
     public static boolean hasOnlineAccess() {
-        return BuildConfig.BUILD_TYPE.matches("(release|pre_release)");
+        String bt = BuildConfig.BUILD_TYPE;
+        return "release".equals(bt) || "pre_release".equals(bt);
     }
 }
 
