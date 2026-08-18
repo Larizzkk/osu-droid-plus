@@ -5,7 +5,6 @@ import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
-import android.os.Environment;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.File;
@@ -13,7 +12,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Iterator;
 import java.util.Map;
 
 import org.anddev.andengine.util.Debug;
@@ -59,45 +57,38 @@ public class ConfigBackup {
 
             StringBuilder jsonBuilder = new StringBuilder();
             try(FileInputStream fis = new FileInputStream(backupFile)) {
-                byte[] buffer = new byte[1024];
+                byte[] buffer = new byte[4096];
                 int bytesRead;
                 while((bytesRead = fis.read(buffer)) != -1) {
                     jsonBuilder.append(new String(buffer, 0, bytesRead, StandardCharsets.UTF_8));
                 }
             }
             
-            String jsonString = jsonBuilder.toString();
-            JSONObject json = new JSONObject(jsonString);
+            JSONObject json = new JSONObject(jsonBuilder.toString());
             Context context = GlobalManager.getInstance().getMainActivity();
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
             SharedPreferences.Editor editor = prefs.edit();
 
-            Iterator<String> keys = json.keys();
-            while(keys.hasNext()) {
-                String key = keys.next();
-                if(Config.SENSITIVE_KEYS.contains(key)) continue;
+            for (var it = json.keys(); it.hasNext(); ) {
+                String key = it.next();
+                if (Config.SENSITIVE_KEYS.contains(key)) continue;
                 Object value = json.get(key);
-            
-                switch(value.getClass().getSimpleName()) {
-                    case "Boolean":
-                        editor.putBoolean(key, ((Boolean) value).booleanValue());
-                        break;
-                    case "Integer":
-                        editor.putInt(key, ((Integer) value).intValue());
-                        break;
-                    case "Double":
-                        editor.putFloat(key, ((Double) value).floatValue());
-                        break;
-                    case "Long":
-                        editor.putLong(key, ((Long) value).longValue());
-                        break;
-                    default:
-                        editor.putString(key, value.toString());
-                        break;
+
+                if (value instanceof Boolean) {
+                    editor.putBoolean(key, (Boolean) value);
+                } else if (value instanceof Integer) {
+                    editor.putInt(key, (Integer) value);
+                } else if (value instanceof Long) {
+                    editor.putLong(key, (Long) value);
+                } else if (value instanceof Double) {
+                    editor.putFloat(key, ((Double) value).floatValue());
+                } else {
+                    editor.putString(key, value.toString());
                 }
             }
             
-            return editor.commit();
+            editor.apply();
+            return true;
         }catch(JSONException | IOException e) {
             Debug.e("ConfigBackup: " + e.getMessage(), e);
             return false;

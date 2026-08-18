@@ -619,7 +619,7 @@ public class Engine
 
                 } while (
                     this.mTouchInterrupt &&
-                    burstCount < 16 &&
+                    burstCount < 2 &&
                     elapsedThisFrame < frameBudgetSec
                 );
 

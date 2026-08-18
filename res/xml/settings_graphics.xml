@@ -15,6 +15,13 @@
         />
 
         <Preference
+            android:key="export_skin"
+            android:summary="Export current skin as .osk file"
+            android:title="Export Skin (.osk)"
+            app:layout="@layout/settings_preference"
+        />
+
+        <Preference
             android:key="hud_editor"
             android:summary="@string/opt_hudEditor_summary"
             android:title="@string/opt_hudEditor_title"

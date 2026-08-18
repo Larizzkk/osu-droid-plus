@@ -2169,5 +2169,7 @@ public class MainScene implements IUpdateHandler {
         if (GlobalManager.getInstance().getSelectedBeatmap() != null) {
             setBeatmap(GlobalManager.getInstance().getSelectedBeatmap());
         }
+
+
     }
 }

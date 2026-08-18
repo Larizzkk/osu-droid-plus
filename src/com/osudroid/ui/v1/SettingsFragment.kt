@@ -409,6 +409,13 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
+        findPreference<Preference>("export_skin")?.apply {
+            setOnPreferenceClickListener {
+                exportSkinToOsk()
+                true
+            }
+        }
+
         findPreference<Preference>("hud_editor")?.apply {
 
             if (Multiplayer.isMultiplayer) {
@@ -775,6 +782,39 @@ class SettingsFragment : SettingsFragment() {
         }
     }
 
+
+    private fun exportSkinToOsk() {
+        val skinDir = File(Config.getSkinPath())
+        if (!skinDir.exists() || !skinDir.isDirectory) {
+            ToastLogger.showText("No skin selected to export.", true)
+            return
+        }
+
+        async {
+            try {
+                val skinName = skinDir.name.ifEmpty { "skin" }
+                val outputDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val outFile = File(outputDir, "$skinName.osk")
+
+                java.util.zip.ZipOutputStream(java.io.FileOutputStream(outFile)).use { zos ->
+                    skinDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                        val entryName = file.relativeTo(skinDir).path
+                        zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                        file.inputStream().use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                }
+
+                mainThread {
+                    ToastLogger.showText("Skin exported to: ${outFile.absolutePath}", false)
+                }
+            } catch (e: Exception) {
+                mainThread {
+                    ToastLogger.showText("Export failed: ${e.message}", true)
+                }
+            }
+        }
+    }
 
     private fun loadSkin(context: Context, path: String): Job {
         val loading = LoadingFragment()

@@ -107,4 +107,29 @@
         <item>3</item>
     </string-array>
 
+
+    <!-- Chat Position Arrays -->
+    <string-array name="chat_position_entries">
+        <item>Right</item>
+        <item>Left</item>
+    </string-array>
+    <string-array name="chat_position_values">
+        <item>right</item>
+        <item>left</item>
+    </string-array>
+
+    <!-- Toast Position Arrays -->
+    <string-array name="toast_position_entries">
+        <item>Bottom Left</item>
+        <item>Bottom Right</item>
+        <item>Top Left</item>
+        <item>Top Right</item>
+    </string-array>
+    <string-array name="toast_position_values">
+        <item>bottom_left</item>
+        <item>bottom_right</item>
+        <item>top_left</item>
+        <item>top_right</item>
+    </string-array>
+
 </resources>

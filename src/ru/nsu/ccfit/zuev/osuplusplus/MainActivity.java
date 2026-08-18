@@ -484,6 +484,7 @@ public class MainActivity
     public void onLoadComplete() {
         Execution.async(() -> {
             GlobalManager.getInstance().init();
+
             Execution.updateThread(() ->
                 UIEngine.getCurrent()
                     .getOverlay()
@@ -1102,7 +1103,7 @@ public class MainActivity
     @Override
     public boolean onKeyDown(final int keyCode, final KeyEvent event) {
         if (keyCode != KeyEvent.KEYCODE_BACK) {
-            return true;
+            return super.onKeyDown(keyCode, event);
         }
 
         if (event.getAction() != KeyEvent.ACTION_DOWN) {

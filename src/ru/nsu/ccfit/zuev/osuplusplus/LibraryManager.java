@@ -73,7 +73,7 @@ public class LibraryManager {
 
         library = new ArrayList<>();
 
-        if (!FileUtils.canUseSD() || !checkDirectory(Config.getScorePath()) && !checkDirectory(Config.getBeatmapPath())) {
+        if (!FileUtils.canUseSD() || !checkDirectory(Config.getScorePath()) || !checkDirectory(Config.getBeatmapPath())) {
             return;
         }
 
