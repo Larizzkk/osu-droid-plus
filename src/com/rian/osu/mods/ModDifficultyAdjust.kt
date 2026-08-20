@@ -9,6 +9,8 @@ import com.rian.osu.beatmap.sections.BeatmapDifficulty
 import com.rian.osu.mods.settings.*
 import com.rian.osu.utils.ModUtils
 import kotlin.math.exp
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.reflect.KProperty0
 import kotlinx.coroutines.CoroutineScope
@@ -47,11 +49,12 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "ar",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = -12.5f,
-        maxValue = 12.5f,
+        minValue = -99f,
+        maxValue = 99f,
         step = 0.1f,
         precision = 1,
-        orderPosition = 1
+        orderPosition = 1,
+        useManualInput = true
     )
 
     /**
@@ -174,19 +177,33 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         }
 
     override fun applyToHitObject(mode: GameMode, hitObject: HitObject, mods: Iterable<Mod>, scope: CoroutineScope?) {
-        // Special case for force AR in replay version 6 and older, where the AR value is kept constant with respect to
-        // game time. This makes the player perceive the fade in animation as is under all speed multipliers.
-        if (ar == null || mods.none { it is ModReplayV6 }) {
-            return
+        if (ar != null) {
+            // Clamp timePreempt for extreme AR values to prevent broken timing.
+            // difficultyRange(ar, 1800, 1200, 450) produces:
+            //   AR >= ~13.3 -> negative timePreempt (completely broken)
+            //   AR < -5     -> timePreempt > 2400ms (large, can break audio sync)
+            // We clamp preempt to valid ranges so the game engine works correctly.
+            hitObject.timePreempt = max(hitObject.timePreempt, 1.0)
+            hitObject.timeFadeIn = max(hitObject.timeFadeIn, 1.0)
+
+            // Cap very large preempt to prevent objects being added
+            // to the scene minutes before their hit time.
+            if (hitObject.timePreempt > 5000.0) {
+                hitObject.timePreempt = 5000.0
+            }
         }
 
-        applyOldFadeAdjustment(hitObject, mods)
+        // Special case for force AR in replay version 6 and older, where the AR value is kept constant with respect to
+        // game time. This makes the player perceive the fade in animation as is under all speed multipliers.
+        if (ar != null && mods.any { it is ModReplayV6 }) {
+            applyOldFadeAdjustment(hitObject, mods)
 
-        if (hitObject is Slider) {
-            hitObject.nestedHitObjects.forEach {
-                scope?.ensureActive()
+            if (hitObject is Slider) {
+                hitObject.nestedHitObjects.forEach {
+                    scope?.ensureActive()
 
-                applyOldFadeAdjustment(it, mods)
+                    applyOldFadeAdjustment(it, mods)
+                }
             }
         }
     }
