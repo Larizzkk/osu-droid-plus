@@ -191,10 +191,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     // Parallax effect
     private float bgBaseX = 0f;
     private float bgBaseY = 0f;
-    private float lastCursorX = 0.5f;
-    private float lastCursorY = 0.5f;
-    private float parallaxOffsetX = 0f;
-    private float parallaxOffsetY = 0f;
+    private float parallaxPosX = 0f;
+    private float parallaxPosY = 0f;
+    private float parallaxScale = 0f;
+    private float parallaxLastTime = 0f;
     private ComboBurst comboBurst;
     private int failcount = 0;
     private Color4 sliderBorderColor;
@@ -619,7 +619,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         // When parallax is enabled, add extra scale so edges don't show
         if (Config.isParallaxEnabled()) {
-            factor *= 1.05f;
+            factor *= 1.1f;
         }
 
         background.setScale(factor);
@@ -629,6 +629,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         );
         bgBaseX = background.getX();
         bgBaseY = background.getY();
+        parallaxLastTime = elapsedTime;
         scene.setBackground(new EntityBackground(background));
 
         if (storyboardSprite != null) {
@@ -2024,42 +2025,38 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (screenShake != null) screenShake.update(dt);
 
-        // Parallax: offset background inversely to cursor position
         if (Config.isParallaxEnabled() && beatmapBackground != null) {
-            float cursorNormX = lastCursorX;
-            float cursorNormY = lastCursorY;
+            float cursorNX = 0f, cursorNY = 0f;
             if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
                 if (autoCursor != null) {
-                    cursorNormX = autoCursor.getX() / Config.getRES_WIDTH();
-                    cursorNormY = autoCursor.getY() / Config.getRES_HEIGHT();
+                    cursorNX = (autoCursor.getX() / Config.getRES_WIDTH() - 0.5f) * 2f;
+                    cursorNY = (autoCursor.getY() / Config.getRES_HEIGHT() - 0.5f) * 2f;
                 }
             } else if (cursorSprites != null) {
-                for (int i = 0; i < cursorSprites.length; i++) {
-                    float sx = cursorSprites[i].getX();
-                    float sy = cursorSprites[i].getY();
-                    if (sx > 0 && sy > 0) {
-                        cursorNormX = sx / Config.getRES_WIDTH();
-                        cursorNormY = sy / Config.getRES_HEIGHT();
+                for (var s : cursorSprites) {
+                    if (s.getX() > 0) {
+                        cursorNX = (s.getX() / Config.getRES_WIDTH() - 0.5f) * 2f;
+                        cursorNY = (s.getY() / Config.getRES_HEIGHT() - 0.5f) * 2f;
                         break;
                     }
                 }
             } else if (mainCursorId >= 0 && mainCursorId < cursors.length) {
                 var latest = cursors[mainCursorId].getLatestEvent(TouchEvent.ACTION_DOWN, TouchEvent.ACTION_MOVE);
                 if (latest != null) {
-                    cursorNormX = latest.position.x / Config.getRES_WIDTH();
-                    cursorNormY = latest.position.y / Config.getRES_HEIGHT();
+                    cursorNX = (latest.position.x / Config.getRES_WIDTH() - 0.5f) * 2f;
+                    cursorNY = (latest.position.y / Config.getRES_HEIGHT() - 0.5f) * 2f;
                 }
             }
-            lastCursorX = cursorNormX;
-            lastCursorY = cursorNormY;
-            float maxOffset = 30f;
-            float targetX = (0.5f - cursorNormX) * 2f * maxOffset;
-            float targetY = (0.5f - cursorNormY) * 2f * maxOffset;
-            // Smooth interpolation: lerp current toward target
-            float lerpFactor = 0.7f; // fixed smooth interpolation
-            parallaxOffsetX += (targetX - parallaxOffsetX) * lerpFactor;
-            parallaxOffsetY += (targetY - parallaxOffsetY) * lerpFactor;
-            beatmapBackground.setPosition(bgBaseX + parallaxOffsetX, bgBaseY + parallaxOffsetY);
+            cursorNX = Math.max(-1f, Math.min(1f, cursorNX));
+            cursorNY = Math.max(-1f, Math.min(1f, cursorNY));
+            float targetPX = cursorNX * 0.1f * Config.getRES_WIDTH() * 0.5f;
+            float targetPY = cursorNY * 0.1f * Config.getRES_HEIGHT() * 0.5f;
+            float delta = Math.abs(elapsedTime - parallaxLastTime) * 1000f;
+            float p = (float) Math.pow(0.5, delta / 100.0);
+            parallaxPosX = (float) (targetPX * (1 - p) + p * parallaxPosX);
+            parallaxPosY = (float) (targetPY * (1 - p) + p * parallaxPosY);
+            parallaxLastTime = elapsedTime;
+            beatmapBackground.setPosition(bgBaseX + parallaxPosX, bgBaseY + parallaxPosY);
         }
 
         // Update replay seek position
