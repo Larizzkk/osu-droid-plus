@@ -118,6 +118,14 @@
     <PreferenceCategory android:title="Particles &amp; Visual Effects">
 
         <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="parallaxEnabled"
+            android:title="Parallax Background"
+            android:summary="Background moves with cursor for depth effect"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
             android:defaultValue="true"
             android:key="trianglesEnabled"
             android:title="Triangles"
