@@ -13,8 +13,8 @@ public class BezierMover extends BaseMover implements SliderAwareMover {
     private float previousSpeed;
     private float invert;
 
-    private float aggressiveness = 1.0f;
-    private float sliderAggressiveness = 1.0f;
+    private float aggressiveness = 60.0f;
+    private float sliderAggressiveness = 3.0f;
 
     public BezierMover() {
         init();

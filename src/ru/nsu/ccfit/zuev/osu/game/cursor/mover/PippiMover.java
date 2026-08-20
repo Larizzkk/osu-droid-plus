@@ -21,18 +21,36 @@ public class PippiMover extends BaseMover implements CursorMover {
     private Curve curve;
 
     // Wobble configuration (defaults matching danser-go config)
-    private float rotationSpeed = 1.0f;
-    private float radiusMultiplier = 1.0f;
-    private float spinnerRadius = 50f;
+    private float rotationSpeed = 1.6f;
+    private float radiusMultiplier = 0.98f;
+    private float spinnerRadius = 100f;
 
     // circleRadius, preempt and speed are inherited from BaseMover (set via setDifficulty);
     // defaults match danser-go (64, 450, 1.0) and are overridden by map difficulty when wired.
+
+    // Double-click and spinner state (set by scheduler before setMovement)
+    private boolean startDoubleClick = false;
+    private boolean endDoubleClick = false;
+    private boolean startIsSpinner = false;
+    private boolean endIsSpinner = false;
 
     public PippiMover() {
     }
 
     public PippiMover(int id) {
         this.id = id;
+    }
+
+    /**
+     * Set double-click and spinner info for the current segment.
+     * Called by the scheduler before setMovement, matching danser-go's
+     * GenericScheduler which detects double-clicks during preprocessing.
+     */
+    public void setDoubleClickInfo(boolean startDC, boolean endDC, boolean startSpin, boolean endSpin) {
+        this.startDoubleClick = startDC;
+        this.endDoubleClick = endDC;
+        this.startIsSpinner = startSpin;
+        this.endIsSpinner = endSpin;
     }
 
     private Vector2f modifyPos(float time, boolean spinner, Vector2f pos) {
@@ -67,14 +85,7 @@ public class PippiMover extends BaseMover implements CursorMover {
         // Danser-go pre-allocates: points = make([]vector.Vector2f, 0, int(math.Ceil(timeDifference/sixtyTime)))
         List<Vector2f> points = new ArrayList<>((int) Math.ceil(timeDifference / SIXTY_TIME) + 2);
 
-        // First point
-        // In danser-go: if cOk && startC.DoubleClick { points add startPos } else { points add modifyPos }
-        // Placeholder: DoubleClick = false for both
-        boolean startDoubleClick = false;
-        boolean endDoubleClick = false;
-        boolean startIsSpinner = false;
-        boolean endIsSpinner = false;
-
+        // Double-click and spinner info is set by setDoubleClickInfo() before this call
         if (startDoubleClick) {
             points.add(startV);
         } else {

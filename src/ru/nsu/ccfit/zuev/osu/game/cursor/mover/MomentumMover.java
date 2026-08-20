@@ -13,14 +13,19 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
     private boolean first;
     private boolean wasStream;
 
-    private float distanceMultOut = 1.0f;
-    private float streamMult = 1.0f;
-    private float distanceMult = 1.0f;
-    private float restrictArea = 0f;
-    private float restrictAngle = 0f;
-    private boolean restrictInvert = false;
-    private float durationTrigger = 0f;
-    private float durationMult = 1.0f;
+    // Next-next object position for stream detection (set by AutoCursor)
+    private Vector2f nextObjPos = null;
+    private boolean nextIsCircle = false;
+    private boolean hasFromLong = false;
+
+    private float distanceMultOut = 0.45f;
+    private float streamMult = 0.7f;
+    private float distanceMult = 0.6f;
+    private float restrictArea = 40f;
+    private float restrictAngle = 90f;
+    private boolean restrictInvert = true;
+    private float durationTrigger = 500f;
+    private float durationMult = 2.0f;
     private boolean skipStackAngles = false;
     private boolean streamRestrict = true;
 
@@ -61,6 +66,16 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
         setMovement(SliderMovementContext.of(startPos, endPos, startTime, endTime));
     }
 
+    public void setMovementWithNext(SliderMovementContext ctx, PointF nextPosition, boolean nextIsCircle) {
+        this.nextObjPos = nextPosition != null ? new Vector2f(nextPosition) : null;
+        // In danser-go: fromLong is true when objs[i+2] (the next-next object)
+        // is a long object (slider), NOT when the start object is a slider.
+        // nextIsCircle from AutoCursor = !nextSeg.endIsSlider
+        // So hasFromLong = the next-next object is a slider
+        this.hasFromLong = !nextIsCircle && nextPosition != null;
+        setMovement(ctx);
+    }
+
     @Override
     public void setMovement(SliderMovementContext ctx) {
         this.startTime = ctx.startTime;
@@ -71,17 +86,24 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
 
         float dst = startV.dst(endV);
 
+        // danser-go: a2 = last.AngleRV(startPos) when not first
+        // then lookahead at objs[i+2] for stream detection and final a2
         float a2 = last.angleRV(startV);
         boolean fromLong = ctx.startIsSlider;
 
+        boolean hasNext = nextObjPos != null && nextIsCircle;
+        boolean fromLong2 = hasFromLong;
+
+        // danser-go: sq1 = startPos.DstSq(endPos), sq2 = endPos.DstSq(nextPos)
         boolean stream = false;
-        if (!fromLong && streamRestrict) {
+        if (hasNext && !fromLong2 && streamRestrict) {
             float min = 25.0f;
             float max = 10000.0f;
 
             float sq1 = startV.dstSq(endV);
+            float sq2 = endV.dstSq(nextObjPos);
 
-            if (sq1 >= min && sq1 <= max && wasStream) {
+            if (sq1 >= min && sq1 <= max && wasStream || (sq2 >= min && sq2 <= max)) {
                 stream = true;
             }
         }
@@ -120,6 +142,13 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
                 a2 = a - offset;
             }
             mult = distanceMult;
+        } else if (hasNext && !fromLong) {
+            // danser-go: r = sq1/(sq1+sq2); a = startPos.AngleRV(endPos); a2 = a + r*anorm2(a2-a)
+            float sq1 = startV.dstSq(endV);
+            float sq2 = endV.dstSq(nextObjPos);
+            float r = sq1 / (sq1 + sq2);
+            float a = startV.angleRV(endV);
+            a2 = a + r * anorm2(a2 - a);
         }
 
         float duration = ctx.endTime - ctx.startTime;

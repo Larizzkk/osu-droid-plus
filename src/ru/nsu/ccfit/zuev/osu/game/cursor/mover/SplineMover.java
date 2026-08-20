@@ -25,9 +25,9 @@ public class SplineMover extends BaseMover implements SliderAwareMover {
     private boolean stream = false;
 
     private boolean rotationalForce = false;
-    private boolean streamWobble = false;
-    private boolean streamHalfCircle = false;
-    private float wobbleScale = 1.0f;
+    private boolean streamWobble = true;
+    private boolean streamHalfCircle = true;
+    private float wobbleScale = 0.67f;
 
     private List<Vector2f> accumulatedPoints = new ArrayList<>();
     private List<Float> accumulatedTimings = new ArrayList<>();
@@ -303,6 +303,29 @@ public class SplineMover extends BaseMover implements SliderAwareMover {
 
         processBatch(accumulatedPoints, accumulatedTimings,
                 false, 0f, false, 0f);
+
+        this.startTime = times[0];
+        this.endTime = times[times.length - 1];
+    }
+
+    public void setMultiPointWithMetadata(PointF[] positions, float[] times,
+            boolean firstIsSlider, float firstAngle,
+            boolean lastIsSlider, float lastAngle) {
+        if (positions == null || positions.length < 2 || times == null || times.length != positions.length) {
+            return;
+        }
+
+        accumulatedPoints.clear();
+        accumulatedTimings.clear();
+
+        for (int i = 0; i < positions.length; i++) {
+            accumulatedPoints.add(new Vector2f(positions[i]));
+            accumulatedTimings.add(times[i]);
+        }
+
+        processBatch(accumulatedPoints, accumulatedTimings,
+                firstIsSlider, firstAngle,
+                lastIsSlider, lastAngle);
 
         this.startTime = times[0];
         this.endTime = times[times.length - 1];
