@@ -27,7 +27,7 @@ public class Config {
 
     private static String corePath, defaultCorePath, beatmapPath, cachePath, skinPath, skinTopPath, scorePath, onlineUsername, onlinePassword, onlineDeviceID;
 
-    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements;
+    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements, parallaxEnabled;
 
     public static final int FRAME_LIMITER_UNLIMITED = 0;
     public static final int FRAME_LIMITER_POWER_SAVE = 1;
@@ -88,6 +88,7 @@ corovans = prefs.getBoolean("images", false);
         );
         noChangeDimInBreaks = prefs.getBoolean("noChangeDimInBreaks", false);
         dimHitObjects = prefs.getBoolean("dimHitObjects", true);
+        parallaxEnabled = prefs.getBoolean("parallaxEnabled", false);
         forceMaxRefreshRate = prefs.getBoolean("forceMaxRefreshRate", false);
 
         try {
@@ -829,6 +830,10 @@ corovans = prefs.getBoolean("images", false);
 
     public static boolean isDimHitObjects() {
         return dimHitObjects;
+    }
+
+    public static boolean isParallaxEnabled() {
+        return parallaxEnabled;
     }
 
     public static boolean isForceMaxRefreshRate() {

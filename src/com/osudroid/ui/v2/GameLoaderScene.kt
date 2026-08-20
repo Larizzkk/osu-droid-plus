@@ -356,6 +356,10 @@ class GameLoaderScene(private val gameScene: GameScene, private val beatmapInfo:
                         +PreferenceCheckbox("showscoreboard").apply {
                             label = StringTable.get(com.osudroid.resources.R.string.opt_show_scoreboard_title)
                         }
+
+                        +PreferenceCheckbox("parallaxEnabled").apply {
+                            label = "Parallax"
+                        }
                     }
 
                     onExpandStatusChange = {

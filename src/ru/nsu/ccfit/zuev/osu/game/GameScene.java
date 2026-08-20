@@ -187,6 +187,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     public float offsetSum;
     public int offsetRegs;
     private Rectangle dimRectangle = null;
+
+    // Parallax effect
+    private float bgBaseX = 0f;
+    private float bgBaseY = 0f;
+    private float lastCursorX = 0.5f;
+    private float lastCursorY = 0.5f;
+    private float parallaxOffsetX = 0f;
+    private float parallaxOffsetY = 0f;
     private ComboBurst comboBurst;
     private int failcount = 0;
     private Color4 sliderBorderColor;
@@ -609,11 +617,18 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             ? Config.getRES_HEIGHT() / background.getHeight()
             : Config.getRES_WIDTH() / background.getWidth();
 
+        // When parallax is enabled, add extra scale so edges don't show
+        if (Config.isParallaxEnabled()) {
+            factor *= 1.05f;
+        }
+
         background.setScale(factor);
         background.setPosition(
             (Config.getRES_WIDTH() - background.getWidth()) / 2f,
             (Config.getRES_HEIGHT() - background.getHeight()) / 2f
         );
+        bgBaseX = background.getX();
+        bgBaseY = background.getY();
         scene.setBackground(new EntityBackground(background));
 
         if (storyboardSprite != null) {
@@ -1372,7 +1387,22 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor = new AutoCursor();
+            var aoHitObjects = playableBeatmap.getHitObjects().objects;
+            if (!aoHitObjects.isEmpty()) {
+                var aoFirst = aoHitObjects.get(0);
+                autoCursor.setDifficulty(
+                    (float) aoFirst.timePreempt,
+                    GameHelper.getSpeedMultiplier(),
+                    (float) aoFirst.getScreenSpaceGameplayRadius()
+                );
+            }
             autoCursor.attachToScene(fgScene);
+
+            // Initialize precomputed movement queue like danser-go's GenericScheduler.Init()
+            autoCursor.initQueue(
+                playableBeatmap.getHitObjects().objects.toArray(new com.rian.osu.beatmap.hitobject.HitObject[0]),
+                this
+            );
         }
 
         final var countdown = playableBeatmap.getGeneral().countdown;
@@ -1866,7 +1896,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.update(dt);
-            autoCursor.updateMovement(dt);            } else if (cursorSprites != null) {
+            autoCursor.updateMovement(dt, elapsedTime);
+        } else if (cursorSprites != null) {
             for (int i = 0; i < cursorSprites.length; i++) {
                 var sprite = cursorSprites[i];
                 var cursor = cursors[i];
@@ -1993,6 +2024,44 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (screenShake != null) screenShake.update(dt);
 
+        // Parallax: offset background inversely to cursor position
+        if (Config.isParallaxEnabled() && beatmapBackground != null) {
+            float cursorNormX = lastCursorX;
+            float cursorNormY = lastCursorY;
+            if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
+                if (autoCursor != null) {
+                    cursorNormX = autoCursor.getX() / Config.getRES_WIDTH();
+                    cursorNormY = autoCursor.getY() / Config.getRES_HEIGHT();
+                }
+            } else if (cursorSprites != null) {
+                for (int i = 0; i < cursorSprites.length; i++) {
+                    float sx = cursorSprites[i].getX();
+                    float sy = cursorSprites[i].getY();
+                    if (sx > 0 && sy > 0) {
+                        cursorNormX = sx / Config.getRES_WIDTH();
+                        cursorNormY = sy / Config.getRES_HEIGHT();
+                        break;
+                    }
+                }
+            } else if (mainCursorId >= 0 && mainCursorId < cursors.length) {
+                var latest = cursors[mainCursorId].getLatestEvent(TouchEvent.ACTION_DOWN, TouchEvent.ACTION_MOVE);
+                if (latest != null) {
+                    cursorNormX = latest.position.x / Config.getRES_WIDTH();
+                    cursorNormY = latest.position.y / Config.getRES_HEIGHT();
+                }
+            }
+            lastCursorX = cursorNormX;
+            lastCursorY = cursorNormY;
+            float maxOffset = 30f;
+            float targetX = (0.5f - cursorNormX) * 2f * maxOffset;
+            float targetY = (0.5f - cursorNormY) * 2f * maxOffset;
+            // Smooth interpolation: lerp current toward target
+            float lerpFactor = 0.7f; // fixed smooth interpolation
+            parallaxOffsetX += (targetX - parallaxOffsetX) * lerpFactor;
+            parallaxOffsetY += (targetY - parallaxOffsetY) * lerpFactor;
+            beatmapBackground.setPosition(bgBaseX + parallaxOffsetX, bgBaseY + parallaxOffsetY);
+        }
+
         // Update replay seek position
         if (
             replaying &&
@@ -2107,7 +2176,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             autoCursor.moveToObject(
                 activeObjects.isEmpty() ? null : activeObjects.get(0),
                 elapsedTime,
-                this
+                this,
+                activeObjects
             );
         }
 
@@ -2722,10 +2792,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         // Reset the auto cursor to prevent it from jumping to old positions
         if (autoCursor != null) {
-            autoCursor.setPosition(
-                Config.getRES_WIDTH() / 2f,
-                Config.getRES_HEIGHT() / 2f
-            );
+            autoCursor.setPosition(100f, 100f);
             autoCursor.setAutoplayStyle(autoCursor.getAutoplayStyle());
         }
 
@@ -3176,6 +3243,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     .objects.get(id)
                     .startTime / 1000
             );
+        }
+    }
+
+    public void onSpinnerEnd(int id) {
+        if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
+            autoCursor.onSliderEnd();
         }
     }
 
@@ -3998,7 +4071,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public void onSliderEnd(int id, int accuracy, BitSet tickSet) {
         onTrackingSliders(false);
-        if (GameHelper.isAutoplay()) {
+        if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.onSliderEnd();
         }
         if (replay != null && !replaying) {
@@ -4008,7 +4081,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     public void onTrackingSliders(boolean isTrackingSliders) {
-        if (GameHelper.isAutoplay()) {
+        if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.onSliderTracking();
         }
         if (GameHelper.isFlashlight()) {
