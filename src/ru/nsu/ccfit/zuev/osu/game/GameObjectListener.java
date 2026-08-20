@@ -24,6 +24,8 @@ public interface GameObjectListener {
 
     void onSpinnerHit(int id, int score, boolean endCombo, int totalScore);
 
+    void onSpinnerEnd(int id);
+
     void addObject(GameObject object);
 
     void removeObject(GameObject object);

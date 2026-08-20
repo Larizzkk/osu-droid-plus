@@ -14,7 +14,7 @@ public abstract class BaseMover {
 
     protected boolean waitForPreempt = true;
     protected float reactionTime = 100f;
-    protected boolean choppyLongObjects = true;
+    protected boolean choppyLongObjects = false;
 
     public void reset(int id) {
         this.id = id;

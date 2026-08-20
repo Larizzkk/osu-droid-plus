@@ -206,6 +206,7 @@ public class GameplaySpinner extends GameObject {
 
         scene.detachChild(bonusScore);
 
+        listener.onSpinnerEnd(id);
         listener.removeObject(GameplaySpinner.this);
 
         Execution.updateThread(() -> GameObjectPool.getInstance().putSpinner(this));
