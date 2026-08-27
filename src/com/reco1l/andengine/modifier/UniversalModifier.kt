@@ -84,6 +84,7 @@ class UniversalModifier @JvmOverloads constructor(private val pool: Pool<Univers
     override var isRecycled = false
 
     private var easing = Easing.None
+    val currentEasing: Easing get() = easing
     private var duration = 0f
     private var elapsedSec = -1f
 

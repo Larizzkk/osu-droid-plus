@@ -12,6 +12,9 @@ import java.util.Random;
 /**
  * Advanced animation utilities
  * Based on osu!lazer's animation systems with smooth transitions
+ *
+ * NOTE: These utilities are used in gameplay contexts and do NOT apply
+ * EnhancedAnimations settings. EnhancedAnimations only affects UI/UX.
  */
 public class AnimationUtils {
     
@@ -70,38 +73,54 @@ public class AnimationUtils {
     }
     
     /**
-     * Create smooth fade animation
+     * Create smooth fade animation.
+     * Uses vanilla duration — no EnhancedAnimations applied.
      */
     public static FadeInModifier createFadeIn(float duration, EasingType easing) {
-        return new FadeInModifier(duration, easing.easeFunction);
+        var e = resolveEasing(easing);
+        return new FadeInModifier(duration, e.easeFunction);
     }
     
     public static FadeOutModifier createFadeOut(float duration, EasingType easing) {
-        return new FadeOutModifier(duration, easing.easeFunction);
+        var e = resolveEasing(easing);
+        return new FadeOutModifier(duration, e.easeFunction);
     }
     
     /**
-     * Create scale animation
+     * Create scale animation.
+     * Uses vanilla duration — no EnhancedAnimations applied.
      */
     public static ScaleModifier createScale(float fromX, float fromY, float toX, float toY, 
                                            float duration, EasingType easing) {
-        return new ScaleModifier(duration, fromX, fromY, toX, toY, easing.easeFunction);
+        var e = resolveEasing(easing);
+        return new ScaleModifier(duration, fromX, fromY, toX, toY, e.easeFunction);
     }
     
     /**
-     * Create rotation animation
+     * Create rotation animation.
+     * Uses vanilla duration — no EnhancedAnimations applied.
      */
     public static RotationModifier createRotation(float fromAngle, float toAngle, 
                                                 float duration, EasingType easing) {
-        return new RotationModifier(duration, fromAngle, toAngle, easing.easeFunction);
+        var e = resolveEasing(easing);
+        return new RotationModifier(duration, fromAngle, toAngle, e.easeFunction);
     }
     
     /**
-     * Create move animation
+     * Create move animation.
+     * Uses vanilla duration — no EnhancedAnimations applied.
      */
     public static MoveModifier createMove(float fromX, float fromY, float toX, float toY,
                                          float duration, EasingType easing) {
-        return new MoveModifier(duration, fromX, fromY, toX, toY, easing.easeFunction);
+        var e = resolveEasing(easing);
+        return new MoveModifier(duration, fromX, fromY, toX, toY, e.easeFunction);
+    }
+
+    /**
+     * Resolve the effective easing. Returns the base easing as-is — no EnhancedAnimations applied.
+     */
+    private static EasingType resolveEasing(EasingType base) {
+        return base;
     }
     
     /**

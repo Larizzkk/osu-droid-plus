@@ -6,6 +6,67 @@
 
     <PreferenceCategory android:title="Frame Rate &amp; Performance">
 
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="enhancedAnimations"
+            android:title="Enhanced Animations"
+            android:summary="Smoother UI transitions with better easing and speed control"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="animationSpeed"
+            android:max="200"
+            android:summary="Animation duration multiplier (100 = normal, 200 = 2x slower/smoother)"
+            android:title="Animation Speed"
+            app:min="50"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <ListPreference
+            android:defaultValue="OutQuint"
+            android:key="animationEasing"
+            android:title="Animation Easing"
+            android:summary="Choose the easing curve for UI animations"
+            android:entries="@array/animation_easing_names"
+            android:entryValues="@array/animation_easing_values"
+            app:layout="@layout/settings_preference"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="smoothTransitions"
+            android:title="Smooth Transitions"
+            android:summary="Interpolate between scenes for seamless transitions"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="menuAnimations"
+            android:title="Menu Animations"
+            android:summary="Enhance song select, settings, score panel transitions"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="storyboardAnimations"
+            android:title="Storyboard Animations"
+            android:summary="Enhance storyboard element timing"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="particleAnimations"
+            android:title="Particle Animations"
+            android:summary="Enhance kiai, hit effects, combo bursts"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
         <ListPreference
             android:defaultValue="0"
             android:key="frameLimiterMode"
@@ -31,7 +92,7 @@
             android:defaultValue="true"
             android:key="forceMaxRefreshRate"
             android:title="Force Max Display Refresh Rate"
-            android:summary="Force display to its highest supported refresh rate"
+            android:summary="Force highest refresh rate even during screen recording"
             app:layout="@layout/settings_preference_checkbox"
         />
 
@@ -63,6 +124,14 @@
             android:key="unrestrictedMods"
             android:title="Unrestricted Mods"
             android:summary="Allow selecting any mods regardless of compatibility"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="showBreakCountdown"
+            android:title="Break Countdown"
+            android:summary="Show countdown timer during break sections"
             app:layout="@layout/settings_preference_checkbox_bottom"
         />
 
@@ -193,13 +262,45 @@
 
     <PreferenceCategory android:title="Cursor Enhancements">
 
+        <ListPreference
+            android:defaultValue="1"
+            android:key="trailImplementation"
+            android:title="Trail Style"
+            android:summary="Choose between Legacy and Long cursor trail"
+            android:entries="@array/trail_implementation_names"
+            android:entryValues="@array/trail_implementation_values"
+            app:layout="@layout/settings_preference"
+        />
+
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="100"
             android:key="trailLength"
             android:max="500"
-            android:summary="@string/opt_trail_length_summary"
-            android:title="@string/opt_trail_length_title"
-            app:min="0"
+            android:summary="How long the trail fades out (in 0.01s units)"
+            android:title="Trail Length"
+            app:min="1"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="trailSize"
+            android:max="300"
+            android:summary="Scale of trail particles (100 = cursor size)"
+            android:title="Trail Size"
+            app:min="10"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="trailWidth"
+            android:max="300"
+            android:summary="Width multiplier for trail particles"
+            android:title="Trail Width"
+            app:min="10"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
         />
@@ -209,6 +310,14 @@
             android:key="trailDelayEnabled"
             android:summary="When ON, trail appears after a short delay (1s). When OFF, trail appears instantly."
             android:title="Trail Delay"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="rotateCursorTrail"
+            android:summary="Rotate trail particles to match cursor rotation"
+            android:title="Rotate Trail"
             app:layout="@layout/settings_preference_checkbox_bottom"
         />
 

@@ -6,11 +6,14 @@ import com.reco1l.andengine.modifier.UniversalModifier.Companion.GlobalPool
 
 /**
  * A collection of static methods to create different types of modifiers.
+ *
+ * These modifiers are used in gameplay (hit effects, mod icons, etc.) and
+ * must NOT be affected by EnhancedAnimations settings.
+ *
  * @see UniversalModifier
  * @see ModifierType
  * @author Reco1l
  */
-@Deprecated(message = "Use UIComponent integrated functions instead.")
 object Modifiers {
 
     @JvmStatic

@@ -1,20 +1,37 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <resources>
 
+    <!-- Animation Easing Arrays -->
+    <string-array name="animation_easing_names">
+        <item>Linear</item>
+        <item>Smooth (OutQuad)</item>
+        <item>Smoother (OutQuint)</item>
+        <item>Elastic</item>
+        <item>Bounce</item>
+        <item>Back</item>
+    </string-array>
+
+    <string-array name="animation_easing_values">
+        <item>None</item>
+        <item>OutQuad</item>
+        <item>OutQuint</item>
+        <item>OutElastic</item>
+        <item>OutBounce</item>
+        <item>OutBack</item>
+    </string-array>
+
     <!-- Trail Implementation Arrays -->
     <string-array name="trail_implementation_names">
-        <item>Legacy (Original)</item>
-        <item>Optimized (Recommended)</item>
-        <item>Advanced (Experimental)</item>
+        <item>Legacy</item>
+        <item>Long</item>
     </string-array>
 
     <string-array name="trail_implementation_values">
         <item>0</item>
         <item>1</item>
-        <item>2</item>
     </string-array>
 
-    // Trail Style Arrays
+    <!-- Trail Style Arrays -->
     <string-array name="trail_style_names">
         <item>Normal</item>
         <item>Fade</item>
