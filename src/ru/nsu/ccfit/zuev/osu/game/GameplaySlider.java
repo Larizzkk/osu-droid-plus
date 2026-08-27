@@ -27,6 +27,7 @@ import com.rian.osu.beatmap.sections.BeatmapControlPoints;
 import com.rian.osu.gameplay.GameplayHitSampleInfo;
 import com.rian.osu.gameplay.GameplaySequenceHitSampleInfo;
 import com.rian.osu.math.Interpolation;
+import com.rian.osu.mods.ModGravity;
 import com.rian.osu.mods.ModHidden;
 import com.rian.osu.mods.ModSynesthesia;
 
@@ -458,6 +459,30 @@ public class GameplaySlider extends GameObject {
         }
 
         applyBodyFadeAdjustments(fadeInDuration);
+
+        // Gravity mod: animate slider sliding in from the configured direction
+        // MoveXY uses absolute positions, so we animate from (pos+offset) to (pos)
+        // ball and followCircle are updated every frame in update(), so we skip them here
+        if (GameHelper.isGravity()) {
+            float d = ModGravity.RISE_DISTANCE;
+            float dur = timePreempt;
+            float px = this.position.x;
+            float py = this.position.y;
+            ModGravity.AnimationDirection dir = GameHelper.getGravity().getAnimationDirection();
+            float fromX = px, fromY = py;
+            switch (dir) {
+                case BottomToTop:  fromY = py + d; break;
+                case TopToBottom:  fromY = py - d; break;
+                case LeftToRight:  fromX = px - d; break;
+                case RightToLeft:  fromX = px + d; break;
+            }
+            headCirclePiece.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            tailCirclePiece.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            sliderBody.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            approachCircle.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            startArrow.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            endArrow.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+        }
     }
 
     private PointF getPositionAt(final float percentage, final boolean updateBallAngle, final boolean updateEndArrowRotation) {
@@ -980,8 +1005,14 @@ public class GameplaySlider extends GameObject {
 
                     var position = getPositionAt(percentage, false, true);
 
-                    tailCirclePiece.setPosition(position.x, position.y);
-                    endArrow.setPosition(position.x, position.y);
+                    // Gravity offset for snaking animation
+                    float snkGx = 0f, snkGy = 0f;
+                    if (GameHelper.isGravity()) {
+                        float[] snkOff = ModGravity.getOffset((float) (elapsedSpanTime + timePreempt), (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+                        snkGx = snkOff[0]; snkGy = snkOff[1];
+                    }
+                    tailCirclePiece.setPosition(position.x + snkGx, position.y + snkGy);
+                    endArrow.setPosition(position.x + snkGx, position.y + snkGy);
                 } else {
                     if (!preStageFinish && superPath != null && sliderBody != null) {
                         sliderBody.setEndLength(superPath.getMeasurer().maxLength());
@@ -993,8 +1024,13 @@ public class GameplaySlider extends GameObject {
                         endArrow.setRotation(MathUtils.radToDeg(Utils.direction(pathEndPosition.x, pathEndPosition.y, lastPoint.x, lastPoint.y)));
                     }
 
-                    tailCirclePiece.setPosition(pathEndPosition.x, pathEndPosition.y);
-                    endArrow.setPosition(pathEndPosition.x, pathEndPosition.y);
+                    float finGx = 0f, finGy = 0f;
+                    if (GameHelper.isGravity()) {
+                        float[] finOff = ModGravity.getOffset((float) (elapsedSpanTime + timePreempt), (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+                        finGx = finOff[0]; finGy = finOff[1];
+                    }
+                    tailCirclePiece.setPosition(pathEndPosition.x + finGx, pathEndPosition.y + finGy);
+                    endArrow.setPosition(pathEndPosition.x + finGx, pathEndPosition.y + finGy);
                 }
             }
             return;
@@ -1021,6 +1057,12 @@ public class GameplaySlider extends GameObject {
         }
 
         approachCircle.clearEntityModifiers();
+
+        // Gravity: reapply approachCircle position after clearEntityModifiers
+        if (GameHelper.isGravity()) {
+            float[] aOff = ModGravity.getOffset((float) (elapsedSpanTime + timePreempt), (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+            approachCircle.setPosition(this.position.x + aOff[0], this.position.y + aOff[1]);
+        }
 
         if (startHit) {
             approachCircle.setAlpha(0);
@@ -1051,8 +1093,17 @@ public class GameplaySlider extends GameObject {
         updateSlidingSamplesVolume();
 
         // Setting position of ball and follow circle
-        followCircle.setPosition(ballPos.x, ballPos.y);
-        ball.setPosition(ballPos.x, ballPos.y);
+        float gx = 0f, gy = 0f;
+        if (GameHelper.isGravity()) {
+            // elapsedSpanTime is negative before hit (e.g. -timePreempt at appearance).
+            // Add timePreempt to map it to [0, timePreempt] range for getOffset.
+            float gravityTime = (float) (elapsedSpanTime + timePreempt);
+            float[] off = ModGravity.getOffset(gravityTime, (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+            gx = off[0];
+            gy = off[1];
+        }
+        followCircle.setPosition(ballPos.x + gx, ballPos.y + gy);
+        ball.setPosition(ballPos.x + gx, ballPos.y + gy);
         ball.setRotation(ballAngle);
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {

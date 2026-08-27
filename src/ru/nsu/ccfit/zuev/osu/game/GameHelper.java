@@ -41,6 +41,7 @@ public class GameHelper {
     private static ModMuted muted;
     private static ModFreezeFrame freezeFrame;
     private static ModApproachDifferent approachDifferent;
+    private static ModGravity gravity;
     private static boolean isKiai = false;
     private static ModAutoplay autoplay;
     private static double beatLength = 0;
@@ -347,6 +348,18 @@ public class GameHelper {
 
     public static void setApproachDifferent(final ModApproachDifferent approachDifferent) {
         GameHelper.approachDifferent = approachDifferent;
+    }
+
+    public static ModGravity getGravity() {
+        return gravity;
+    }
+
+    public static boolean isGravity() {
+        return gravity != null;
+    }
+
+    public static void setGravity(final ModGravity gravity) {
+        GameHelper.gravity = gravity;
     }
 
     public static ModScoreV2 getScoreV2() {

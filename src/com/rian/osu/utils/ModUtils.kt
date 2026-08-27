@@ -30,6 +30,7 @@ object ModUtils {
             ModEasy(),
             ModFlashlight(),
             ModFreezeFrame(),
+            ModGravity(),
             ModHalfTime(),
             ModHardRock(),
             ModHidden(),

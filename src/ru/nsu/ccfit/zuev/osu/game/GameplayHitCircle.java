@@ -11,6 +11,7 @@ import com.reco1l.framework.Color4;
 import com.rian.osu.beatmap.HitWindow;
 import com.rian.osu.beatmap.hitobject.HitCircle;
 import com.rian.osu.gameplay.GameplayHitSampleInfo;
+import com.rian.osu.mods.ModGravity;
 import com.rian.osu.mods.ModHidden;
 
 import org.anddev.andengine.entity.scene.Scene;
@@ -168,6 +169,25 @@ public class GameplayHitCircle extends GameObject {
 
         scene.attachChild(circlePiece, 0);
         scene.attachChild(approachCircle);
+
+        // Gravity mod: animate circle sliding in from the configured direction
+        // MoveXY uses absolute positions, so we animate from (pos+offset) to (pos)
+        // approachCircle offset is computed in update() because clearEntityModifiers() destroys modifiers
+        if (GameHelper.isGravity()) {
+            float d = ModGravity.RISE_DISTANCE;
+            float dur = timePreempt;
+            float px = this.position.x;
+            float py = this.position.y;
+            ModGravity.AnimationDirection dir = GameHelper.getGravity().getAnimationDirection();
+            float fromX = px, fromY = py;
+            switch (dir) {
+                case BottomToTop:  fromY = py + d; break;
+                case TopToBottom:  fromY = py - d; break;
+                case LeftToRight:  fromX = px - d; break;
+                case RightToLeft:  fromX = px + d; break;
+            }
+            circlePiece.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+        }
     }
 
     private void removeFromScene() {
@@ -279,6 +299,13 @@ public class GameplayHitCircle extends GameObject {
         }
 
         passedTime += dt;
+
+        // Gravity mod: update approachCircle position every frame during approach phase
+        // Must be before the early return so it runs while passedTime < timePreempt
+        if (GameHelper.isGravity() && passedTime >= 0 && passedTime < timePreempt) {
+            float[] off = ModGravity.getOffset((float) passedTime, (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+            approachCircle.setPosition(this.position.x + off[0], this.position.y + off[1]);
+        }
 
         // We are still at approach time. Let entity modifiers finish first.
         if (passedTime < timePreempt) {
