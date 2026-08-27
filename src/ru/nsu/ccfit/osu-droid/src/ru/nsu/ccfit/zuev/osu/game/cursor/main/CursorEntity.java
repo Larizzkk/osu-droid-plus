@@ -126,7 +126,7 @@ public class CursorEntity extends Entity {
 
     private void loadTrailImplementation() {
         try {
-            trailImplementation = Config.getInt("trailImplementation", 1); // Default to optimized
+            trailImplementation = Integer.parseInt(Config.getString("trailImplementation", "1"));
         } catch (Exception e) {
             trailImplementation = 1;
         }

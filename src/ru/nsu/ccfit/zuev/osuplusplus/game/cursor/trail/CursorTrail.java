@@ -9,14 +9,12 @@ import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
 import javax.microedition.khronos.opengles.GL10;
 
-import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorSprite;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 
 public class CursorTrail extends ParticleSystem {
     private final CursorSprite cursor;
-    private float trailLength;
 
     public CursorTrail(
             PointParticleEmitter emitter,
@@ -28,37 +26,27 @@ public class CursorTrail extends ParticleSystem {
 
         this.cursor = cursor;
 
-        // Load trail length from preferences
-        this.trailLength = loadTrailLength();
-
-        // Apply trail length settings
-        addParticleModifier(new ExpireModifier(trailLength * GameHelper.getSpeedMultiplier()));
-        addParticleModifier(new AlphaModifier(GameHelper.getSpeedMultiplier(), 0.0f, 0f, trailLength));
+        addParticleModifier(new ExpireModifier(0.1f * GameHelper.getSpeedMultiplier()));
+        addParticleModifier(new AlphaModifier(GameHelper.getSpeedMultiplier(), 0.0f, 0f, 0.10f));
 
         setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
         addParticleInitializer(new ScaleInitializer(cursor.baseSize));
         setParticlesSpawnEnabled(false);
+        prewarm();
         updateRotation();
-    }
-
-    private float loadTrailLength() {
-        try {
-            return Config.getTrailLength();
-        } catch (Exception e) {
-            return 0.5f;
-        }
-    }
-
-    public void updateTrailLength() {
-        // Update trail length from preferences
-        this.trailLength = loadTrailLength();
-
-        // Note: For now, the trail length will be updated when trails are recreated
-        // This is simpler and avoids issues with modifier clearing
     }
 
     public void update() {
         updateRotation();
+    }
+
+    private void prewarm() {
+        setParticlesSpawnEnabled(true);
+        onManagedUpdate(10.0f);
+        for (int i = 0; i < 20; i++) {
+            onManagedUpdate(0.3f);
+        }
+        setParticlesSpawnEnabled(false);
     }
 
     private void updateRotation() {

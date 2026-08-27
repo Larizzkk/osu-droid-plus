@@ -126,7 +126,7 @@ public class CursorEntity extends Entity {
 
     private void loadTrailImplementation() {
         try {
-            trailImplementation = Config.getInt("trailImplementation", 1); // Default to optimized
+            trailImplementation = Integer.parseInt(Config.getString("trailImplementation", "1"));
         } catch (Exception e) {
             trailImplementation = 1;
         }
@@ -335,9 +335,6 @@ public class CursorEntity extends Entity {
     public void updateTrailLength() {
         if (trail != null) {
             switch (trailImplementation) {
-                case 0: // Legacy particle system
-                    ((CursorTrail) trail).updateTrailLength();
-                    break;
                 case 1: // Optimized trail
                     ((CursorTrailOptimized) trail).updateTrailLength();
                     break;

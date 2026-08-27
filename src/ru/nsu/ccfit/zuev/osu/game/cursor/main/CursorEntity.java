@@ -27,7 +27,9 @@ public class CursorEntity extends Entity {
             particleOffsetX = -trailTex.getWidth() / 2f;
             particleOffsetY = -trailTex.getHeight() / 2f;
 
-            var spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 2);
+            // Spawn rate must be high enough to create a dense, gap-free trail.
+            // At 60fps × 4 = 240 particles/sec, with ~0.25s lifetime = ~60 visible dots.
+            var spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 4);
 
             emitter = new PointParticleEmitter(particleOffsetX, particleOffsetY);
             trail = new CursorTrail(emitter, spawnRate, trailTex, cursorSprite);
@@ -85,12 +87,11 @@ public class CursorEntity extends Entity {
         if (emitter != null) {
             float dx = pX - lastX;
             float dy = pY - lastY;
-            // Avoid emitter teleportation/flickering on high FPS
-            if (dx * dx + dy * dy > 0.5f) {
-                emitter.setCenter(pX + particleOffsetX, pY + particleOffsetY);
-                lastX = pX;
-                lastY = pY;
-            }
+            // Always update emitter position to prevent trail gaps.
+            // The old threshold of 0.5 caused visible trail lag at 60-90 fps.
+            emitter.setCenter(pX + particleOffsetX, pY + particleOffsetY);
+            lastX = pX;
+            lastY = pY;
         }
 
         super.setPosition(pX, pY);
