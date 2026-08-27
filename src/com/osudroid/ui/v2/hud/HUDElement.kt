@@ -5,6 +5,7 @@ import com.osudroid.ui.v2.hud.elements.HUDAverageOffsetCounter
 import com.osudroid.ui.v2.hud.elements.HUDBPMCounter
 import com.osudroid.ui.v2.hud.elements.HUDBackButton
 import com.osudroid.ui.v2.hud.elements.HUDComboCounter
+import com.osudroid.ui.v2.hud.elements.HUDGradeDisplay
 import com.osudroid.ui.v2.hud.elements.HUDGreatCounter
 import com.osudroid.ui.v2.hud.elements.HUDHealthBar
 import com.osudroid.ui.v2.hud.elements.HUDHitErrorMeter
@@ -60,6 +61,7 @@ enum class HUDElements(val type: KClass<out HUDElement>) {
     notes_per_second_counter(HUDNotesPerSecondCounter::class),
     taps_per_second_counter(HUDTapsPerSecondCounter::class),
     back_button(HUDBackButton::class),
+    grade_display(HUDGradeDisplay::class),
     leaderboard(HUDLeaderboard::class);
 
     companion object {

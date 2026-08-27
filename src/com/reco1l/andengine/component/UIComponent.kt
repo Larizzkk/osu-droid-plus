@@ -8,6 +8,7 @@ import com.reco1l.andengine.modifier.*
 import com.reco1l.andengine.shape.*
 import com.reco1l.andengine.ui.*
 import com.reco1l.framework.*
+import com.edlplan.framework.easing.Easing
 import com.reco1l.framework.math.*
 import com.reco1l.toolkt.kotlin.*
 import org.anddev.andengine.collision.*
@@ -954,6 +955,14 @@ abstract class UIComponent : Entity(0f, 0f), ITouchArea, IModifierChain, IThemea
         modifier.setToDefault()
         modifier.parent = this
         modifier.block()
+
+        // EnhancedAnimations applies ONLY to UI/UX modifiers, never to gameplay.
+        if (EnhancedAnimations.enabled && EnhancedAnimations.speedMultiplier != 1f && !modifier.type.isCompoundModifier) {
+            modifier.duration *= EnhancedAnimations.speedMultiplier
+        }
+        if (EnhancedAnimations.enabled && EnhancedAnimations.easing != Easing.None && modifier.currentEasing == Easing.None) {
+            modifier.eased(EnhancedAnimations.easing)
+        }
 
         registerEntityModifier(modifier)
         return modifier

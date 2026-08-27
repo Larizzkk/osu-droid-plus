@@ -126,6 +126,14 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
         }
 
         super.onDrawScene(pGL)
+
+        // osu!droid: Video export frame capture hook.
+        // Feed frames to the video encoder if exporting.
+        // The auto-export trigger is in GameScene.onManagedDraw() — only fires during gameplay.
+        val exportManager = com.osudroid.game.replay.video.VideoExportManager.getInstance()
+        if (exportManager.isExporting) {
+            exportManager.onGameFrame(pGL, System.nanoTime())
+        }
     }
 
 
