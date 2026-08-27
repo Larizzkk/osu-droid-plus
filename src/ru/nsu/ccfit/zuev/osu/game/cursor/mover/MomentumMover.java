@@ -1,6 +1,7 @@
 package ru.nsu.ccfit.zuev.osu.game.cursor.mover;
 
 import android.graphics.PointF;
+import java.util.List;
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.BaseMover;
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.curves.Bezier;
 import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.mutils.MUtils;
@@ -13,10 +14,13 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
     private boolean first;
     private boolean wasStream;
 
-    // Next-next object position for stream detection (set by AutoCursor)
+    // Lookahead info passed from AutoCursor (replaces single nextObjPos)
     private Vector2f nextObjPos = null;
     private boolean nextIsCircle = false;
     private boolean hasFromLong = false;
+    // Upcoming segments for traversal loop: positions + whether each is a long object
+    private List<PointF> upcomingPositions = null;
+    private boolean[] upcomingIsLong = null;
 
     private float distanceMultOut = 0.45f;
     private float streamMult = 0.7f;
@@ -66,13 +70,13 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
         setMovement(SliderMovementContext.of(startPos, endPos, startTime, endTime));
     }
 
-    public void setMovementWithNext(SliderMovementContext ctx, PointF nextPosition, boolean nextIsCircle) {
+    public void setMovementWithNext(SliderMovementContext ctx, PointF nextPosition, boolean nextIsCircle,
+                                     List<PointF> upcomingPositions, boolean[] upcomingIsLong) {
         this.nextObjPos = nextPosition != null ? new Vector2f(nextPosition) : null;
-        // In danser-go: fromLong is true when objs[i+2] (the next-next object)
-        // is a long object (slider), NOT when the start object is a slider.
-        // nextIsCircle from AutoCursor = !nextSeg.endIsSlider
-        // So hasFromLong = the next-next object is a slider
+        this.nextIsCircle = nextIsCircle;
         this.hasFromLong = !nextIsCircle && nextPosition != null;
+        this.upcomingPositions = upcomingPositions;
+        this.upcomingIsLong = upcomingIsLong;
         setMovement(ctx);
     }
 
@@ -88,8 +92,59 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
 
         // danser-go: a2 = last.AngleRV(startPos) when not first
         // then lookahead at objs[i+2] for stream detection and final a2
-        float a2 = last.angleRV(startV);
-        boolean fromLong = ctx.startIsSlider;
+        // === danser-go lookahead traversal loop (momentum.go lines 72-88) ===
+        // The loop starts at the end object (index 1 in subqueue) and scans ahead
+        // to find the first ILongObject or first non-stacked consecutive pair.
+        // This determines `a2` (approach angle) and `fromLong`.
+        float a2;
+        boolean fromLong = false;
+
+        if (ctx.endIsSlider) {
+            // danser: if objs[1] is ILongObject → a2 = its start angle, fromLong = true
+            a2 = ctx.endAngle;
+            fromLong = true;
+        } else if (upcomingPositions != null && upcomingPositions.size() > 0) {
+            // Traverse the upcoming segments looking for ILongObject or non-stacked pair
+            a2 = last.angleRV(startV); // default if nothing found
+            boolean found = false;
+            for (int j = 0; j < upcomingPositions.size(); j++) {
+                PointF pos = upcomingPositions.get(j);
+                boolean isLong = upcomingIsLong != null && j < upcomingIsLong.length && upcomingIsLong[j];
+
+                if (isLong) {
+                    // danser: if o is ILongObject → a2 = o.GetStartAngleMod(), fromLong = true
+                    // For sliders: use the angle from endPos to this position
+                    a2 = endV.angleRV(new Vector2f(pos));
+                    fromLong = true;
+                    found = true;
+                    break;
+                }
+
+                if (j == upcomingPositions.size() - 1) {
+                    // danser: if i == len(objs)-1 → a2 = last.AngleRV(startPos)
+                    a2 = last.angleRV(startV);
+                    found = true;
+                    break;
+                }
+
+                PointF nextPos = upcomingPositions.get(j + 1);
+                // danser: if !same(o, objs[i+1]) → a2 = angle between them
+                Vector2f posV = new Vector2f(pos);
+                Vector2f nextV = new Vector2f(nextPos);
+                if (!posV.equals(nextV)) {
+                    a2 = posV.angleRV(nextV);
+                    found = true;
+                    break;
+                }
+                // same position → continue traversal
+            }
+            if (!found) {
+                a2 = last.angleRV(startV);
+            }
+        } else {
+            // No upcoming segments — use last position
+            a2 = last.angleRV(startV);
+        }
 
         boolean hasNext = nextObjPos != null && nextIsCircle;
         boolean fromLong2 = hasFromLong;

@@ -154,44 +154,116 @@ public class AutoCursor extends CursorEntity implements ISliderListener {
             }
         }
 
+        // === PREPROCESSING (matching danser-go GenericScheduler.Init) ===
+
+        // 1. Double-click merging: merge overlapping circles within 1.995r + 3ms
+        //    into a single DummyCircle (danser generic.go lines 56-80)
+        float circleRadius = hitObjects.length > 0 ?
+            (float) hitObjects[0].getScreenSpaceGameplayRadius() : 64f;
+        float mergeThreshold = circleRadius * 1.995f;
+        float mergeTimeThreshold = 3f; // ms
+
+        boolean[] merged = new boolean[count];
+        List<Float> mPosX = new ArrayList<>();
+        List<Float> mPosY = new ArrayList<>();
+        List<Float> mEndPosX = new ArrayList<>();
+        List<Float> mEndPosY = new ArrayList<>();
+        List<Float> mHitTimes = new ArrayList<>();
+        List<Float> mEndTimes = new ArrayList<>();
+        List<Boolean> mIsSlider = new ArrayList<>();
+        List<Boolean> mIsSpinner = new ArrayList<>();
+        List<Float> mStartAngles = new ArrayList<>();
+        List<Float> mEndAngles = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            if (merged[i]) continue;
+            if (isSpinner[i]) {
+                // Spinners can't be merged
+                mPosX.add(posX[i]); mPosY.add(posY[i]);
+                mEndPosX.add(endPosX[i]); mEndPosY.add(endPosY[i]);
+                mHitTimes.add(hitTimes[i]); mEndTimes.add(endTimes[i]);
+                mIsSlider.add(false); mIsSpinner.add(true);
+                mStartAngles.add(0f); mEndAngles.add(0f);
+                continue;
+            }
+
+            // Check if next circle is a double-click candidate
+            if (i + 1 < count && !isSlider[i] && !isSlider[i + 1]
+                    && !isSpinner[i + 1] && !merged[i + 1]) {
+                float dx = posX[i + 1] - posX[i];
+                float dy = posY[i + 1] - posY[i];
+                float dst = (float) Math.sqrt(dx * dx + dy * dy);
+                float timeDiff = hitTimes[i + 1] - endTimes[i];
+
+                if (dst <= mergeThreshold && timeDiff <= mergeTimeThreshold) {
+                    // Merge: midpoint position, averaged time
+                    float midX = (posX[i] + posX[i + 1]) / 2f;
+                    float midY = (posY[i] + posY[i + 1]) / 2f;
+                    float avgTime = (hitTimes[i] + hitTimes[i + 1]) / 2f;
+
+                    mPosX.add(midX); mPosY.add(midY);
+                    mEndPosX.add(midX); mEndPosY.add(midY);
+                    mHitTimes.add(avgTime); mEndTimes.add(avgTime);
+                    mIsSlider.add(false); mIsSpinner.add(false);
+                    mStartAngles.add(0f); mEndAngles.add(0f);
+                    merged[i] = true;
+                    merged[i + 1] = true;
+                    continue;
+                }
+            }
+
+            // Normal circle
+            mPosX.add(posX[i]); mPosY.add(posY[i]);
+            mEndPosX.add(endPosX[i]); mEndPosY.add(endPosY[i]);
+            mHitTimes.add(hitTimes[i]); mEndTimes.add(endTimes[i]);
+            mIsSlider.add(isSlider[i]); mIsSpinner.add(isSpinner[i]);
+            mStartAngles.add(startAngles[i]); mEndAngles.add(endAngles[i]);
+        }
+
+        // 2. Timing spread: push overlapping circles 1ms apart
+        //    (danser generic.go lines 83-92)
+        for (int i = 0; i < mHitTimes.size() - 1; i++) {
+            float curEnd = mEndTimes.get(i);
+            for (int j = i + 1; j < mHitTimes.size(); j++) {
+                if (curEnd < mHitTimes.get(j)) break;
+                // Overlapping: push start time 1ms past current end
+                if (!mIsSlider.get(j)) {
+                    mHitTimes.set(j, curEnd + 1f);
+                }
+            }
+        }
+
+        // Use preprocessed arrays for segment building
+        int mCount = mPosX.size();
+        if (mCount == 0) {
+            queueActive = false;
+            return;
+        }
+
         // Dummy initial segment: (100,100) at t=-500 → first object
         segmentQueue.add(new MovementSegment(
             -1,
             new PointF(100f, 100f),
-            new PointF(posX[0], posY[0]),
-            -500f, hitTimes[0],
+            new PointF(mPosX.get(0), mPosY.get(0)),
+            -500f, mHitTimes.get(0),
             false, 0f,
-            isSlider[0], isSpinner[0], startAngles[0],
+            mIsSlider.get(0), mIsSpinner.get(0), mStartAngles.get(0),
             0f, 0f
         ));
 
-        // Build segments for each consecutive pair
-        // startTimeMs = previousObject.EndTime (matching danser-go)
-        // endTimeMs   = nextObject.StartTime (matching danser-go)
-        for (int i = 0; i < count - 1; i++) {
-            // Danser-go: startPos = previousObject.GetStackedEndPositionMod()
-            // For sliders this is the TAIL position (where ball ends).
-            // For circles/spinners this equals the head position.
-            PointF startPos = new PointF(endPosX[i], endPosY[i]);
-            PointF endPos = new PointF(posX[i + 1], posY[i + 1]);
+        // Build segments for each consecutive pair from preprocessed data
+        for (int i = 0; i < mCount - 1; i++) {
+            PointF startPos = new PointF(mEndPosX.get(i), mEndPosY.get(i));
+            PointF endPos = new PointF(mPosX.get(i + 1), mPosY.get(i + 1));
 
             float dx = endPos.x - startPos.x;
             float dy = endPos.y - startPos.y;
             float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
-            // KEY FIX: startTime uses previous object's END time, not hit time.
-            // For sliders: endTime = hitTime + duration.
-            // For circles: endTime = hitTime.
-            float segStart = endTimes[i];       // previousObject.EndTime
-            float segEnd = hitTimes[i + 1];     // nextObject.StartTime
+            float segStart = mEndTimes.get(i);
+            float segEnd = mHitTimes.get(i + 1);
 
-            // BUG FIX: When spinner ends after next object starts (overlapping
-            // objects), segStart > segEnd. Clamping segStart = segEnd creates a
-            // zero-duration segment — the mover can't interpolate and the cursor
-            // stays frozen at the spinner position.
-            //
-            // Fix: always ensure a minimum segment duration (85ms) so the mover
-            // can interpolate. Push segEnd forward if needed.
+            // Ensure minimum segment duration for overlapping objects
             if (segStart >= segEnd) {
                 segEnd = segStart + 85f;
             }
@@ -200,8 +272,8 @@ public class AutoCursor extends CursorEntity implements ISliderListener {
                 i + 1,
                 startPos, endPos,
                 segStart, segEnd,
-                isSlider[i], endAngles[i],
-                isSlider[i + 1], isSpinner[i + 1], startAngles[i + 1],
+                mIsSlider.get(i), mEndAngles.get(i),
+                mIsSlider.get(i + 1), mIsSpinner.get(i + 1), mStartAngles.get(i + 1),
                 dist, dist
             ));
         }
@@ -248,7 +320,21 @@ public class AutoCursor extends CursorEntity implements ISliderListener {
                     // So nextIsCircle = NOT slider AND NOT spinner
                     nextIsCircle = !nextSeg.endIsSlider && !nextSeg.endIsSpinner;
                 }
-                momentumMover.setMovementWithNext(ctx, nextObjPos, nextIsCircle);
+                // Build upcoming segments list for the lookahead traversal loop.
+                // danser traverses objs[i+2], objs[i+3], ... looking for ILongObject or non-stacked pair.
+                // We pass segments from index+1 onwards (end positions + isLong flags).
+                java.util.List<PointF> upcomingPositions = new java.util.ArrayList<>();
+                boolean[] upcomingIsLong = null;
+                if (index + 1 < segmentQueue.size()) {
+                    int upcomingCount = segmentQueue.size() - (index + 1);
+                    upcomingIsLong = new boolean[upcomingCount];
+                    for (int u = index + 1; u < segmentQueue.size(); u++) {
+                        MovementSegment uSeg = segmentQueue.get(u);
+                        upcomingPositions.add(uSeg.endPos);
+                        upcomingIsLong[u - (index + 1)] = uSeg.endIsSlider || uSeg.endIsSpinner;
+                    }
+                }
+                momentumMover.setMovementWithNext(ctx, nextObjPos, nextIsCircle, upcomingPositions, upcomingIsLong);
             } else {
                 sliderMover.setMovement(ctx);
             }
