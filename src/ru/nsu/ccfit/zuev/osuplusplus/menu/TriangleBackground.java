@@ -44,7 +44,8 @@ public class TriangleBackground extends Entity {
             int size = pool.size();
             if (size > 0) {
                 Particle p = pool.remove(size - 1);
-                p.s.setSize(sz, sz);
+                if (p.s != null && p.s.hasParent()) p.s.detachSelf();
+                p.s = new Sprite(0, 0, sz, sz, tex);
                 return p;
             }
             Particle p = new Particle();

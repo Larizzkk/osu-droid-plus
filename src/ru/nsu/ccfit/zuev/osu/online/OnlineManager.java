@@ -61,9 +61,24 @@ public class OnlineManager {
     private int mapRank;
     private String profileBannerURL;
     private String tags = "";
+    private String tagColor = "#E91E63";
+    private String tagGradient = "";
+    private String tagFont = "";
 
     public String getTags() {
         return tags;
+    }
+
+    public String getTagColor() {
+        return tagColor;
+    }
+
+    public String getTagGradient() {
+        return tagGradient;
+    }
+
+    public String getTagFont() {
+        return tagFont;
     }
 
     public void setTags(String tags) {
@@ -78,6 +93,7 @@ public class OnlineManager {
             connection.setRequestMethod("GET");
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(5000);
+            connection.setRequestProperty("Accept", "application/json");
 
             BufferedReader reader = new BufferedReader(
                 new InputStreamReader(connection.getInputStream())
@@ -92,7 +108,20 @@ public class OnlineManager {
 
             String result = response.toString().trim();
             if (!result.isEmpty() && !result.equals("null")) {
-                tags = result;
+                // Try JSON parse first
+                if (result.startsWith("{")) {
+                    try {
+                        org.json.JSONObject json = new org.json.JSONObject(result);
+                        tags = json.optString("tags", "");
+                        tagColor = json.optString("color", "#E91E63");
+                        tagGradient = json.optString("gradient", "");
+                        tagFont = json.optString("font", "");
+                    } catch (Exception e) {
+                        tags = result;
+                    }
+                } else {
+                    tags = result;
+                }
             }
         } catch (Exception e) {
             Debug.i("Failed to fetch tags: " + e.getMessage());

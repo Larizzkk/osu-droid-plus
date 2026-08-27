@@ -205,12 +205,14 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                         return;
                     }
 
+                    int displayRank = (i + 1);
+
                     if (isPersonalBest) {
-                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true), 0);
+                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true, displayRank), 0);
                     }
 
                     if (isInLeaderboard) {
-                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false));
+                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false, displayRank));
 
                         var item = new ScoreBoardItem();
                         item.set(beatmapRank, playerName, combo, score, scoreID);
@@ -295,7 +297,7 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                         return;
                     }
 
-                    attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, score.getMark(), false, (int) score.getId(), null, null, false));
+                    attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, score.getMark(), false, (int) score.getId(), null, null, false, i + 1));
 
                     var item = new ScoreBoardItem();
                     item.set(i + 1, score.getPlayerName(), score.getMaxCombo(), score.getScore(), (int) score.getId());
@@ -486,6 +488,20 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
         return scoreItems;
     }
 
+    /**
+     * Returns the score ID of the most recently tapped score item, or -1 if none.
+     */
+    public int getSelectedScoreId() {
+        return _scoreID;
+    }
+
+    /**
+     * Returns whether the most recently tapped score is an online score.
+     */
+    public boolean isSelectedScoreOnline() {
+        return showOnlineScores;
+    }
+
 
     private abstract class LoadTask implements Runnable {
 
@@ -531,7 +547,8 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                 int scoreID,
                 String avaURL,
                 String username,
-                boolean isPersonalBest) {
+                boolean isPersonalBest,
+                int rank) {
             super(-150, 40,  ResourceManager.getInstance().getTexture("menu-button-background").deepCopy());
 
             this.avatarExecutor = avatarExecutor;
@@ -571,8 +588,16 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
             setWidth(724 * 1.1f);
             camY = -146;
 
-            setColor(0, 0, 0);
-            setAlpha(0.5f);
+            if (rank == 1) {
+                setColor(0.98f, 0.78f, 0.18f);
+            } else if (rank == 2) {
+                setColor(0.75f, 0.75f, 0.78f);
+            } else if (rank == 3) {
+                setColor(0.80f, 0.45f, 0.10f);
+            } else {
+                setColor(0, 0, 0);
+            }
+            setAlpha(rank <= 3 ? 0.35f : 0.5f);
 
             float finalBaseY = baseY;
             avatarTask = shouldLoadAvatar ? new Runnable() {

@@ -214,8 +214,20 @@ public class OnlinePanel extends Entity {
 
         String userTags = OnlineManager.getInstance().getTags();
         if (userTags != null && !userTags.isEmpty()) {
-            tagText.setText(userTags.replace(",", " · "));
+            tagText.setText(userTags.toUpperCase());
             tagText.setVisible(true);
+            // Apply tag color from server
+            String tagColor = OnlineManager.getInstance().getTagColor();
+            if (tagColor != null && tagColor.startsWith("#") && tagColor.length() >= 4) {
+                try {
+                    String hex = tagColor.substring(1);
+                    if (hex.length() == 3) hex = "" + hex.charAt(0) + hex.charAt(0) + hex.charAt(1) + hex.charAt(1) + hex.charAt(2) + hex.charAt(2);
+                    int r = Integer.parseInt(hex.substring(0, 2), 16);
+                    int g = Integer.parseInt(hex.substring(2, 4), 16);
+                    int b = Integer.parseInt(hex.substring(4, 6), 16);
+                    tagText.setColor(r / 255f, g / 255f, b / 255f);
+                } catch (Exception ignored) {}
+            }
         } else {
             tagText.setVisible(false);
         }
