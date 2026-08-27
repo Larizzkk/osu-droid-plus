@@ -8,6 +8,8 @@ import org.anddev.andengine.entity.modifier.*;
 import org.anddev.andengine.entity.primitive.Rectangle;
 import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.entity.sprite.Sprite;
+import org.anddev.andengine.entity.text.ChangeableText;
+import org.anddev.andengine.opengl.font.Font;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
 import ru.nsu.ccfit.zuev.osu.Config;
@@ -29,6 +31,9 @@ public class BreakAnimator extends GameObject {
     private UISprite mark = null;
     private boolean isbreak = false;
     private boolean over = false;
+
+    // Countdown timer — prominent, centered above pass/fail
+    private ChangeableText countdownText;
 
     public BreakAnimator(final Scene scene, final StatisticV2 stat, GameplayHUD hud) {
         length = 0;
@@ -105,6 +110,17 @@ public class BreakAnimator extends GameObject {
         mark.setPosition(Config.getRES_WIDTH() - zeroRect.getWidth() * 11, 5);
         mark.setScale(1.2f);
         hud.attachChild(mark, 0);
+
+        // Countdown timer — large, centered above pass/fail text
+        if (Config.isShowBreakCountdown()) {
+            Font countdownFont = ResourceManager.getInstance().getFont("bigFont");
+            countdownText = new ChangeableText(0, 0, countdownFont, String.format(java.util.Locale.US, "%.0f", length), 32);
+            countdownText.setColor(1f, 1f, 1f, 0.95f);
+            float cx = Config.getRES_WIDTH() / 2f;
+            float cy = Config.getRES_HEIGHT() / 2f;
+            countdownText.setPosition(cx - countdownText.getWidth() / 2f, cy - 100);
+            hud.attachChild(countdownText, 0);
+        }
     }
 
     private void setBgFade(float percent) {
@@ -163,12 +179,25 @@ public class BreakAnimator extends GameObject {
 
         mark.setTextureRegion(getRankingTexture());
 
+        // Update countdown
+        if (countdownText != null) {
+            float remaining = Math.max(0, length - time);
+            String cdStr = String.format(java.util.Locale.US, "%.0f", remaining);
+            countdownText.setText(cdStr);
+            float cx = Config.getRES_WIDTH() / 2f;
+            countdownText.setPosition(cx - countdownText.getWidth() / 2f, countdownText.getY());
+        }
+
         if (time >= length) {
             isbreak = false;
             over = true;
             resumeBgFade();
             if (mark != null) {
                 mark.detachSelf();
+            }
+            if (countdownText != null) {
+                countdownText.detachSelf();
+                countdownText = null;
             }
             for (final Sprite sp : arrows) {
                 sp.detachSelf();
