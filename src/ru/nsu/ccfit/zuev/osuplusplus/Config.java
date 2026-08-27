@@ -27,7 +27,7 @@ public class Config {
 
     private static String corePath, defaultCorePath, beatmapPath, cachePath, skinPath, skinTopPath, scorePath, onlineUsername, onlinePassword, onlineDeviceID;
 
-    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements, parallaxEnabled;
+    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, showBreakCountdown, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements, parallaxEnabled;
 
     public static final int FRAME_LIMITER_UNLIMITED = 0;
     public static final int FRAME_LIMITER_POWER_SAVE = 1;
@@ -87,6 +87,7 @@ corovans = prefs.getBoolean("images", false);
             false
         );
         noChangeDimInBreaks = prefs.getBoolean("noChangeDimInBreaks", false);
+        showBreakCountdown = prefs.getBoolean("showBreakCountdown", true);
         dimHitObjects = prefs.getBoolean("dimHitObjects", true);
         parallaxEnabled = prefs.getBoolean("parallaxEnabled", false);
         forceMaxRefreshRate = prefs.getBoolean("forceMaxRefreshRate", false);
@@ -828,6 +829,10 @@ corovans = prefs.getBoolean("images", false);
         return noChangeDimInBreaks;
     }
 
+    public static boolean isShowBreakCountdown() {
+        return showBreakCountdown;
+    }
+
     public static boolean isDimHitObjects() {
         return dimHitObjects;
     }
@@ -1157,5 +1162,41 @@ corovans = prefs.getBoolean("images", false);
 
     public static void setTrailWidth(float width) {
         setInt("trailWidth", (int) (width * 100));
+    }
+
+    public static boolean isEnhancedAnimations() {
+        return getBoolean("enhancedAnimations", false);
+    }
+
+    public static float getAnimationSpeed() {
+        return getInt("animationSpeed", 100) / 100f;
+    }
+
+    public static String getAnimationEasing() {
+        return getString("animationEasing", "OutQuint");
+    }
+
+    public static boolean isSmoothTransitions() {
+        return getBoolean("smoothTransitions", true);
+    }
+
+    public static boolean isMenuAnimations() {
+        return getBoolean("menuAnimations", true);
+    }
+
+    public static boolean isStoryboardAnimations() {
+        return getBoolean("storyboardAnimations", true);
+    }
+
+    public static boolean isParticleAnimations() {
+        return getBoolean("particleAnimations", true);
+    }
+
+    public static boolean isRotateCursorTrail() {
+        return getBoolean("rotateCursorTrail", true);
+    }
+
+    public static void setRotateCursorTrail(boolean rotate) {
+        setBoolean("rotateCursorTrail", rotate);
     }
 }

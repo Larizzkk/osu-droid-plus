@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
+
+    <PreferenceCategory android:title="Loaded Plugins">
+
+        <Preference
+            android:key="plugins_info"
+            android:title="Plugin System"
+            android:summary="Drop .lua files into the plugins/ folder to load them"
+            android:selectable="false"
+            app:layout="@layout/settings_preference"
+        />
+
+        <!-- Plugin entries are added dynamically by handlePluginsSectionPreferences() -->
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

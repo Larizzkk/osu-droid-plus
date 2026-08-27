@@ -529,20 +529,24 @@ public class MainActivity
 
                 scheduledExecutor.scheduleAtFixedRate(
                     () -> {
-                        if (
-                            Config.isForceMaxRefreshRate() &&
-                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                        ) {
-                            float refreshRate = getRefreshRate();
-
-                            if (refreshRate != maxRefreshRate) {
-                                mRenderSurfaceView
-                                    .getHolder()
-                                    .getSurface()
-                                    .setFrameRate(
-                                        maxRefreshRate,
-                                        Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
-                                    );
+                        if (Config.isForceMaxRefreshRate()) {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                float refreshRate = getRefreshRate();
+                                if (refreshRate < maxRefreshRate) {
+                                    mRenderSurfaceView
+                                        .getHolder()
+                                        .getSurface()
+                                        .setFrameRate(
+                                            maxRefreshRate,
+                                            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
+                                        );
+                                }
+                            }
+                            // Also enforce engine frame rate if it dropped
+                            int targetFps = FrameLimiter.getInstance().getTargetFps();
+                            if (targetFps < (int) maxRefreshRate && maxRefreshRate > 0) {
+                                GlobalManager.getInstance().getEngine()
+                                    .setFrameRate((int) maxRefreshRate);
                             }
                         }
 
@@ -841,6 +845,9 @@ public class MainActivity
         // Force max refresh rate for smoother gameplay
         forceMaxRefreshRate();
 
+        // Load Lua plugins
+        com.osudroid.plugin.PluginManager.getInstance().loadPlugins(this);
+
         try {
             versionName = getPackageManager()
                 .getPackageInfo(getPackageName(), PackageManager.GET_ACTIVITIES)
@@ -995,6 +1002,9 @@ public class MainActivity
 
     @Override
     protected void onDestroy() {
+        // Unload all Lua plugins
+        com.osudroid.plugin.PluginManager.getInstance().unloadAll();
+
         super.onDestroy();
 
         Multiplayer.flushLog();

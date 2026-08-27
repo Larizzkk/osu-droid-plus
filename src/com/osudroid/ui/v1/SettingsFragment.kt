@@ -150,6 +150,7 @@ class SettingsFragment : SettingsFragment() {
     }
 
 
+
     override fun onLoadView() {
 
         sectionSelector = findViewById(R.id.section_selector)!!
@@ -226,6 +227,7 @@ class SettingsFragment : SettingsFragment() {
 
         createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
         createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
+        createSectionButton("Plugins", R.drawable.add_24px, Section.Plugins)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
 
 
@@ -253,6 +255,7 @@ class SettingsFragment : SettingsFragment() {
         Section.Advanced -> handleAdvancedSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
         Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
+        Section.Plugins -> handlePluginsSectionPreferences()
         Section.Player -> handlePlayerSectionPreferences()
         Section.Room -> handleRoomSectionPreferences()
     }
@@ -567,6 +570,53 @@ class SettingsFragment : SettingsFragment() {
                 true
             }
         }
+
+        val trailImplPref = findPreference<ListPreference>("trailImplementation")
+        val trailLengthPref = findPreference<SeekBarPreference>("trailLength")
+        val trailSizePref = findPreference<SeekBarPreference>("trailSize")
+        val trailWidthPref = findPreference<SeekBarPreference>("trailWidth")
+        val trailDelayPref = findPreference<CheckBoxPreference>("trailDelayEnabled")
+        val rotateTrailPref = findPreference<CheckBoxPreference>("rotateCursorTrail")
+
+        fun updateTrailSettingsVisibility(value: String?) {
+            val isLong = value == "1"
+            trailLengthPref?.isVisible = isLong
+            trailSizePref?.isVisible = isLong
+            trailWidthPref?.isVisible = isLong
+            trailDelayPref?.isVisible = isLong
+            rotateTrailPref?.isVisible = isLong
+        }
+
+        updateTrailSettingsVisibility(trailImplPref?.value)
+
+        trailImplPref?.setOnPreferenceChangeListener { _, newValue ->
+            updateTrailSettingsVisibility(newValue as String)
+            true
+        }
+
+        val enhancedAnimPref = findPreference<CheckBoxPreference>("enhancedAnimations")
+        val animSpeedPref = findPreference<SeekBarPreference>("animationSpeed")
+        val animEasingPref = findPreference<ListPreference>("animationEasing")
+        val smoothTransPref = findPreference<CheckBoxPreference>("smoothTransitions")
+        val menuAnimPref = findPreference<CheckBoxPreference>("menuAnimations")
+        val storyboardAnimPref = findPreference<CheckBoxPreference>("storyboardAnimations")
+        val particleAnimPref = findPreference<CheckBoxPreference>("particleAnimations")
+
+        fun updateEnhancedAnimVisibility(enabled: Boolean) {
+            animSpeedPref?.isVisible = enabled
+            animEasingPref?.isVisible = enabled
+            smoothTransPref?.isVisible = enabled
+            menuAnimPref?.isVisible = enabled
+            storyboardAnimPref?.isVisible = enabled
+            particleAnimPref?.isVisible = enabled
+        }
+
+        updateEnhancedAnimVisibility(enhancedAnimPref?.isChecked == true)
+
+        enhancedAnimPref?.setOnPreferenceChangeListener { _, newValue ->
+            updateEnhancedAnimVisibility(newValue as Boolean)
+            true
+        }
     }
 
     @Suppress("DEPRECATION")
@@ -603,6 +653,43 @@ class SettingsFragment : SettingsFragment() {
             }
         } else {
             engine.setFrameRate(0)
+        }
+    }
+
+    private fun handlePluginsSectionPreferences() {
+        val pluginManager = com.osudroid.plugin.PluginManager.getInstance()
+        val plugins = pluginManager.getPlugins()
+
+        // Find the "plugins_info" preference, then get its parent category
+        val infoPref = findPreference<androidx.preference.Preference>("plugins_info") ?: return
+        val category = infoPref.parent as? androidx.preference.PreferenceCategory ?: return
+
+        // Remove the info preference
+        category.removePreference(infoPref)
+
+        if (plugins.isEmpty()) {
+            // Show "no plugins" message
+            val noPlugins = androidx.preference.Preference(requireContext())
+            noPlugins.key = "plugins_empty"
+            noPlugins.title = "No plugins loaded"
+            noPlugins.summary = "Drop .lua files into \"plugins/\" folder in app storage"
+            noPlugins.isSelectable = false
+            category.addPreference(noPlugins)
+        } else {
+            for (plugin in plugins) {
+                val switchPref = androidx.preference.SwitchPreferenceCompat(requireContext())
+                switchPref.key = "plugin_enabled_" + plugin.name
+                switchPref.title = plugin.name
+                switchPref.summary = "v${plugin.version} by ${plugin.author}\n${plugin.description}"
+                switchPref.isChecked = true
+                switchPref.setOnPreferenceChangeListener { _, newValue ->
+                    val prefs = requireContext().getSharedPreferences("plugins", 0)
+                    prefs.edit().putBoolean("enabled_" + plugin.name, newValue as Boolean).apply()
+                    pluginManager.reloadPlugins(requireContext())
+                    true
+                }
+                category.addPreference(switchPref)
+            }
         }
     }
 
@@ -848,6 +935,7 @@ class SettingsFragment : SettingsFragment() {
         Library(R.xml.settings_library),
         Input(R.xml.settings_input),
         OsuDroidPlus(R.xml.settings_osudroidplus),
+        Plugins(R.xml.settings_plugins),
         Advanced(R.xml.settings_advanced),
 
         // Multiplayer exclusive
