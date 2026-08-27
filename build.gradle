@@ -205,6 +205,9 @@ dependencies {
 
     // Discord RPC — Unix domain socket IPC (no external library needed, uses android.net.LocalSocket)
 
+    // Lua scripting engine for plugins
+    implementation 'org.luaj:luaj-jse:3.0.1'
+
     // Room
     implementation "androidx.room:room-runtime:$room_version"
     ksp "androidx.room:room-compiler:$room_version"
