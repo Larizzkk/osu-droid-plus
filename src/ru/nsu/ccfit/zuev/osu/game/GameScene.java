@@ -184,6 +184,31 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private Replay replay;
     private boolean replaying;
     private String replayFilePath;
+    public boolean autoExportReplay = false;
+    public String autoExportOutputPath = null;
+
+    // Static pending export state: set by ScoringScene before launching replay
+    private static volatile String pendingExportPath = null;
+    private static volatile boolean hasPendingExport = false;
+
+    /**
+     * Set a pending MP4 export. Called from ScoringScene before launching the replay.
+     */
+    public static void setPendingExport(String outputPath) {
+        pendingExportPath = outputPath;
+        hasPendingExport = true;
+    }
+
+    /**
+     * Check and consume the pending export state. Returns the output path, or null if none.
+     */
+    public static String consumePendingExport() {
+        if (hasPendingExport) {
+            hasPendingExport = false;
+            return pendingExportPath;
+        }
+        return null;
+    }
     public float offsetSum;
     public int offsetRegs;
     private Rectangle dimRectangle = null;
@@ -222,6 +247,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private Job storyboardLoadingJob;
 
     private StoryboardSprite storyboardSprite;
+
+    // GPU replay renderer — bypasses per-entity draw path during replay playback
+    @Nullable
+    private com.osudroid.game.replay.BatchedGameplayScene batchedMgScene;
     private ProxySprite storyboardOverlayProxy;
 
     public HitWindow hitWindow;
@@ -751,6 +780,17 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         this.playableBeatmap = playableBeatmap;
 
+        // Set beatmap info for Lua plugins
+        try {
+            com.osudroid.plugin.GameState.setBeatmapInfo(
+                beatmapInfo.getTitle() != null ? beatmapInfo.getTitle() : "",
+                beatmapInfo.getArtist() != null ? beatmapInfo.getArtist() : "",
+                beatmapInfo.getVersion() != null ? beatmapInfo.getVersion() : "",
+                beatmapInfo.getMD5() != null ? beatmapInfo.getMD5() : ""
+            );
+            com.osudroid.plugin.GameState.setActiveMods(mods.serializeMods());
+        } catch (Exception ignored) {}
+
         // Load backgrounds early to minimize waiting time.
         loadBackground();
         loadStoryboard(beatmapInfo);
@@ -1038,6 +1078,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 return false;
             }
             GameHelper.setReplayVersion(replay.replayVersion);
+
+            // Check for pending MP4 export from ScoringScene
+            String pendingPath = consumePendingExport();
+            if (pendingPath != null) {
+                autoExportReplay = true;
+                autoExportOutputPath = pendingPath;
+            }
         } else if (mods.contains(ModAutoplay.class)) {
             replay = null;
         }
@@ -1147,7 +1194,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         scene = createMainScene();
         bgScene = new UIScene();
-        mgScene = new UIScene();
+        if (replaying) {
+            batchedMgScene = new com.osudroid.game.replay.BatchedGameplayScene();
+            mgScene = batchedMgScene;
+        } else {
+            mgScene = new UIScene();
+        }
         mgScene.setClipToBounds(true);
         fgScene = new UIScene();
         scene.attachChild(bgScene);
@@ -1173,8 +1225,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         if (isHUDEditor) {
             modsToUse = new ModHashMap();
             modsToUse.put(ModAutoplay.class);
+        } else if (mods != null) {
+            modsToUse = mods.deepCopy();
+        } else if (lastMods != null) {
+            modsToUse = lastMods;
         } else {
-            modsToUse = mods != null ? mods.deepCopy() : lastMods;
+            modsToUse = new ModHashMap();
         }
 
         GameLoaderScene scene = new GameLoaderScene(
@@ -1342,6 +1398,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setApproachDifferent(
             lastMods.ofType(ModApproachDifferent.class)
         );
+        GameHelper.setGravity(lastMods.ofType(ModGravity.class));
 
         int cursorCount = GameHelper.isRelax()
             ? 1
@@ -1385,6 +1442,36 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         } else {
             cursorSprites = null;
         }
+
+        // Initialize plugin system for ALL gameplay sessions (not just autoplay)
+        com.osudroid.plugin.PluginManager.getInstance().initGameplay(
+            ru.nsu.ccfit.zuev.osuplusplus.GlobalManager.getInstance().getMainActivity(),
+            fgScene
+        );
+
+        // Sync beatmap info for plugins
+        com.osudroid.plugin.GameState.setBeatmapInfo(
+            playableBeatmap.getMetadata().title,
+            playableBeatmap.getMetadata().artist,
+            playableBeatmap.getMetadata().version,
+            playableBeatmap.getMd5()
+        );
+        com.osudroid.plugin.GameState.setAR((float) playableBeatmap.getDifficulty().getAR());
+        com.osudroid.plugin.GameState.setCS((float) playableBeatmap.getDifficulty().gameplayCS);
+        com.osudroid.plugin.GameState.setOD((float) playableBeatmap.getDifficulty().od);
+        com.osudroid.plugin.GameState.setHP((float) playableBeatmap.getDifficulty().hp);
+        com.osudroid.plugin.GameState.setSpeedMultiplier((float) GameHelper.getSpeedMultiplier());
+        com.osudroid.plugin.GameState.setMaxCombo(stat.getScoreMaxCombo());
+        com.osudroid.plugin.GameState.setObjectCount(playableBeatmap.getHitObjects().objects.size());
+        com.osudroid.plugin.GameState.setActiveMods(com.osudroid.plugin.GameState.getActiveMods());
+
+        // Dispatch beatmap loaded event
+        com.osudroid.plugin.PluginManager.getInstance().dispatchBeatmapLoaded(
+            playableBeatmap.getMetadata().title,
+            playableBeatmap.getMetadata().artist,
+            playableBeatmap.getMetadata().version,
+            playableBeatmap.getHitObjects().objects.size()
+        );
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor = new AutoCursor();
@@ -1648,6 +1735,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         breakAnimator = new BreakAnimator(fgScene, stat, hud);
 
+        // Activate batched rendering during replay playback
+        if (replaying && batchedMgScene != null) {
+            batchedMgScene.activateBatching();
+        }
+
         if (Multiplayer.isMultiplayer) {
             RoomAPI.INSTANCE.notifyBeatmapLoaded();
         } else {
@@ -1776,6 +1868,35 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         elapsedTime += dt;
         previousFrameTime = SystemClock.uptimeMillis();
+
+        // Dispatch game update to Lua plugins
+        com.osudroid.plugin.GameState.setElapsedTime(elapsedTime);
+        com.osudroid.plugin.PluginManager.getInstance().dispatchGameUpdate(dt, elapsedTime);
+
+        // Update cursor position for plugins
+        updatePluginCursor();
+        com.osudroid.plugin.PluginManager.getInstance().dispatchCursorUpdate(
+            com.osudroid.plugin.GameState.getCursorX(),
+            com.osudroid.plugin.GameState.getCursorY(),
+            (long) (elapsedTime * 1000)
+        );
+
+        // Sync scoring state for plugins
+        try {
+            com.osudroid.plugin.GameState.setAccuracy((float) stat.getAccuracy());
+            com.osudroid.plugin.GameState.setScore(stat.getTotalScore());
+            com.osudroid.plugin.GameState.setCombo(stat.getCombo());
+            com.osudroid.plugin.GameState.setMaxCombo(stat.getScoreMaxCombo());
+            com.osudroid.plugin.GameState.setCurrentHp((float) stat.getHp());
+            com.osudroid.plugin.GameState.setObjectsHit(stat.getNotesHit());
+            com.osudroid.plugin.GameState.setMisses(stat.getMisses());
+            com.osudroid.plugin.GameState.setIsKiai(GameHelper.isKiai());
+            com.osudroid.plugin.GameState.setIsFlashlight(GameHelper.isFlashlight());
+            com.osudroid.plugin.GameState.setIsRelax(GameHelper.isRelax());
+            com.osudroid.plugin.GameState.setIsAutoplay(GameHelper.isAutoplay());
+            // isSliderTracking is set by onTrackingSliders()
+            com.osudroid.plugin.GameState.setActiveObjectCount(activeObjects != null ? activeObjects.size() : 0);
+        } catch (Exception ignored) {}
 
         var playableBeatmap = this.playableBeatmap;
 
@@ -2447,8 +2568,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             cancelStoryboardLoading();
             cancelVideoLoading();
 
-            if (scoringScene != null && !startedFromHUDEditor) {
-                if (replaying) scoringScene.load(
+        // Deactivate batched rendering
+        if (batchedMgScene != null) {
+            batchedMgScene.deactivateBatching();
+            batchedMgScene = null;
+        }
+
+        if (scoringScene != null && !startedFromHUDEditor) {
+            if (replaying) scoringScene.load(
                     scoringScene.getReplayStat(),
                     null,
                     GlobalManager.getInstance().getSongService(),
@@ -2492,6 +2619,20 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             } else {
                 engine.setScene(oldScene);
             }
+
+            // Dispatch beatmap finished event to plugins
+            try {
+                String grade = stat.getMark();
+                com.osudroid.plugin.PluginManager.getInstance().dispatchBeatmapFinished(
+                    stat.getTotalScore(),
+                    stat.getScoreMaxCombo(),
+                    (float) stat.getAccuracy(),
+                    grade
+                );
+            } catch (Exception ignored) {}
+
+            // Clean up plugin system for this gameplay session
+            com.osudroid.plugin.PluginManager.getInstance().destroyGameplay();
 
             // Resume difficulty calculation.
             DifficultyCalculationManager.calculateDifficulties();
@@ -2582,12 +2723,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             obj.update(deltaTime);
 
             if (Config.isRemoveSliderLock() && obj.isStartHit()) {
-                // In remove slider lock mode, immediately mark the next object as judgeable once the current object
-                // is hit.
                 judgeableObject = searchJudgeableObject(i + 1);
             }
         }
     }
+
+
 
     private void updatePassiveObjects(float deltaTime) {
         hud.onGameplayUpdate(this, deltaTime);
@@ -3082,6 +3223,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
         VibratorManager.INSTANCE.circleVibration();
 
+
+
         if (
             accuracy > playableBeatmap.getHitWindow().getMehWindow() / 1000 ||
             forcedScore == ResultType.MISS.getId()
@@ -3113,6 +3256,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         createHitEffect(pos, scoreName, color);
 
         hud.onNoteHit(stat);
+
+        // Dispatch to Lua plugins (READ ONLY — score already calculated)
+        com.osudroid.plugin.PluginManager.getInstance().dispatchCircleHit(
+            id, accuracy, pos.x, pos.y, endCombo, scoreName.equals("hit0") ? 0 :
+            scoreName.equals("hit50") ? 50 : scoreName.equals("hit100") ? 100 : 300
+        );
     }
 
     public void onSliderReverse(PointF pos, float ang, Color4 color) {
@@ -3228,6 +3377,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         createHitEffect(judgementPos, scoreName, color);
 
         hud.onNoteHit(stat);
+
+        // Dispatch to Lua plugins
+        com.osudroid.plugin.PluginManager.getInstance().dispatchSliderHit(
+            id, type, judgementPos.x, judgementPos.y, endCombo
+        );
     }
 
     @Override
@@ -3241,12 +3395,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     .startTime / 1000
             );
         }
+        com.osudroid.plugin.PluginManager.getInstance().dispatchSpinnerStart(id);
     }
 
     public void onSpinnerEnd(int id) {
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.onSliderEnd();
         }
+        com.osudroid.plugin.PluginManager.getInstance().dispatchSpinnerEnd(id);
     }
 
     public void onSpinnerHit(
@@ -3298,6 +3454,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 )
             );
             registerHit(id, 0, endCombo);
+            com.osudroid.plugin.PluginManager.getInstance().dispatchSpinnerHit(id, 0);
             return;
         }
 
@@ -3311,6 +3468,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         createHitEffect(pos, scoreName, null);
 
         hud.onNoteHit(stat);
+
+        // Dispatch to Lua plugins
+        com.osudroid.plugin.PluginManager.getInstance().dispatchSpinnerHit(
+            id, score == 300 ? 300 : score == 100 ? 100 : score == 50 ? 50 : 0
+        );
     }
 
     @Override
@@ -3475,6 +3637,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             if (replay != null) {
                 replay.addPress(eventTime, cursorEvent.trackPosition, id);
             }
+
+            com.osudroid.plugin.GameState.setKeyState(id == 0 ? "m1" : "m2", true);
         } else if (event.isActionMove()) {
             if (sprite != null) {
                 sprite.setShowing(true);
@@ -3486,6 +3650,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 replay.addMove(eventTime, cursorEvent.trackPosition, id);
             }
         } else if (event.isActionUp()) {
+            com.osudroid.plugin.GameState.setKeyState(id == 0 ? "m1" : "m2", false);
+
             if (sprite != null) {
                 sprite.setShowing(false);
             }
@@ -3597,6 +3763,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             GlobalManager.getInstance().getSongService().pause();
         }
         paused = true;
+        com.osudroid.plugin.GameState.setPaused(true);
+        com.osudroid.plugin.PluginPauseHandler.dispatchPause();
         scene.setIgnoreUpdate(true);
 
         final PauseMenu menu = new PauseMenu(engine, this, false);
@@ -3610,6 +3778,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
         isGameOver = true;
+
+        // Stop MP4 export if running (game scene is ending)
+        try {
+            com.osudroid.game.replay.video.VideoExportManager mgr =
+                com.osudroid.game.replay.video.VideoExportManager.getInstance();
+            if (mgr.isExporting()) {
+                mgr.forceStop();
+            }
+        } catch (Exception ignored) {}
 
         if (!replaying) {
             removeAllCursors();
@@ -3784,6 +3961,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         scene.setIgnoreUpdate(false);
         UIEngine.getCurrent().getOverlay().getChildScene().back();
         paused = false;
+        com.osudroid.plugin.GameState.setPaused(false);
+        com.osudroid.plugin.PluginPauseHandler.dispatchResume();
 
         if (
             stat.getHp() <= 0 &&
@@ -4075,9 +4254,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             short acc = (short) accuracy;
             replay.addObjectResult(id, acc, (BitSet) tickSet.clone());
         }
+        com.osudroid.plugin.PluginManager.getInstance().dispatchSliderEnd(id, accuracy / 100f);
     }
 
     public void onTrackingSliders(boolean isTrackingSliders) {
+        com.osudroid.plugin.GameState.setIsSliderTracking(isTrackingSliders);
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.onSliderTracking();
         }
@@ -4196,6 +4377,26 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public boolean getReplaying() {
         return replaying;
+    }
+
+    /**
+     * Returns the total replay duration in seconds.
+     * Used by VideoExportManager to determine when to stop encoding.
+     */
+    public void setAutoExport(String outputPath) {
+        this.autoExportReplay = true;
+        this.autoExportOutputPath = outputPath;
+    }
+
+    public float getReplayDurationSec() {
+        if (totalLength < Integer.MAX_VALUE) {
+            return totalLength / 1000f;
+        }
+        // Fallback: use the last hit object's time
+        if (objects != null && objects.length > 0) {
+            return (float) objects[objects.length - 1].startTime / 1000f + 3f;
+        }
+        return 120f; // Default 2 minutes
     }
 
     public @Nullable DroidPlayableBeatmap getPlayableBeatmap() {
@@ -4355,7 +4556,23 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     applyRawPointerFastPath(pCamera);
                 }
 
+                // Render gameplay FIRST, THEN trigger export
+                // so glReadPixels captures the fully rendered frame.
                 super.onManagedDraw(pGL, pCamera);
+
+                // osu!droid: Auto-export trigger — fires only when gameplay is rendering.
+                if (autoExportReplay && autoExportOutputPath != null) {
+                    autoExportReplay = false;
+                    String outputPath = autoExportOutputPath;
+                    autoExportOutputPath = null;
+                    float duration = getReplayDurationSec();
+                    try {
+                        com.osudroid.game.replay.video.VideoExportManager.getInstance()
+                            .startExport(outputPath, duration);
+                    } catch (Exception e) {
+                        android.util.Log.e("GameScene", "Failed to start video export", e);
+                    }
+                }
             }
 
             @Override
@@ -4445,6 +4662,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                                     ev.trackPosition.y +=
                                         Config.getRES_HEIGHT() / 2f;
                                 }
+
                                 ev.trackPosition.x -=
                                     (Config.getRES_WIDTH() -
                                         Constants.MAP_ACTUAL_WIDTH) /
@@ -4459,6 +4677,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                                 ev.trackPosition.y *=
                                     Constants.MAP_HEIGHT /
                                     Constants.MAP_ACTUAL_HEIGHT;
+
                                 cursor.addEvent(ev);
                                 break;
                             }
@@ -4716,6 +4935,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     1 - playfieldVerticalPosition
                 )
         );
+
+
     }
 
     private void resetPlayfieldSizeScale() {
@@ -4731,6 +4952,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             Config.getRES_WIDTH() / 2f,
             Config.getRES_HEIGHT() / 2f
         );
+
+        mgScene.setRotation(0f);
+        mgScene.setScale(1f);
     }
 
     private int estimateMaximumActiveObjects() {
@@ -5066,5 +5290,38 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 "Error updating kiai flash: " + e.getMessage()
             );
         }
+    }
+
+    /**
+     * Update cursor position in GameState for Lua plugins.
+     * Finds the raw pixel position of the cursor regardless of input method.
+     */
+    private void updatePluginCursor() {
+        try {
+            float cx = -1, cy = -1;
+            if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
+                if (autoCursor != null) {
+                    cx = autoCursor.getX();
+                    cy = autoCursor.getY();
+                }
+            } else if (cursorSprites != null) {
+                for (var s : cursorSprites) {
+                    if (s.getX() > 0) {
+                        cx = s.getX();
+                        cy = s.getY();
+                        break;
+                    }
+                }
+            } else if (mainCursorId >= 0 && mainCursorId < cursors.length) {
+                var latest = cursors[mainCursorId].getLatestEvent(TouchEvent.ACTION_DOWN, TouchEvent.ACTION_MOVE);
+                if (latest != null) {
+                    cx = latest.position.x;
+                    cy = latest.position.y;
+                }
+            }
+            if (cx >= 0 && cy >= 0) {
+                com.osudroid.plugin.GameState.setCursorPosition(cx, cy);
+            }
+        } catch (Exception ignored) {}
     }
 }

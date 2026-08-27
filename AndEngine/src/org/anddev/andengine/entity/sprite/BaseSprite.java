@@ -21,6 +21,8 @@ public abstract class BaseSprite extends BaseRectangle {
 	// Constants
 	// ===========================================================
 
+	private static final org.anddev.andengine.entity.optimization.TransformOptimizer _transformOpt = null; // unused, just ensures class loaded
+
 	// ===========================================================
 	// Fields
 	// ===========================================================
@@ -28,6 +30,54 @@ public abstract class BaseSprite extends BaseRectangle {
 	protected final BaseTextureRegion mTextureRegion;
 
 	// ===========================================================
+
+	/**
+	 * Inlined hot-path draw for BaseSprite.
+	 * Avoids virtual dispatch through Entity→Shape→BaseSprite chain.
+	 * Handles: glPushMatrix + translate + [rotate+scale merged] + texture bind + draw + glPopMatrix
+	 */
+	@Override
+	protected void onManagedDraw(final GL10 pGL, final Camera pCamera) {
+		pGL.glPushMatrix();
+		{
+			// Translation
+			pGL.glTranslatef(this.mX, this.mY, 0);
+
+			// Optimized rotation+scale (merged when centers equal)
+			org.anddev.andengine.entity.optimization.TransformOptimizer.applyRotationAndScale(
+				pGL, this.mRotation, this.mScaleX, this.mScaleY,
+				this.mRotationCenterX, this.mRotationCenterY,
+				this.mScaleCenterX, this.mScaleCenterY);
+
+			// Bind texture
+			this.mTextureRegion.onApply(pGL);
+
+			// Init GL state
+			GLHelper.setColor(pGL, this.mRed, this.mGreen, this.mBlue, this.mAlpha);
+			GLHelper.enableVertexArray(pGL);
+			GLHelper.blendFunction(pGL, this.mSourceBlendFunction, this.mDestinationBlendFunction);
+			GLHelper.enableTextures(pGL);
+			GLHelper.enableTexCoordArray(pGL);
+
+			// Apply vertices (VBO or client pointer)
+			if(GLHelper.EXTENSIONS_VERTEXBUFFEROBJECTS) {
+				final javax.microedition.khronos.opengles.GL11 gl11 = (javax.microedition.khronos.opengles.GL11)pGL;
+				this.getVertexBuffer().selectOnHardware(gl11);
+				GLHelper.vertexZeroPointer(gl11);
+			} else {
+				GLHelper.vertexPointer(pGL, this.getVertexBuffer().getFloatBuffer());
+			}
+
+			// Draw quad
+			pGL.glDrawArrays(GL10.GL_TRIANGLE_STRIP, 0, 4);
+
+			// Draw children
+			if(this.mChildrenVisible && this.mChildren != null) {
+				this.onManagedDrawChildren(pGL, pCamera);
+			}
+		}
+		pGL.glPopMatrix();
+	}
 	// Constructors
 	// ===========================================================
 

@@ -34,6 +34,14 @@
             android:text="@string/frg_score_menu_export_score" />
 
         <Button
+            android:id="@+id/exportMp4"
+            style="@style/button_borderless"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/ios_share_24px"
+            android:text="Export MP4" />
+
+        <Button
             android:id="@+id/deleteReplay"
             style="@style/button_borderless"
             android:layout_width="match_parent"

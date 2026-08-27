@@ -1060,11 +1060,11 @@ public class Entity implements IEntity {
 		/* Translation. */
 		this.applyTranslation(pGL, pCamera);
 
-		/* Rotation. */
-		this.applyRotation(pGL);
-
-		/* Scale. */
-		this.applyScale(pGL);
+		/* Optimized rotation+scale: merged when centers are equal */
+		org.anddev.andengine.entity.optimization.TransformOptimizer.applyRotationAndScale(
+			pGL, this.mRotation, this.mScaleX, this.mScaleY,
+			this.mRotationCenterX, this.mRotationCenterY,
+			this.mScaleCenterX, this.mScaleCenterY);
 	}
 
 	protected void applyTranslation(final GL10 pGL, final Camera pCamera) {
@@ -1115,7 +1115,7 @@ public class Entity implements IEntity {
 	}
 
 	protected void onDrawChildren(final GL10 pGL, final Camera pCamera) {
-		if(this.mChildren != null && this.mChildrenVisible) {
+		if(this.mChildrenVisible && this.mChildren != null) {
 			this.onManagedDrawChildren(pGL, pCamera);
 		}
 	}
@@ -1124,12 +1124,7 @@ public class Entity implements IEntity {
 		final ArrayList<IEntity> children = this.mChildren;
 		final int childCount = children.size();
 		for (int i = 0; i < childCount; i++) {
-			IEntity child;
-			try { child = children.get(i); } catch (Exception e) {
-				Debug.e("Failed to draw child at index " + i);
-				continue;
-			}
-			child.onDraw(pGL, pCamera);
+			children.get(i).onDraw(pGL, pCamera);
 		}
 	}
 
