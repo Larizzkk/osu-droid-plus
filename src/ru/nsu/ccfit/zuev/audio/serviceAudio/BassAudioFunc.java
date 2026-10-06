@@ -12,6 +12,11 @@ public class BassAudioFunc {
 
     private int channel = 0;
     private float speed = 1f;
+    /**
+     * Extra pitch/tempo scalar driven by the replay settings panel (upstream parity).
+     * 1.0 = no change. Applied on top of `speed` inside onAudioEffectChange().
+     */
+    private float pitchRate = 1f;
     private boolean adjustPitch;
     private final BASS.BASS_CHANNELINFO channelInfo =
         new BASS.BASS_CHANNELINFO();
@@ -65,6 +70,7 @@ public class BassAudioFunc {
         BASS.BASS_ChannelGetInfo(channel, channelInfo);
         frequency = channelInfo.freq;
 
+        this.pitchRate = 1f;
         setSpeed(speed);
         setAdjustPitch(adjustPitch);
 
@@ -167,6 +173,21 @@ public class BassAudioFunc {
         return spectrum;
     }
 
+    /**
+     * Returns the instantaneous peak level of the left and right channels
+     * (0..1 each, from BASS_ChannelGetLevel), or null when not playing.
+     */
+    public float[] getChannelLevel() {
+        if (BASS.BASS_ChannelIsActive(channel) != BASS.BASS_ACTIVE_PLAYING) {
+            return null;
+        }
+        int level = BASS.BASS_ChannelGetLevel(channel);
+        if (level == -1) return null;
+        float left = (level & 0xFFFF) / 32768f;
+        float right = ((level >> 16) & 0xFFFF) / 32768f;
+        return new float[] { left, right };
+    }
+
     private void doClear() {
         if (
             channel != 0 &&
@@ -196,6 +217,15 @@ public class BassAudioFunc {
     public void setSpeed(float speed) {
         this.speed = speed;
         onAudioEffectChange();
+    }
+
+    public synchronized void setPitchRate(float pitchRate) {
+        this.pitchRate = pitchRate;
+        onAudioEffectChange();
+    }
+
+    public synchronized float getPitchRate() {
+        return pitchRate;
     }
 
     public void setAdjustPitch(boolean adjustPitch) {
@@ -270,8 +300,10 @@ public class BassAudioFunc {
             return;
         }
 
+        // Upstream semantics: pitchRate is an extra scalar on top of the base frequency,
+        // and when adjustPitch is enabled `speed` also scales the pitch frequency.
         if (adjustPitch) {
-            frequency = channelInfo.freq * speed;
+            frequency = channelInfo.freq * pitchRate * speed;
             BASS.BASS_ChannelSetAttribute(
                 channel,
                 BASS_FX.BASS_ATTRIB_TEMPO_FREQ,
@@ -283,6 +315,8 @@ public class BassAudioFunc {
                 0
             );
         } else {
+            // Tempo mode: pitchRate scales the playback rate through TEMPO, so the panel
+            // rate produces a real speed change without chipmunk pitch.
             frequency = channelInfo.freq;
             BASS.BASS_ChannelSetAttribute(
                 channel,
@@ -292,7 +326,7 @@ public class BassAudioFunc {
             BASS.BASS_ChannelSetAttribute(
                 channel,
                 BASS_FX.BASS_ATTRIB_TEMPO,
-                (speed - 1) * 100
+                (pitchRate * speed - 1) * 100
             );
         }
     }

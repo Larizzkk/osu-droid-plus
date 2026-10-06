@@ -204,6 +204,13 @@ public class SongService extends Service {
         return new float[0];
     }
 
+    public float[] getChannelLevel() {
+        if (audioFunc != null) {
+            return audioFunc.getChannelLevel();
+        }
+        return null;
+    }
+
     public float getVolume() {
         if (audioFunc != null) {
             return audioFunc.getVolume();
@@ -220,6 +227,12 @@ public class SongService extends Service {
     public void setSpeed(float speed) {
         if (audioFunc != null) {
             audioFunc.setSpeed(speed);
+        }
+    }
+
+    public void setPitchRate(float pitchRate) {
+        if (audioFunc != null) {
+            audioFunc.setPitchRate(pitchRate);
         }
     }
 
