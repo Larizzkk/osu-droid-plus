@@ -45,15 +45,97 @@ object FollowPointConnection {
         }
     }
 
-
     private val expire = OnModifierFinished { fp ->
         updateThread {
             fp.detachSelf()
             fp.reset()
-            pool.free(fp as UISprite)
+
+            // Only recycle if the sprite is still registered. If clearAll() already recycled it,
+            // freeing it again would put the same instance twice into the pool, and obtaining it
+            // twice would crash attachChild() with "pEntity already has a parent!".
+            if (activeSprites.remove(fp)) {
+                pool.free(fp as UISprite)
+            }
         }
     }
 
+    /**
+     * Registry of currently attached follow point sprites, so [clearAll] can recycle
+     * only follow points instead of every sprite on the scene.
+     */
+    private val activeSprites = java.util.Collections.synchronizedSet(HashSet<UISprite>())
+
+    /**
+     * Detaches and recycles every follow point sprite attached to the given scene.
+     * Used on seek/restart where queued modifiers would otherwise be discarded without
+     * returning their sprites to the pool.
+     */
+    @JvmStatic
+    fun clearAll(scene: Scene) {
+        val snapshot = synchronized(activeSprites) { activeSprites.toList() }
+
+        snapshot.fastForEach { fp ->
+            if (!activeSprites.remove(fp)) {
+                return@fastForEach
+            }
+
+            fp.clearEntityModifiers()
+            fp.detachSelf()
+            fp.reset()
+            pool.free(fp)
+        }
+    }
+
+    /**
+     * Drops every pooled follow point sprite so the next obtain() rebuilds them from
+     * the freshly loaded skin textures: the pool factory captures TextureRegions at
+     * construction, and pooled sprites keep referencing dead regions after a mid-game
+     * skin switch. SliderTickSprite has the same problem, so its pool is drained too.
+     * Must be called on the update thread.
+     */
+    @JvmStatic
+    fun refreshTextures() {
+        pool.clear()
+        SliderTickSprite.pool.clear()
+    }
+
+    /**
+     * Re-binds the texture of every follow point sprite CURRENTLY attached to the
+     * scene: [refreshTextures] only drains the idle pool, but in-flight sprites keep
+     * referencing the previous skin's GL texture until their fade-out modifier
+     * completes. Re-pulling the region in place leaves their modifiers undisturbed.
+     * Must be called on the update thread.
+     */
+    @JvmStatic
+    fun refreshLiveTextures() {
+        val snapshot = activeSprites.toList()
+        snapshot.fastForEach { fp ->
+            if (ResourceManager.getInstance().isTextureLoaded("followpoint-0")) {
+                // Animated skin: swap to the frame list the pool factory would use.
+                if (fp is UIAnimatedSprite) {
+                    fp.setFrames("followpoint", true)
+                } else {
+                    // Non-animated sprite created before the animated frames existed:
+                    // pooled sprites can't change class, so just re-bind the base
+                    // region — the next pool cycle replaces it with the right type.
+                    fp.textureRegion = ResourceManager.getInstance().getTexture("followpoint")
+                }
+            } else {
+                fp.textureRegion = ResourceManager.getInstance().getTexture("followpoint")
+            }
+            fp.textureRegion?.applyFollowPointMaxSize()
+            fp.invalidate(InvalidationFlag.Content)
+        }
+
+        // Re-bind sprites that were freed back into the pool DURING the refresh
+        // window (expire modifiers run on the update thread too) so they are never
+        // handed out again with the previous skin's region.
+        pool.forEach { fp ->
+            fp.textureRegion = ResourceManager.getInstance().getTexture("followpoint")
+            fp.textureRegion?.applyFollowPointMaxSize()
+            fp.invalidate(InvalidationFlag.Content)
+        }
+    }
 
     private fun TextureRegion.applyFollowPointMaxSize() {
         // Reference: https://github.com/ppy/osu/blob/0811de728e4205a45e485d53ccdaf19a937c6033/osu.Game.Rulesets.Osu/Skinning/Legacy/OsuLegacySkinTransformer.cs#L95-L97
@@ -120,7 +202,14 @@ object FollowPointConnection {
 
             val fp = pool.obtain()
 
+            activeSprites.add(fp)
+
             fp.clearEntityModifiers()
+
+            // Defensive: a pooled sprite must never carry a stale parent, otherwise attachChild()
+            // throws "pEntity already has a parent!". detachSelf() is a no-op without a parent.
+            fp.detachSelf()
+
             fp.setPosition(pointStartX, pointStartY)
             fp.setScale(1.5f * scale)
             fp.origin = Anchor.Center

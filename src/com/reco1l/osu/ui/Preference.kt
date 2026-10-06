@@ -75,8 +75,14 @@ open class SelectPreference(context: Context, attrs: AttributeSet?, defStyleAttr
         attributes.recycle()
 
         if (entries != null && values != null) {
-            dialog.setOptions(MutableList(entries.size) {
-                Option(entries[it].toString(), values[it])
+            // Entries and values can come from different locale overrides (app vs.
+            // language-pack AAR) and MAY differ in length (e.g. the app ships a 4-item
+            // difficulty_algorithm_names RU override while the AAR's RU values array
+            // only has 2 items). Zip to the shorter side instead of crashing with
+            // ArrayIndexOutOfBoundsException while inflating the settings screen.
+            val count = minOf(entries.size, values.size)
+            dialog.setOptions(MutableList(count) {
+                Option(entries[it].toString(), values[it].toString())
             })
         }
 

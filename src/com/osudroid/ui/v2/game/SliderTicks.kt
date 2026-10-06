@@ -142,11 +142,51 @@ class SliderTickSprite : UISprite() {
         pool.free(this)
     }
 
+    /**
+     * Re-binds the texture after a mid-game skin switch. Pooled sprite factories
+     * capture the TextureRegion at construction; live ticks on scene keep the old
+     * (now unloaded) GL texture and render WHITE until recycled.
+     */
+    fun refreshSkinTexture() {
+        textureRegion = ResourceManager.getInstance().getTexture("sliderscorepoint")
+    }
+
+    /**
+     * Re-binds textures of every live slider tick on the scene after a skin hot-swap.
+     * Ticks are grandchildren of the scene (scene → slider layer/containers → tick),
+     * so the walk is recursive.
+     * Must be called on the update thread.
+     */
     companion object {
         private const val ANIM_DURATION = 0.15f
 
         @JvmStatic
         val pool = Pool { SliderTickSprite() }
+
+        /**
+         * Re-binds textures of every live slider tick on the scene after a skin hot-swap.
+         * Ticks are grandchildren of the scene (scene → slider layer/containers → tick),
+         * so the walk is recursive.
+         * Must be called on the update thread.
+         */
+        @JvmStatic
+        fun refreshLiveTickTextures(scene: org.anddev.andengine.entity.scene.Scene) {
+            var refreshed = 0
+
+            fun walk(entity: org.anddev.andengine.entity.IEntity) {
+                if (entity is SliderTickSprite) {
+                    entity.refreshSkinTexture()
+                    refreshed++
+                }
+                for (i in 0 until entity.childCount) {
+                    walk(entity.getChild(i))
+                }
+            }
+
+            for (i in 0 until scene.childCount) {
+                walk(scene.getChild(i))
+            }
+        }
 
     }
 

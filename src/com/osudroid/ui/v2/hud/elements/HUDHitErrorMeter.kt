@@ -106,6 +106,20 @@ class HUDHitErrorMeter : HUDElement() {
     }
 
 
+    override fun onSeek() {
+        // Note that this only clears current active indicators. While reconstructing indicators that should still be
+        // active is possible, it is not worth the complexity.
+        val snapshot = activeIndicators
+        for (i in snapshot.indices) {
+            if (!snapshot[i].isRecycled) {
+                expiredIndicators.release(snapshot[i])
+            }
+        }
+
+        activeIndicators = emptyArray()
+    }
+
+
     //region Indicator update & draw
 
     override fun onDrawChildren(gl: GL10, camera: Camera) {

@@ -17,6 +17,7 @@ import com.osudroid.ui.v2.hud.elements.HUDOkCounter
 import com.osudroid.ui.v2.hud.elements.HUDPPCounter
 import com.osudroid.ui.v2.hud.elements.HUDPieSongProgress
 import com.osudroid.ui.v2.hud.elements.HUDScoreCounter
+import com.osudroid.ui.v2.hud.elements.HUDCursorSpeed
 import com.osudroid.ui.v2.hud.elements.HUDTapsPerSecondCounter
 import com.osudroid.ui.v2.hud.elements.HUDUnstableRateCounter
 import com.reco1l.andengine.*
@@ -62,7 +63,8 @@ enum class HUDElements(val type: KClass<out HUDElement>) {
     taps_per_second_counter(HUDTapsPerSecondCounter::class),
     back_button(HUDBackButton::class),
     grade_display(HUDGradeDisplay::class),
-    leaderboard(HUDLeaderboard::class);
+    leaderboard(HUDLeaderboard::class),
+    cursor_speed(HUDCursorSpeed::class);
 
     companion object {
         operator fun get(type: KClass<out HUDElement>) = entries.first { it.type == type }
@@ -212,6 +214,8 @@ abstract class HUDElement : UIContainer(), IGameplayEvents {
     override fun onBreakStateChange(isBreak: Boolean) {}
 
     override fun onAccuracyRegister(accuracy: Float) {}
+
+    override fun onSeek() {}
 
     //endregion
 

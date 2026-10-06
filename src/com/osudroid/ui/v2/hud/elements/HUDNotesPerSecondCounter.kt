@@ -29,4 +29,8 @@ class HUDNotesPerSecondCounter : HUDStatisticCounter("Notes/sec") {
 
         valueText.text = objects.size.toString()
     }
+
+    override fun onSeek() {
+        objects.clear()
+    }
 }

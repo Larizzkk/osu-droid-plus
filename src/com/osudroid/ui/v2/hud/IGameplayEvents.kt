@@ -24,4 +24,9 @@ interface IGameplayEvents {
 
     fun onAccuracyRegister(accuracy: Float)
 
+    /**
+     * Called when the gameplay is seeked to a new position (replay/autoplay seeking).
+     */
+    fun onSeek()
+
 }

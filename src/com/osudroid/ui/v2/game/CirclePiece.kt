@@ -56,6 +56,24 @@ open class CirclePiece(
     fun setOverlayTextureRegion(overlayTexture: String) {
         overlay.textureRegion = ResourceManager.getInstance().getTexture(overlayTexture)
     }
+
+    /**
+     * Beat pulse (danser-go ScaleToTheBeat style): scales the circle and
+     * overlay sprites around their own centers (anchor = Center), so the
+     * result is independent of skin texture sizes or the container layout.
+     *
+     * Kept separate from [setScale] so the beatmap scale and the pulse
+     * never fight each other.
+     */
+    open fun setPulseScale(scale: Float) {
+        if (pulseScale == scale) return
+        pulseScale = scale
+        circle.setScale(scale)
+        overlay.setScale(scale)
+    }
+
+    private var pulseScale = 1f
+
 }
 
 class NumberedCirclePiece(circleTexture: String, overlayTexture: String) : CirclePiece(circleTexture, overlayTexture) {
@@ -85,6 +103,25 @@ class NumberedCirclePiece(circleTexture: String, overlayTexture: String) : Circl
 
     fun hideNumber() {
         number.alpha = 0f
+    }
+
+    /**
+     * Re-pulls the number glyphs from the (possibly hot-swapped) skin and re-applies
+     * the skin's spacing/scale. Called from [com.osudroid.ui.v2.game.GameplayHitCircle.refreshSkinTextures].
+     */
+    fun refreshNumberSkin() {
+        number.onSkinChanged()
+        number.spacing = -OsuSkin.get().hitCircleOverlap
+    }
+
+    /**
+     * Pulses the combo number together with the circle body (danser-go pulses
+     * hitCircle, hitCircleOverlay AND comboText as one group, see
+     * `app/beatmap/objects/circle.go` where all three share the same transforms).
+     */
+    override fun setPulseScale(scale: Float) {
+        super.setPulseScale(scale)
+        number.setScale(scale)
     }
 
 }

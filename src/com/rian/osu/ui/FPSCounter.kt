@@ -23,6 +23,9 @@ class FPSCounter(font: Font) : ChangeableText(
     @get:JvmName("getFPS")
     var fps = 0f; private set
 
+    @get:JvmName("getRealFrameTimeMs")
+    var realFrameTimeMs = 0f; private set
+
     @get:JvmName("getMaximumFPS")
     var maximumFps = 0f
         private set(value) {
@@ -58,6 +61,8 @@ class FPSCounter(font: Font) : ChangeableText(
         timeSinceLastAverageFpsCalculation += deltaTime
         val hasSpike = fps > 1 / spikeTime && deltaTime > spikeTime
         fps = min(maximumFps, if (hasSpike) 1 / deltaTime else dampContinuously(fps, averageFps, dampTime, deltaTime))
+        // Real frame time = actual delta in ms (not averaged)
+        realFrameTimeMs = deltaTime * 1000f
     }
 
     private var lastDisplayedFps = 0
@@ -79,8 +84,7 @@ class FPSCounter(font: Font) : ChangeableText(
         val displayedFps = fps.roundToInt()
         if (!forceUpdate && displayedFps == lastDisplayedFps) return
         lastDisplayedFps = displayedFps
-        val frameTimeMs = if (fps > 0f) (1000f / fps) else 0f
-        text = String.format(Locale.US, "%d/%d FPS - %.1fms", displayedFps, maximumFps.roundToInt(), frameTimeMs)
+        text = String.format(Locale.US, "%d/%d FPS - %.1fms", displayedFps, maximumFps.roundToInt(), realFrameTimeMs)
         updateBackground()
         updateColor()
     }
@@ -124,6 +128,7 @@ class FPSCounter(font: Font) : ChangeableText(
         timeSinceLastAverageFpsCalculation = 0f
         framesSinceLastAverageFpsCalculation = 0
         fps = 0f; averageFps = 0f; maximumFps = 0f
+        realFrameTimeMs = 0f
         lastDisplayedFps = 0; forceUpdate = false; timeSinceLastUpdate = 0f
     }
 }

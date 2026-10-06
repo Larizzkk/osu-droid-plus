@@ -6,6 +6,7 @@ import com.osudroid.ui.v2.hud.elements.HUDPieSongProgress
 import com.osudroid.ui.v2.hud.elements.HUDScoreCounter
 import com.reco1l.andengine.container.UIContainer
 import com.osudroid.ui.v2.hud.editor.HUDElementSelector
+import com.reco1l.andengine.ui.ISkinnable
 import com.reco1l.osu.ui.MessageDialog
 import com.osudroid.utils.updateThread
 import com.reco1l.andengine.UIEngine
@@ -28,7 +29,7 @@ import kotlin.reflect.full.primaryConstructor
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import kotlin.reflect.*
 
-class GameplayHUD : UIContainer(), IGameplayEvents {
+class GameplayHUD : UIContainer(), IGameplayEvents, ISkinnable {
 
     /**
      * The currently selected element.
@@ -198,6 +199,16 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
         }
     }
 
+    /**
+     * Skin hot-swap: rebuild every element from scratch. HUD elements capture skinned
+     * textures (SpriteFont glyphs, scorebar frames, key overlay sprites) at construction,
+     * so refreshing textures in place is error-prone — fresh elements guarantee the new
+     * skin everywhere. restoreData/state is applied by [setSkinData] per element.
+     */
+    override fun onSkinChanged() {
+        setSkinData(OsuSkin.get().hudSkinData)
+    }
+
     private inline fun <reified T : HUDElement>getFirstOf() : T? {
         return mChildren?.firstOrNull { it is T } as? T
     }
@@ -300,6 +311,11 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
     override fun onAccuracyRegister(accuracy: Float) {
         forEachElement { it.onAccuracyRegister(accuracy) }
         elementSelector?.onAccuracyRegister(accuracy)
+    }
+
+    override fun onSeek() {
+        forEachElement { it.onSeek() }
+        elementSelector?.onSeek()
     }
 
     //endregion
