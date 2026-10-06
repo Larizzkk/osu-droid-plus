@@ -222,6 +222,25 @@
 
     <string name="multiplayer_lobby_search_rooms">Search rooms...</string>
 
+    <!-- Multiplayer lobby (added 2026-10-04: language-pack 2025.1007.0 does not
+         contain the lobby strings used by the reverted upstream multiplayer code) -->
+    <string name="multiplayer_lobby_back">Back</string>
+    <string name="multiplayer_lobby_refresh">Refresh</string>
+    <string name="multiplayer_lobby_create_room">Create room</string>
+    <string name="multiplayer_lobby_create_room_accept">Create</string>
+    <string name="multiplayer_lobby_create_room_cancel">Cancel</string>
+    <string name="multiplayer_lobby_create_room_name_default">Room name</string>
+    <string name="multiplayer_lobby_join_room">Join room</string>
+    <string name="multiplayer_lobby_join_room_accept">Join</string>
+    <string name="multiplayer_lobby_join_room_cancel">Cancel</string>
+    <string name="multiplayer_lobby_room_name">Room name</string>
+    <string name="multiplayer_lobby_room_password">Password</string>
+    <string name="multiplayer_lobby_room_capacity">Capacity</string>
+    <string name="multiplayer_lobby_no_rooms">No rooms are currently open.</string>
+    <string name="multiplayer_lobby_no_results">No rooms found for your search.</string>
+    <string name="multiplayer_lobby_fetch_error">Failed to fetch the room list.</string>
+    <string name="multiplayer_lobby_fetch_error_toast">Failed to fetch rooms. Pull to retry.</string>
+
     <string
         name="opt_remove_sliderlock_spinnerlock_title"
     >Remove slider and spinner lock</string>

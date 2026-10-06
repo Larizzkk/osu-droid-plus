@@ -4,13 +4,13 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
 >
 
-    <PreferenceCategory android:title="Frame Rate &amp; Performance">
+    <PreferenceCategory android:title="@string/droidplus_cat_performance">
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="enhancedAnimations"
-            android:title="Enhanced Animations"
-            android:summary="Smoother UI transitions with better easing and speed control"
+            android:title="@string/droidplus_enhanced_animations_title"
+            android:summary="@string/droidplus_enhanced_animations_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
@@ -18,8 +18,8 @@
             android:defaultValue="100"
             android:key="animationSpeed"
             android:max="200"
-            android:summary="Animation duration multiplier (100 = normal, 200 = 2x slower/smoother)"
-            android:title="Animation Speed"
+            android:summary="@string/droidplus_animation_speed_summary"
+            android:title="@string/droidplus_animation_speed_title"
             app:min="50"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
@@ -28,8 +28,8 @@
         <ListPreference
             android:defaultValue="OutQuint"
             android:key="animationEasing"
-            android:title="Animation Easing"
-            android:summary="Choose the easing curve for UI animations"
+            android:title="@string/droidplus_animation_easing_title"
+            android:summary="@string/droidplus_animation_easing_summary"
             android:entries="@array/animation_easing_names"
             android:entryValues="@array/animation_easing_values"
             app:layout="@layout/settings_preference"
@@ -38,40 +38,24 @@
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="smoothTransitions"
-            android:title="Smooth Transitions"
-            android:summary="Interpolate between scenes for seamless transitions"
+            android:title="@string/droidplus_smooth_transitions_title"
+            android:summary="@string/droidplus_smooth_transitions_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="menuAnimations"
-            android:title="Menu Animations"
-            android:summary="Enhance song select, settings, score panel transitions"
+            android:title="@string/droidplus_menu_animations_title"
+            android:summary="@string/droidplus_menu_animations_summary"
             app:layout="@layout/settings_preference_checkbox"
-        />
-
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="storyboardAnimations"
-            android:title="Storyboard Animations"
-            android:summary="Enhance storyboard element timing"
-            app:layout="@layout/settings_preference_checkbox"
-        />
-
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="particleAnimations"
-            android:title="Particle Animations"
-            android:summary="Enhance kiai, hit effects, combo bursts"
-            app:layout="@layout/settings_preference_checkbox_bottom"
         />
 
         <ListPreference
-            android:defaultValue="0"
+            android:defaultValue="3"
             android:key="frameLimiterMode"
-            android:title="Frame Limiter"
-            android:summary="Control frame rate to balance performance and battery"
+            android:title="@string/droidplus_frame_limiter_title"
+            android:summary="@string/droidplus_frame_limiter_summary"
             android:entries="@array/frame_limiter_names"
             android:entryValues="@array/frame_limiter_values"
             app:layout="@layout/settings_preference"
@@ -81,8 +65,8 @@
             android:defaultValue="0"
             android:key="customFrameRate"
             android:max="960"
-            android:title="Custom Frame Rate"
-            android:summary="Set a custom FPS cap (only used when Frame Limiter is Unlimited)"
+            android:title="@string/droidplus_custom_fps_title"
+            android:summary="@string/droidplus_custom_fps_summary"
             app:min="0"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
@@ -91,25 +75,25 @@
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="forceMaxRefreshRate"
-            android:title="Force Max Display Refresh Rate"
-            android:summary="Force highest refresh rate even during screen recording"
-            app:layout="@layout/settings_preference_checkbox"
+            android:title="@string/droidplus_force_max_refresh_title"
+            android:summary="@string/droidplus_force_max_refresh_summary"
+            app:layout="@layout/settings_preference_checkbox_bottom"
         />
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Server">
+    <PreferenceCategory android:title="@string/droidplus_cat_server">
 
         <Preference
             android:key="serverLink"
             android:summary="@string/opt_server_summary"
             android:title="@string/opt_server_title"
-            app:layout="@layout/settings_preference"
+            app:layout="@layout/settings_preference_bottom"
         />
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Gameplay Extras">
+    <PreferenceCategory android:title="@string/droidplus_cat_gameplay_extras">
 
         <CheckBoxPreference
             android:defaultValue="false"
@@ -122,53 +106,53 @@
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="unrestrictedMods"
-            android:title="Unrestricted Mods"
-            android:summary="Allow selecting any mods regardless of compatibility"
+            android:title="@string/droidplus_unrestricted_mods_title"
+            android:summary="@string/droidplus_unrestricted_mods_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="showBreakCountdown"
-            android:title="Break Countdown"
-            android:summary="Show countdown timer during break sections"
+            android:title="@string/droidplus_break_countdown_title"
+            android:summary="@string/droidplus_break_countdown_summary"
             app:layout="@layout/settings_preference_checkbox_bottom"
         />
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Kiai Effects">
+    <PreferenceCategory android:title="@string/droidplus_cat_kiai">
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="kiaiParticles"
-            android:title="Kiai Particles"
-            android:summary="Show star particles during kiai sections"
+            android:title="@string/droidplus_kiai_particles_title"
+            android:summary="@string/droidplus_kiai_particles_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="kiaiFlash"
-            android:title="Kiai Flash"
-            android:summary="Show white flash effect when kiai starts"
+            android:title="@string/droidplus_kiai_flash_title"
+            android:summary="@string/droidplus_kiai_flash_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="hitCirclePulse"
-            android:title="Hit Circle Pulse"
-            android:summary="Pulse hit circles in rhythm during kiai"
+            android:title="@string/droidplus_hit_circle_pulse_title"
+            android:summary="@string/droidplus_hit_circle_pulse_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="menuKiaiFlash"
-            android:title="Menu Kiai Flash"
-            android:summary="Show beat pulse in song selection menu"
-            app:layout="@layout/settings_preference_checkbox_bottom"
+            android:title="@string/droidplus_menu_kiai_flash_title"
+            android:summary="@string/droidplus_menu_kiai_flash_summary"
+            app:layout="@layout/settings_preference_checkbox"
         />
 
         <com.rian.osu.ui.EditableSeekBarPreference
@@ -184,21 +168,85 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Particles &amp; Visual Effects">
+    <PreferenceCategory android:title="@string/droidplus_cat_visualizer">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="visualizerEnabled"
+            android:title="@string/droidplus_visualizer_enabled_title"
+            android:summary="@string/droidplus_visualizer_enabled_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="visualizerIntensity"
+            android:max="300"
+            android:title="@string/droidplus_visualizer_intensity_title"
+            android:summary="@string/droidplus_visualizer_intensity_summary"
+            app:min="10"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="3"
+            android:key="visualizerRotationSpeed"
+            android:max="24"
+            android:title="@string/droidplus_visualizer_rotation_title"
+            android:summary="@string/droidplus_visualizer_rotation_summary"
+            app:min="0"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="visualizerDecaySpeed"
+            android:max="400"
+            android:title="@string/droidplus_visualizer_decay_title"
+            android:summary="@string/droidplus_visualizer_decay_summary"
+            app:min="10"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="50"
+            android:key="visualizerUpdateRate"
+            android:max="200"
+            android:title="@string/droidplus_visualizer_update_rate_title"
+            android:summary="@string/droidplus_visualizer_update_rate_summary"
+            app:min="16"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="visualizerKiaiDim"
+            android:title="@string/droidplus_visualizer_kiai_dim_title"
+            android:summary="@string/droidplus_visualizer_kiai_dim_summary"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/droidplus_cat_particles">
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="parallaxEnabled"
-            android:title="Parallax Background"
-            android:summary="Background moves with cursor for depth effect"
+            android:title="@string/droidplus_parallax_title"
+            android:summary="@string/droidplus_parallax_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="trianglesEnabled"
-            android:title="Triangles"
-            android:summary="Show floating triangle particles"
+            android:title="@string/droidplus_triangles_title"
+            android:summary="@string/droidplus_triangles_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
@@ -206,8 +254,8 @@
             android:defaultValue="15"
             android:key="triangleSize"
             android:max="300"
-            android:title="Triangle Size"
-            android:summary="Size of floating triangles in song menu"
+            android:title="@string/droidplus_triangle_size_title"
+            android:summary="@string/droidplus_triangle_size_summary"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
         />
@@ -216,8 +264,8 @@
             android:defaultValue="25"
             android:key="triangleCount"
             android:max="300"
-            android:title="Triangle Count"
-            android:summary="Maximum number of triangles on screen"
+            android:title="@string/droidplus_triangle_count_title"
+            android:summary="@string/droidplus_triangle_count_summary"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
         />
@@ -225,8 +273,8 @@
         <ListPreference
             android:defaultValue="triangle"
             android:key="triangleShape"
-            android:title="Particle Shape"
-            android:summary="Select the shape of floating particles"
+            android:title="@string/droidplus_particle_shape_title"
+            android:summary="@string/droidplus_particle_shape_summary"
             android:entries="@array/particle_shape_names"
             android:entryValues="@array/particle_shape_values"
             app:layout="@layout/settings_preference"
@@ -235,8 +283,8 @@
         <ListPreference
             android:defaultValue="down"
             android:key="triangleDirection"
-            android:title="Particle Direction"
-            android:summary="Select movement direction of particles"
+            android:title="@string/droidplus_particle_direction_title"
+            android:summary="@string/droidplus_particle_direction_summary"
             android:entries="@array/particle_direction_names"
             android:entryValues="@array/particle_direction_values"
             app:layout="@layout/settings_preference"
@@ -245,28 +293,28 @@
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="triangleRotate"
-            android:title="Particle Rotation"
-            android:summary="When ON, particles rotate while moving. When OFF, they fly straight."
+            android:title="@string/droidplus_particle_rotation_title"
+            android:summary="@string/droidplus_particle_rotation_summary"
             app:layout="@layout/settings_preference_checkbox"
         />
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="snowfallEnabled"
-            android:title="Snowfall Effect"
-            android:summary="Show falling snowflakes in the main menu"
+            android:title="@string/droidplus_snowfall_title"
+            android:summary="@string/droidplus_snowfall_summary"
             app:layout="@layout/settings_preference_checkbox_bottom"
         />
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Cursor Enhancements">
+    <PreferenceCategory android:title="@string/droidplus_cat_cursor">
 
         <ListPreference
             android:defaultValue="1"
             android:key="trailImplementation"
-            android:title="Trail Style"
-            android:summary="Choose between Legacy and Long cursor trail"
+            android:title="@string/droidplus_trail_implementation_title"
+            android:summary="@string/droidplus_trail_implementation_summary"
             android:entries="@array/trail_implementation_names"
             android:entryValues="@array/trail_implementation_values"
             app:layout="@layout/settings_preference"
@@ -276,8 +324,8 @@
             android:defaultValue="100"
             android:key="trailLength"
             android:max="500"
-            android:summary="How long the trail fades out (in 0.01s units)"
-            android:title="Trail Length"
+            android:summary="@string/droidplus_trail_length_summary"
+            android:title="@string/droidplus_trail_length_title"
             app:min="1"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
@@ -287,8 +335,8 @@
             android:defaultValue="100"
             android:key="trailSize"
             android:max="300"
-            android:summary="Scale of trail particles (100 = cursor size)"
-            android:title="Trail Size"
+            android:summary="@string/droidplus_trail_size_summary"
+            android:title="@string/droidplus_trail_size_title"
             app:min="10"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
@@ -298,8 +346,8 @@
             android:defaultValue="100"
             android:key="trailWidth"
             android:max="300"
-            android:summary="Width multiplier for trail particles"
-            android:title="Trail Width"
+            android:summary="@string/droidplus_trail_width_summary"
+            android:title="@string/droidplus_trail_width_title"
             app:min="10"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
@@ -307,69 +355,29 @@
 
         <CheckBoxPreference
             android:defaultValue="true"
-            android:key="trailDelayEnabled"
-            android:summary="When ON, trail appears after a short delay (1s). When OFF, trail appears instantly."
-            android:title="Trail Delay"
+            android:key="trailFastRemoval"
+            android:summary="@string/droidplus_trail_fast_removal_summary"
+            android:title="@string/droidplus_trail_fast_removal_title"
             app:layout="@layout/settings_preference_checkbox"
         />
 
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="rotateCursorTrail"
-            android:summary="Rotate trail particles to match cursor rotation"
-            android:title="Rotate Trail"
-            app:layout="@layout/settings_preference_checkbox_bottom"
-        />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Skin">
-
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="removeUnsupportedSkinElements"
-            android:summary="Remove unsupported game mode elements (@2x, @mania, @catch, @taiko) from skin loading"
-            android:title="Remove Unsupported Skin Elements"
-            app:layout="@layout/settings_preference_checkbox_bottom"
-        />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Audio Extras">
-
         <com.rian.osu.ui.EditableSeekBarPreference
-            android:defaultValue="20"
-            android:key="gameAudioSynchronizationThreshold"
-            app:min="0"
-            android:max="100"
-            android:title="@string/opt_gameAudioSynchronizationThreshold_title"
-            android:summary="@string/opt_gameAudioSynchronizationThreshold_summary"
+            android:defaultValue="200"
+            android:key="trailFadeTime"
+            android:max="1000"
+            android:summary="@string/droidplus_trail_fade_time_summary"
+            android:title="@string/droidplus_trail_fade_time_title"
+            app:min="1"
             app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar"
         />
 
-        <com.rian.osu.ui.EditableSeekBarPreference
-            android:defaultValue="100"
-            android:key="heartbeatVolume"
-            android:max="100"
-            android:title="Heartbeat Volume"
-            android:summary="Volume of the heartbeat sound effect in main menu"
-            app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar_bottom"
-        />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Autoplay Movement Settings">
-
-        <ListPreference
-            android:key="autoplayStyle"
-            android:title="@string/autoplay_movement_type"
-            android:summary="Select autoplay movement style"
-            android:entries="@array/autoplay_movement_names"
-            android:entryValues="@array/autoplay_movement_values"
-            android:defaultValue="linear"
-            app:layout="@layout/settings_preference_bottom"
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="trailDelayEnabled"
+            android:summary="@string/droidplus_trail_delay_summary"
+            android:title="@string/droidplus_trail_delay_title"
+            app:layout="@layout/settings_preference_checkbox"
         />
 
     </PreferenceCategory>

@@ -3,15 +3,14 @@
 
     <!-- Animation Easing Arrays -->
     <string-array name="animation_easing_names">
-        <item>Linear</item>
-        <item>Smooth (OutQuad)</item>
-        <item>Smoother (OutQuint)</item>
-        <item>Elastic</item>
-        <item>Bounce</item>
-        <item>Back</item>
+        <item>Линейная</item>
+        <item>Плавная (OutQuad)</item>
+        <item>Очень плавная (OutQuint)</item>
+        <item>Упругая</item>
+        <item>Отскок</item>
+        <item>С возвратом</item>
     </string-array>
-
-    <string-array name="animation_easing_values">
+    <string-array name="animation_easing_values" translatable="false">
         <item>None</item>
         <item>OutQuad</item>
         <item>OutQuint</item>
@@ -22,40 +21,28 @@
 
     <!-- Trail Implementation Arrays -->
     <string-array name="trail_implementation_names">
-        <item>Legacy</item>
-        <item>Long</item>
+        <item>Обычный (legacy)</item>
+        <item>Длинный</item>
     </string-array>
-
-    <string-array name="trail_implementation_values">
-        <item>0</item>
-        <item>1</item>
-    </string-array>
-
-    <!-- Trail Style Arrays -->
-    <string-array name="trail_style_names">
-        <item>Normal</item>
-        <item>Fade</item>
-    </string-array>
-
-    <string-array name="trail_style_values">
+    <string-array name="trail_implementation_values" translatable="false">
         <item>0</item>
         <item>1</item>
     </string-array>
 
     <!-- Autoplay movement types -->
     <string-array name="autoplay_movement_names">
-        <item>Linear</item>
-        <item>Bezier</item>
-        <item>Spline</item>
-        <item>Circular</item>
-        <item>Axis</item>
+        <item>Линейный</item>
+        <item>Безье</item>
+        <item>Сплайн</item>
+        <item>Полукруг</item>
+        <item>По осям</item>
         <item>ExGon</item>
-        <item>Aggressive</item>
-        <item>Momentum</item>
-        <item>Pippi</item>
-        <item>Flower</item>
+        <item>Агрессивный</item>
+        <item>Momentum (инерция)</item>
+        <item>Pippi (покачивание)</item>
+        <item>Flower (цветок)</item>
     </string-array>
-    <string-array name="autoplay_movement_values">
+    <string-array name="autoplay_movement_values" translatable="false">
         <item>linear</item>
         <item>bezier</item>
         <item>spline</item>
@@ -70,13 +57,13 @@
 
     <!-- Spinner movement shapes (danser-go spinners) -->
     <string-array name="spinner_mover_names">
-        <item>Circle</item>
-        <item>Heart</item>
-        <item>Triangle</item>
-        <item>Square</item>
-        <item>Cube</item>
+        <item>Круг</item>
+        <item>Сердце</item>
+        <item>Треугольник</item>
+        <item>Квадрат</item>
+        <item>Куб</item>
     </string-array>
-    <string-array name="spinner_mover_values">
+    <string-array name="spinner_mover_values" translatable="false">
         <item>circle</item>
         <item>heart</item>
         <item>triangle</item>
@@ -91,8 +78,7 @@
         <item>DRPP</item>
         <item>RXPP</item>
     </string-array>
-
-    <string-array name="difficulty_algorithm_values">
+    <string-array name="difficulty_algorithm_values" translatable="false">
         <item>0</item>
         <item>1</item>
         <item>2</item>
@@ -101,12 +87,11 @@
 
     <!-- Particle Shape Arrays -->
     <string-array name="particle_shape_names">
-        <item>Triangle</item>
-        <item>Circle</item>
-        <item>Square</item>
+        <item>Треугольники</item>
+        <item>Круги</item>
+        <item>Квадраты</item>
     </string-array>
-
-    <string-array name="particle_shape_values">
+    <string-array name="particle_shape_values" translatable="false">
         <item>triangle</item>
         <item>circle</item>
         <item>square</item>
@@ -114,12 +99,11 @@
 
     <!-- Particle Direction Arrays -->
     <string-array name="particle_direction_names">
-        <item>Top to Bottom</item>
-        <item>Left to Right</item>
-        <item>Right to Left</item>
+        <item>Сверху вниз</item>
+        <item>Слева направо</item>
+        <item>Справа налево</item>
     </string-array>
-
-    <string-array name="particle_direction_values">
+    <string-array name="particle_direction_values" translatable="false">
         <item>down</item>
         <item>right</item>
         <item>left</item>
@@ -127,15 +111,15 @@
 
     <!-- Frame Limiter Arrays -->
     <string-array name="frame_limiter_names">
-        <item>Unlimited</item>
-        <item>VSync (Display Refresh)</item>
-        <item>Optimal (4x Refresh)</item>
+        <item>Без ограничения</item>
+        <item>VSync (частота экрана)</item>
+        <item>Оптимальный (4× частоты экрана)</item>
     </string-array>
-
-    <string-array name="frame_limiter_values">
+    <string-array name="frame_limiter_values" translatable="false">
         <item>0</item>
         <item>2</item>
         <item>3</item>
     </string-array>
+
 
 </resources>

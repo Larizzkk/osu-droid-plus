@@ -151,6 +151,103 @@ class SettingsFragment : SettingsFragment() {
 
 
 
+    /**
+     * (Re)loads the given section's preferences, keeping the tab selection intact.
+     * Used by section buttons and by in-place resets that need refreshed values.
+     */
+    private fun loadSection(section: Section) {
+        // Fix stale SharedPreferences values before inflating preferences.
+        // AndroidX Preference crashes with ClassCastException when it finds
+        // String where Boolean expected, or Float where Int expected.
+        migrateSharedPreferences()
+        // Older SDKs may potentially throw an IllegalStateException when trying to change
+        // preference screen, so we need to remove all views first to prevent that.
+        listView.removeAllViews()
+        setPreferencesFromResource(section.xml, null)
+        onLoadSectionPreferences(section)
+    }
+
+    private fun migrateSharedPreferences() {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val editor = prefs.edit()
+        var changed = false
+        val all = prefs.all
+
+        // Fix String → Boolean: keys that are CheckBoxPreference but stored as String
+        val booleanKeys = listOf(
+            "pluginsEnabled", "enhancedAnimations", "smoothTransitions",
+            "menuAnimations",
+            "linearWaitForPreempt", "linearChoppyLongObjects",
+            "splineRotationalForce", "splineStreamHalfCircle", "splineStreamWobble",
+            "momentumSkipStackAngles", "momentumStreamRestrict", "momentumRestrictInvert",
+            "flowerLongJumpOnEqualPos",
+        )
+        for (key in booleanKeys) {
+            val v = all[key]
+            if (v is String) {
+                editor.putBoolean(key, v == "1" || v.equals("true", ignoreCase = true))
+                changed = true
+            }
+        }
+
+        // Fix Float → Int: ALL SeekBarPreference keys that may have been stored as Float
+        val intKeys = listOf(
+            // Movements
+            "linearReactionTime", "bezierAggressiveness",
+            "flowerAngleOffset", "flowerDistanceMult", "flowerStreamAngleOffset",
+            "flowerLongJump", "flowerLongJumpMult",
+            "circularRadiusMultiplier", "circularStreamTrigger",
+            "splineWobbleScale",
+            "momentumStreamMult", "momentumDurationTrigger", "momentumDurationMult",
+            "momentumRestrictAngle", "momentumRestrictArea",
+            "momentumDistanceMult", "momentumDistanceMultOut",
+            "exgonDelay",
+            "pippiRotationSpeed", "pippiRadiusMultiplier", "pippiSpinnerRadius",
+            "spinnerRadius",
+            // Audio
+            "bgmvolume", "soundvolume", "offset", "offset_calibration",
+            // Gameplay
+            "bgbrightness", "playfieldSize",
+            "playfieldHorizontalPosition", "playfieldVerticalPosition",
+            "fps",
+            // Graphics
+            "cursorSize",
+            // Input
+            "back_button_press_time",
+            // osu!droid+
+            "animationSpeed", "customFrameRate",
+            "trailLength", "trailSize", "trailWidth",
+            "kiaiFlashBrightness", "triangleSize", "triangleCount",
+            "gameAudioSynchronizationThreshold", "heartbeatVolume",
+        )
+        for (key in intKeys) {
+            val v = all[key]
+            if (v is Float) {
+                editor.putInt(key, v.toInt())
+                changed = true
+            }
+        }
+
+        if (changed) editor.commit()
+    }
+
+    private fun onLoadSectionPreferences(section: Section) {
+        when (section) {
+            Section.General -> handleGeneralSectionPreferences()
+            Section.Graphics -> handleGraphicsSectionPreferences()
+            Section.Gameplay -> handleGameplaySectionPreferences()
+            Section.Audio -> handleAudioSectionPreferences()
+            Section.Library -> handleLibrarySectionPreferences()
+            Section.Advanced -> handleAdvancedSectionPreferences()
+            Section.Input -> handleInputSectionPreferences()
+            Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
+            Section.Movements -> handleMovementsSectionPreferences()
+            Section.Plugins -> handlePluginsSectionPreferences()
+            Section.Player -> handlePlayerSectionPreferences()
+            Section.Room -> handleRoomSectionPreferences()
+        }
+    }
+
     override fun onLoadView() {
 
         sectionSelector = findViewById(R.id.section_selector)!!
@@ -178,10 +275,7 @@ class SettingsFragment : SettingsFragment() {
 
                 this.section = section
 
-                // Older SDKs may potentially throw an IllegalStateException when trying to change
-                // preference screen, so we need to remove all views first to prevent that.
-                listView.removeAllViews()
-                setPreferencesFromResource(section.xml, null)
+                loadSection(section)
             }
 
             sectionSelector.addView(button)
@@ -227,6 +321,7 @@ class SettingsFragment : SettingsFragment() {
 
         createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
         createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
+        createSectionButton("Movements", R.drawable.open_with_24px, Section.Movements)
         createSectionButton("Plugins", R.drawable.add_24px, Section.Plugins)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
 
@@ -245,20 +340,7 @@ class SettingsFragment : SettingsFragment() {
 
     // For whatever reason this is restricted API when it wasn't in previous SDKs.
     @SuppressLint("RestrictedApi")
-    override fun onBindPreferences() = when (section) {
-
-        Section.General -> handleGeneralSectionPreferences()
-        Section.Graphics -> handleGraphicsSectionPreferences()
-        Section.Gameplay -> handleGameplaySectionPreferences()
-        Section.Audio -> handleAudioSectionPreferences()
-        Section.Library -> handleLibrarySectionPreferences()
-        Section.Advanced -> handleAdvancedSectionPreferences()
-        Section.Input -> handleInputSectionPreferences()
-        Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
-        Section.Plugins -> handlePluginsSectionPreferences()
-        Section.Player -> handlePlayerSectionPreferences()
-        Section.Room -> handleRoomSectionPreferences()
-    }
+    override fun onBindPreferences() = onLoadSectionPreferences(section)
 
 
     override fun show() {
@@ -575,16 +657,20 @@ class SettingsFragment : SettingsFragment() {
         val trailLengthPref = findPreference<SeekBarPreference>("trailLength")
         val trailSizePref = findPreference<SeekBarPreference>("trailSize")
         val trailWidthPref = findPreference<SeekBarPreference>("trailWidth")
+        val trailFastRemovalPref = findPreference<CheckBoxPreference>("trailFastRemoval")
+        val trailFadeTimePref = findPreference<SeekBarPreference>("trailFadeTime")
         val trailDelayPref = findPreference<CheckBoxPreference>("trailDelayEnabled")
-        val rotateTrailPref = findPreference<CheckBoxPreference>("rotateCursorTrail")
 
         fun updateTrailSettingsVisibility(value: String?) {
             val isLong = value == "1"
+            // Every trail customization (Length/Size/Width/Fast Removal/Fade Time/Delay)
+            // applies to the Long trail only — the Legacy trail is fixed 1:1 upstream.
             trailLengthPref?.isVisible = isLong
             trailSizePref?.isVisible = isLong
             trailWidthPref?.isVisible = isLong
+            trailFastRemovalPref?.isVisible = isLong
+            trailFadeTimePref?.isVisible = isLong
             trailDelayPref?.isVisible = isLong
-            rotateTrailPref?.isVisible = isLong
         }
 
         updateTrailSettingsVisibility(trailImplPref?.value)
@@ -599,16 +685,12 @@ class SettingsFragment : SettingsFragment() {
         val animEasingPref = findPreference<ListPreference>("animationEasing")
         val smoothTransPref = findPreference<CheckBoxPreference>("smoothTransitions")
         val menuAnimPref = findPreference<CheckBoxPreference>("menuAnimations")
-        val storyboardAnimPref = findPreference<CheckBoxPreference>("storyboardAnimations")
-        val particleAnimPref = findPreference<CheckBoxPreference>("particleAnimations")
 
         fun updateEnhancedAnimVisibility(enabled: Boolean) {
             animSpeedPref?.isVisible = enabled
             animEasingPref?.isVisible = enabled
             smoothTransPref?.isVisible = enabled
             menuAnimPref?.isVisible = enabled
-            storyboardAnimPref?.isVisible = enabled
-            particleAnimPref?.isVisible = enabled
         }
 
         updateEnhancedAnimVisibility(enhancedAnimPref?.isChecked == true)
@@ -634,10 +716,12 @@ class SettingsFragment : SettingsFragment() {
         val engine = GlobalManager.getInstance().engine ?: return
         val camera = GlobalManager.getInstance().camera
 
+        // Single source of truth mirrors Config.getEffectiveFrameRate / FrameLimiter.
+        // VSync = 0: the display swap interval paces the loop itself, no software sleep.
+        // Optimal = 4x refresh, uncapped.
         val effectiveFps = when (mode) {
-            1 -> 30                                    // MODE_POWER_SAVE: always 30
-            2 -> displayRate.toInt()                   // MODE_VSYNC
-            3 -> (displayRate * 4).toInt().coerceAtMost(480) // MODE_OPTIMAL
+            2 -> 0                                     // MODE_VSYNC: swap interval only
+            3 -> (displayRate * 4).toInt()             // MODE_OPTIMAL: decoupled updates
             else -> {
                 val custom = Config.getInt("customFrameRate", 0)
                 if (custom > 0) custom else 0           // MODE_UNLIMITED
@@ -656,9 +740,86 @@ class SettingsFragment : SettingsFragment() {
         }
     }
 
+    private fun handleMovementsSectionPreferences() {
+        // All SeekBarPreference values persist automatically as Int.
+        // Do NOT write these keys as Float anywhere (ClassCastException on read).
+        // Movers read them via MoverSettings which tolerates Int/Float.
+
+        findPreference<androidx.preference.Preference>("resetMoverSettings")?.apply {
+            setOnPreferenceClickListener {
+                // danser-go DefaultsFactory defaults
+                Config.setString("autoplayStyle", "linear")
+                // Linear
+                Config.setBoolean("linearWaitForPreempt", true)
+                Config.setInt("linearReactionTime", 100)
+                Config.setBoolean("linearChoppyLongObjects", false)
+                // Bezier
+                Config.setInt("bezierAggressiveness", 60)
+                // Flower
+                Config.setInt("flowerAngleOffset", 90)
+                Config.setInt("flowerDistanceMult", 67)
+                Config.setInt("flowerStreamAngleOffset", 90)
+                Config.setInt("flowerLongJump", -1)
+                Config.setInt("flowerLongJumpMult", 70)
+                Config.setBoolean("flowerLongJumpOnEqualPos", false)
+                // Circular
+                Config.setInt("circularRadiusMultiplier", 100)
+                Config.setInt("circularStreamTrigger", 130)
+                // Spline
+                Config.setBoolean("splineRotationalForce", false)
+                Config.setBoolean("splineStreamHalfCircle", true)
+                Config.setBoolean("splineStreamWobble", true)
+                Config.setInt("splineWobbleScale", 67)
+                // Momentum
+                Config.setBoolean("momentumSkipStackAngles", false)
+                Config.setBoolean("momentumStreamRestrict", true)
+                Config.setInt("momentumStreamMult", 70)
+                Config.setInt("momentumDurationTrigger", 500)
+                Config.setInt("momentumDurationMult", 200)
+                Config.setInt("momentumRestrictAngle", 90)
+                Config.setInt("momentumRestrictArea", 40)
+                Config.setBoolean("momentumRestrictInvert", true)
+                Config.setInt("momentumDistanceMult", 60)
+                Config.setInt("momentumDistanceMultOut", 45)
+                // ExGon
+                Config.setInt("exgonDelay", 50)
+                // Pippi
+                Config.setInt("pippiRotationSpeed", 160)
+                Config.setInt("pippiRadiusMultiplier", 98)
+                Config.setInt("pippiSpinnerRadius", 100)
+                // Spinner
+                Config.setString("spinnerMover", "circle")
+                Config.setInt("spinnerRadius", 100)
+
+                ToastLogger.showText("Movement settings reset to defaults", false)
+
+                // Restart this section to refresh all visible values
+                loadSection(Section.Movements)
+                true
+            }
+        }
+    }
+
     private fun handlePluginsSectionPreferences() {
         val pluginManager = com.osudroid.plugin.PluginManager.getInstance()
         val plugins = pluginManager.getPlugins()
+
+        // Handle enable/disable toggle
+        findPreference<CheckBoxPreference>("pluginsEnabled")?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                Config.setBoolean("pluginsEnabled", newValue as Boolean)
+                true
+            }
+        }
+
+        // Handle reload button
+        findPreference<androidx.preference.Preference>("pluginReload")?.apply {
+            setOnPreferenceClickListener {
+                pluginManager.reloadPlugins(requireContext())
+                handlePluginsSectionPreferences()
+                true
+            }
+        }
 
         // Find the "plugins_info" preference, then get its parent category
         val infoPref = findPreference<androidx.preference.Preference>("plugins_info") ?: return
@@ -759,11 +920,11 @@ class SettingsFragment : SettingsFragment() {
 
     private fun handlePlayerSectionPreferences() {
         findPreference<SelectPreference>("player_team")?.apply {
-            isEnabled = Multiplayer.room!!.teamMode == TeamMode.TeamVersus
+            isEnabled = Multiplayer.room!!.teamMode == TeamMode.TeamVS
             value = Multiplayer.player!!.team?.ordinal?.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
-                RoomAPI.setPlayerTeam(RoomTeam[(newValue as String).toInt()])
+                RoomAPI.setPlayerTeam(RoomTeam.entries.getOrNull((newValue as String).toInt()) ?: return@setOnPreferenceChangeListener false)
                 true
             }
         }
@@ -845,7 +1006,7 @@ class SettingsFragment : SettingsFragment() {
             value = Multiplayer.room!!.teamMode.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
-                RoomAPI.setRoomTeamMode(TeamMode[(newValue as String).toInt()])
+                RoomAPI.setRoomTeamMode(TeamMode.entries.getOrNull((newValue as String).toInt()) ?: return@setOnPreferenceChangeListener false)
                 true
             }
         }
@@ -854,7 +1015,7 @@ class SettingsFragment : SettingsFragment() {
             value = Multiplayer.room!!.winCondition.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
-                RoomAPI.setRoomWinCondition(WinCondition.from((newValue as String).toInt()))
+                RoomAPI.setRoomWinCondition(WinCondition.entries.getOrNull((newValue as String).toInt()) ?: return@setOnPreferenceChangeListener false)
                 true
             }
         }
@@ -926,6 +1087,7 @@ class SettingsFragment : SettingsFragment() {
     }
 
 
+
     private enum class Section(@param:XmlRes val xml: Int) {
 
         General(R.xml.settings_general),
@@ -935,6 +1097,7 @@ class SettingsFragment : SettingsFragment() {
         Library(R.xml.settings_library),
         Input(R.xml.settings_input),
         OsuDroidPlus(R.xml.settings_osudroidplus),
+        Movements(R.xml.settings_movements),
         Plugins(R.xml.settings_plugins),
         Advanced(R.xml.settings_advanced),
 
@@ -1001,5 +1164,53 @@ class SettingsFragment : SettingsFragment() {
 
     companion object {
         const val REGISTER_URL: String = "https://${OnlineManager.hostname}/user/?action=register"
+
+        /**
+         * Hot skin swap during gameplay/replay: reloads skin resources WITHOUT
+         * restarting the activity, in PHASES so rendering never stalls:
+         *
+         * Phase 1 (IO thread): unload previous skin + decode/queue the new skin's
+         * textures and sounds (bitmap decoding happens HERE, off the GL thread).
+         * Phase 2 (GL thread, spread over frames by TextureManager.updateTextures):
+         * uploads of queued textures (from the cached reload copies, see
+         * QualityFileBitmapSource.reloadBitmap).
+         *
+         * reloadTextures() is deliberately NOT used: it marks every managed texture
+         * as unloaded and forces a full synchronous re-decode on the GL thread.
+         *
+         * The caller (replay visual settings panel) receives the completion callback
+         * on the main thread and can refresh in-scene visuals.
+         */
+        @JvmStatic
+        fun loadSkinForGameplay(path: String, onComplete: (success: Boolean) -> Unit) {
+            async {
+                var success = false
+                try {
+                    // Phase 1a: drop beatmap-skin overrides. The previous skin's ANIMATABLE
+                    // textures are retired but not GL-unloaded yet (runWithDeferredSkinUnload).
+                    BeatmapSkinManager.getInstance().clearSkin()
+                    Config.setSkinPath(path)
+                    // Persist so the settings screen shows the skin that is actually active.
+                    Config.setString("skinPath", path)
+
+                    // Phase 1b: decode + queue new skin resources off the GL thread. Old
+                    // skin textures stay alive on the GPU until flushRetiredSkinTextures.
+                    ResourceManager.runWithDeferredSkinUnload {
+                        ResourceManager.getInstance().loadSkin(path)
+                    }
+                    success = true
+                } catch (e: Exception) {
+                    mainThread {
+                        ToastLogger.showText(
+                            "Skin load failed: ${e.message}", true
+                        )
+                    }
+                }
+                val result = success
+                mainThread {
+                    onComplete(result)
+                }
+            }
+        }
     }
 }

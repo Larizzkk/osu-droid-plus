@@ -38,18 +38,18 @@ public class ExGonMover extends BaseMover implements CursorMover {
         this.startTime = startTime;
         this.endTime = endTime;
 
-        // Config.Delay - default 100f
-        float configDelay = 50f;
-        this.delay = configDelay;
+        // danser-go exgon settings (dance.go: exgon) — Delay in ms
+        this.delay = MoverSettings.getExGonDelay();
 
         if (!wasFirst) {
             // Danser-go: rand.New(rand.NewSource((int64(objs[1].GetStartPosition().X)+1000*int64(objs[1].GetStartPosition().Y))*100 + int64(objs[1].GetStartTime())))
-            // Use startPos (the end position of the previous object) as the seed source
-            long seed = ((long) startPos.x + 1000L * (long) startPos.y) * 100L + (long) startTime;
+            // objs[1] is the END object — its start position is endPos
+            long seed = ((long) endPos.x + 1000L * (long) endPos.y) * 100L + (long) endTime;
             this.rand = new Random(seed);
             this.wasFirst = true;
         }
 
+        // Danser-go: nextTime = start.GetEndTime() + delay
         this.nextTime = startTime + delay;
 
         // Danser-go: mover.lastPos = start.GetStackedEndPositionMod(mover.diff)
@@ -119,6 +119,6 @@ public class ExGonMover extends BaseMover implements CursorMover {
         this.endPos = endV;
         this.wasFirst = true;
         this.nextTime = startTime;
-        this.delay = 100f;
+        this.delay = MoverSettings.getExGonDelay();
     }
 }

@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+<!--
+    English defaults for the osu!droid+ settings tabs (settings_osudroidplus.xml).
+    Russian translations live in res/values-ru/strings_droidplus.xml and are applied
+    automatically when the app language is set to Russian (appLanguage preference,
+    AppCompatDelegate.setApplicationLocales).
+-->
+
+    <!-- ══════════ osu!droid+ tab (settings_osudroidplus.xml) ══════════ -->
+
+    <!-- Frame Rate & Performance -->
+    <string name="droidplus_cat_performance">Frame Rate &amp; Performance</string>
+    <string name="droidplus_enhanced_animations_title">Enhanced Animations</string>
+    <string name="droidplus_enhanced_animations_summary">Smoother UI transitions with better easing and speed control</string>
+    <string name="droidplus_animation_speed_title">Animation Speed</string>
+    <string name="droidplus_animation_speed_summary">Animation duration multiplier (100 = normal, 200 = 2x slower/smoother)</string>
+    <string name="droidplus_animation_easing_title">Animation Easing</string>
+    <string name="droidplus_animation_easing_summary">Choose the easing curve for UI animations</string>
+    <string name="droidplus_smooth_transitions_title">Smooth Transitions</string>
+    <string name="droidplus_smooth_transitions_summary">Interpolate between scenes for seamless transitions</string>
+    <string name="droidplus_menu_animations_title">Menu Animations</string>
+    <string name="droidplus_menu_animations_summary">Enhance song select, settings, score panel transitions</string>
+    <string name="droidplus_frame_limiter_title">Frame Limiter</string>
+    <string name="droidplus_frame_limiter_summary">Control frame rate to balance performance and battery</string>
+    <string name="droidplus_custom_fps_title">Custom Frame Rate</string>
+    <string name="droidplus_custom_fps_summary">Set a custom FPS cap (min 10, only used when Frame Limiter is Unlimited)</string>
+    <string name="droidplus_force_max_refresh_title">Force Max Display Refresh Rate</string>
+    <string name="droidplus_force_max_refresh_summary">Force highest refresh rate even during screen recording</string>
+
+    <string name="droidplus_cat_server">Server</string>
+
+    <!-- Gameplay Extras -->
+    <string name="droidplus_cat_gameplay_extras">Gameplay Extras</string>
+    <string name="droidplus_unrestricted_mods_title">Unrestricted Mods</string>
+    <string name="droidplus_unrestricted_mods_summary">Allow selecting any mods regardless of compatibility</string>
+    <string name="droidplus_break_countdown_title">Break Countdown</string>
+    <string name="droidplus_break_countdown_summary">Show countdown timer during break sections</string>
+
+    <!-- Kiai Effects -->
+    <string name="droidplus_cat_kiai">Kiai Effects</string>
+    <string name="droidplus_kiai_particles_title">Kiai Particles</string>
+    <string name="droidplus_kiai_particles_summary">Show star particles during kiai sections</string>
+    <string name="droidplus_kiai_flash_title">Kiai Flash</string>
+    <string name="droidplus_kiai_flash_summary">Show white flash effect when kiai starts</string>
+    <string name="droidplus_hit_circle_pulse_title">Hit Circle Pulse</string>
+    <string name="droidplus_hit_circle_pulse_summary">Pulse hit circles in rhythm during kiai</string>
+    <string name="droidplus_menu_kiai_flash_title">Menu Kiai Flash</string>
+    <string name="droidplus_menu_kiai_flash_summary">Show beat pulse in song selection menu</string>
+
+    <!-- Particles & Visual Effects -->
+    <string name="droidplus_cat_particles">Particles &amp; Visual Effects</string>
+    <string name="droidplus_parallax_title">Parallax Background</string>
+    <string name="droidplus_parallax_summary">Background moves with cursor for depth effect</string>
+    <string name="droidplus_triangles_title">Triangles</string>
+    <string name="droidplus_triangles_summary">Show floating triangle particles</string>
+    <string name="droidplus_triangle_size_title">Triangle Size</string>
+    <string name="droidplus_triangle_size_summary">Size of floating triangles in song menu</string>
+    <string name="droidplus_triangle_count_title">Triangle Count</string>
+    <string name="droidplus_triangle_count_summary">Maximum number of triangles on screen</string>
+    <string name="droidplus_particle_shape_title">Particle Shape</string>
+    <string name="droidplus_particle_shape_summary">Select the shape of floating particles</string>
+    <string name="droidplus_particle_direction_title">Particle Direction</string>
+    <string name="droidplus_particle_direction_summary">Select movement direction of particles</string>
+    <string name="droidplus_particle_rotation_title">Particle Rotation</string>
+    <string name="droidplus_particle_rotation_summary">When ON, particles rotate while moving. When OFF, they fly straight.</string>
+    <string name="droidplus_snowfall_title">Snowfall Effect</string>
+    <string name="droidplus_snowfall_summary">Show falling snowflakes in the main menu</string>
+
+    <!-- Cursor Enhancements -->
+    <string name="droidplus_cat_cursor">Cursor Enhancements</string>
+    <string name="droidplus_trail_implementation_title">Trail Style</string>
+    <string name="droidplus_trail_implementation_summary">Choose between Legacy and Long cursor trail</string>
+    <string name="droidplus_trail_length_title">Trail Length</string>
+    <string name="droidplus_trail_length_summary">How long the trail is (Long Trail only)</string>
+    <string name="droidplus_trail_size_title">Trail Size (Long)</string>
+    <string name="droidplus_trail_size_summary">Scale of trail points (100 = cursor size). Long Trail only.</string>
+    <string name="droidplus_trail_width_title">Trail Width (Long)</string>
+    <string name="droidplus_trail_width_summary">Width multiplier for trail points. Long Trail only.</string>
+    <string name="droidplus_trail_fast_removal_title">Fast Trail Removal (Long)</string>
+    <string name="droidplus_trail_fast_removal_summary">When ON, trail fades danser-style: the more points it has, the faster it disappears. When OFF, points live exactly the Trail Fade Time below, so the trail stays full-size on medium movements.</string>
+    <string name="droidplus_trail_fade_time_title">Trail Fade Time (Long)</string>
+    <string name="droidplus_trail_fade_time_summary">Time for the trail to fully disappear after the cursor stops (0.01s units: 200 = 2s). Used when Fast Trail Removal is OFF. Long Trail only.</string>
+    <string name="droidplus_trail_delay_title">Trail Delay</string>
+    <string name="droidplus_trail_delay_summary">When ON, trail appears after a short delay (1s). When OFF, trail appears instantly.</string>
+
+    <!-- Audio Extras -->
+    <string name="droidplus_cat_audio">Audio Extras</string>
+    <string name="droidplus_heartbeat_volume_title">Heartbeat Volume</string>
+    <string name="droidplus_heartbeat_volume_summary">Volume of the heartbeat sound effect in main menu</string>
+
+    <!-- ══════════ Movements tab (settings_movements.xml) ══════════ -->
+
+    <string name="movements_cat_type">Movement Type</string>
+    <string name="movements_type_title">Movement Type</string>
+    <string name="movements_type_summary">Autoplay cursor movement style</string>
+    <string name="opt_removeSliderLock_title">Disable notelock</string>
+    <string name="opt_removeSliderLock_summary">Allow hitting any object regardless of order (0.80x score multiplier)</string>
+    <string name="combo_color_1">Combo 1</string>
+    <string name="combo_color_2">Combo 2</string>
+    <string name="combo_color_3">Combo 3</string>
+    <string name="combo_color_4">Combo 4</string>
+
+    <string name="movements_cat_linear">Linear</string>
+    <string name="movements_linear_wait_preempt_title">Wait For Preempt</string>
+    <string name="movements_linear_wait_preempt_summary">Cursor waits until the object approaches the screen before moving</string>
+    <string name="movements_linear_reaction_title">Reaction Time (ms)</string>
+    <string name="movements_linear_reaction_summary">How late the cursor starts moving when Wait For Preempt is on</string>
+    <string name="movements_linear_choppy_title">Choppy Long Objects</string>
+    <string name="movements_linear_choppy_summary">Follow sliders in 60fps steps instead of smooth interpolation</string>
+
+    <string name="movements_cat_bezier">Bezier</string>
+    <string name="movements_bezier_aggressiveness_title">Aggressiveness</string>
+    <string name="movements_bezier_aggressiveness_summary">How energetic the movement between objects is</string>
+
+    <string name="movements_cat_flower">Flower (Angle Offset)</string>
+    <string name="movements_flower_angle_offset_title">Angle Offset (deg)</string>
+    <string name="movements_flower_angle_offset_summary">Base angle offset applied to movement</string>
+    <string name="movements_flower_distance_mult_title">Distance Multiplier</string>
+    <string name="movements_flower_distance_mult_summary">Movement control point distance (100 = 1.00x)</string>
+    <string name="movements_flower_stream_angle_offset_title">Stream Angle Offset (deg)</string>
+    <string name="movements_flower_stream_angle_offset_summary">Angle offset used during streams</string>
+    <string name="movements_flower_long_jump_title">Long Jump (ms)</string>
+    <string name="movements_flower_long_jump_summary">Time delta threshold to trigger Long Jump (-1 = off)</string>
+    <string name="movements_flower_long_jump_mult_title">Long Jump Multiplier</string>
+    <string name="movements_flower_long_jump_mult_summary">Distance multiplier when Long Jump triggers (100 = 1.00x)</string>
+    <string name="movements_flower_long_jump_equal_title">Long Jump On Equal Position</string>
+    <string name="movements_flower_long_jump_equal_summary">Apply Long Jump even when objects are stacked</string>
+
+    <string name="movements_cat_circular">Circular (Half Circle)</string>
+    <string name="movements_circular_radius_title">Radius Multiplier</string>
+    <string name="movements_circular_radius_summary">Half-circle arc size (100 = 1.00x)</string>
+    <string name="movements_circular_stream_trigger_title">Stream Trigger (ms)</string>
+    <string name="movements_circular_stream_trigger_summary">Time below which arc direction inverts (streams)</string>
+
+    <string name="movements_cat_spline">Spline</string>
+    <string name="movements_spline_rotational_title">Rotational Force</string>
+    <string name="movements_spline_rotational_summary">Alternate rotation direction on large jumps between streams</string>
+    <string name="movements_spline_half_circle_title">Stream Half Circle</string>
+    <string name="movements_spline_half_circle_summary">Draw half-circle arcs during streams</string>
+    <string name="movements_spline_wobble_title">Stream Wobble</string>
+    <string name="movements_spline_wobble_summary">Wobble the cursor during streams</string>
+    <string name="movements_spline_wobble_scale_title">Wobble Scale</string>
+    <string name="movements_spline_wobble_scale_summary">Wobble amplitude (100 = 1.00x)</string>
+
+    <string name="movements_cat_momentum">Momentum</string>
+    <string name="movements_momentum_skip_stack_title">Skip Stack Angles</string>
+    <string name="movements_momentum_skip_stack_summary">Use raw positions instead of stacked positions for angles</string>
+    <string name="movements_momentum_stream_restrict_title">Stream Restrict</string>
+    <string name="movements_momentum_stream_restrict_summary">Special stream handling in Momentum</string>
+    <string name="movements_momentum_stream_mult_title">Stream Multiplier</string>
+    <string name="movements_momentum_stream_mult_summary">Distance multiplier during streams (100 = 1.00x)</string>
+    <string name="movements_momentum_duration_trigger_title">Duration Trigger (ms)</string>
+    <string name="movements_momentum_duration_trigger_summary">Gap length that triggers Duration Multiplier</string>
+    <string name="movements_momentum_duration_mult_title">Duration Multiplier</string>
+    <string name="movements_momentum_duration_mult_summary">Extra distance multiplier on long gaps (100 = 1.00x)</string>
+    <string name="movements_momentum_restrict_angle_title">Restrict Angle (deg)</string>
+    <string name="movements_momentum_restrict_angle_summary">Clamp angle for stream exits</string>
+    <string name="movements_momentum_restrict_area_title">Restrict Area (deg)</string>
+    <string name="movements_momentum_restrict_area_summary">Angular area where restriction applies</string>
+    <string name="movements_momentum_restrict_invert_title">Restrict Invert</string>
+    <string name="movements_momentum_restrict_invert_summary">Invert the restriction side</string>
+    <string name="movements_momentum_distance_in_title">Distance Multiplier (In)</string>
+    <string name="movements_momentum_distance_in_summary">Control point distance inside restriction area (100 = 1.00x)</string>
+    <string name="movements_momentum_distance_out_title">Distance Multiplier (Out)</string>
+    <string name="movements_momentum_distance_out_summary">Control point distance outside restriction area (100 = 1.00x)</string>
+
+    <string name="movements_cat_exgon">ExGon</string>
+    <string name="movements_exgon_delay_title">Delay (ms)</string>
+    <string name="movements_exgon_delay_summary">How often the cursor jumps to a new random position</string>
+
+    <string name="movements_cat_pippi">Pippi (osu!pippi wobble)</string>
+    <string name="movements_pippi_rotation_speed_title">Rotation Speed</string>
+    <string name="movements_pippi_rotation_speed_summary">Wobble rotation speed (100 = 1.0x)</string>
+    <string name="movements_pippi_radius_title">Radius Multiplier</string>
+    <string name="movements_pippi_radius_summary">Wobble radius relative to circle radius (100 = 1.00x)</string>
+    <string name="movements_pippi_spinner_radius_title">Spinner Radius (osu!px)</string>
+    <string name="movements_pippi_spinner_radius_summary">Wobble radius around spinners</string>
+
+    <string name="movements_cat_spinner">Spinner Movement</string>
+    <string name="movements_spinner_shape_title">Spinner Shape</string>
+    <string name="movements_spinner_shape_summary">Cursor path while spinning (danser-go spinner movers)</string>
+    <string name="movements_spinner_radius_title">Spinner Radius (osu!px)</string>
+    <string name="movements_spinner_radius_summary">Size of the spinner movement shape</string>
+
+    <string name="movements_cat_reset">Reset</string>
+    <string name="movements_reset_title">Reset All Movement Settings</string>
+    <string name="movements_reset_summary">Restore every movement parameter to danser-go defaults</string>
+
+    <!-- ══════════ Plugins tab (settings_plugins.xml) ══════════ -->
+
+    <string name="plugins_cat_system">Plugin System</string>
+    <string name="plugins_enable_title">Enable Plugins</string>
+    <string name="plugins_enable_summary">Load and run .lua plugins from osu!droid/Plugins/</string>
+    <string name="plugins_reload_title">Reload Plugins</string>
+    <string name="plugins_reload_summary">Scan for new plugins without restarting</string>
+    <string name="plugins_cat_loaded">Loaded Plugins</string>
+    <string name="plugins_list_title">Plugin List</string>
+    <string name="plugins_list_summary">Drop .lua files into the plugins/ folder to load them</string>
+
+    <!-- ══════════ Graphics: skin export ══════════ -->
+
+    <string name="droidplus_export_skin_title">Export Skin (.osk)</string>
+    <string name="droidplus_export_skin_summary">Export current skin as .osk file</string>
+
+    <!-- ══════════ Gameplay: combo colors ══════════ -->
+
+    <string name="droidplus_combo1">Combo 1</string>
+    <string name="droidplus_combo2">Combo 2</string>
+    <string name="droidplus_combo3">Combo 3</string>
+    <string name="droidplus_combo4">Combo 4</string>
+
+    <!-- ══════════ Input: notelock ══════════ -->
+
+    <string name="droidplus_remove_notelock_title">Disable notelock</string>
+    <string name="droidplus_remove_notelock_summary">Allow hitting any object regardless of order (0.80x score multiplier)</string>
+
+    <!-- Strings missing from the published language-pack AAR (present in the local
+         language-pack source only). Kept here so resource linking resolves. -->
+    <string name="opt_hide_replay_settings_panel_title">Hide replay settings panel</string>
+    <string name="opt_hide_replay_settings_panel_summary">Hide the Settings button (Playback, Visual settings) when watching replays</string>
+
+    <!-- ══════════ Audio visualizer (main menu) ══════════ -->
+
+    <string name="droidplus_cat_visualizer">Audio Visualizer</string>
+    <string name="droidplus_visualizer_enabled_title">Enable Visualizer</string>
+    <string name="droidplus_visualizer_enabled_summary">Show the reactive spectrum around the menu logo</string>
+    <string name="droidplus_visualizer_intensity_title">Intensity</string>
+    <string name="droidplus_visualizer_intensity_summary">Overall gain applied to the spectrum. 100 = default</string>
+    <string name="droidplus_visualizer_rotation_title">Rotation Speed</string>
+    <string name="droidplus_visualizer_rotation_summary">How fast the bars rotate around the logo, in bars per sample. 0 disables rotation</string>
+    <string name="droidplus_visualizer_decay_title">Decay Speed</string>
+    <string name="droidplus_visualizer_decay_summary">How fast the bars fall back. Higher = snappier, lower = smoother trails. 100 = default</string>
+    <string name="droidplus_visualizer_update_rate_title">Sampling Interval</string>
+    <string name="droidplus_visualizer_update_rate_summary">How often the spectrum is sampled, in milliseconds. Lower = more reactive</string>
+    <string name="droidplus_visualizer_kiai_dim_title">Kiai-Only Boost</string>
+    <string name="droidplus_visualizer_kiai_dim_summary">Weaken the bars outside kiai sections (osu! PC behavior). Off = react to the whole track</string>
+
+    <!-- ══════════ Cursor (Graphics tab, Cursor category) ══════════ -->
+
+    <string name="droidplus_show_cursor_title">Cursor</string>
+    <string name="droidplus_show_cursor_summary">Show a skin cursor under your finger — in gameplay and in all menu scenes</string>
+
+    <!-- ══════════ Song menu (search bar) ══════════ -->
+
+    <string name="menu_search_sort_source">Source</string>
+    <string name="menu_search_upstream_db">Upstream</string>
+    <string name="upstream_db_imported">Loaded beatmaps from upstream database!</string>
+    <string name="upstream_db_not_found">Upstream database not found, scanning song folders...</string>
+
+</resources>

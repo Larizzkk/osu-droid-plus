@@ -4,16 +4,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
 >
 
-    <PreferenceCategory android:title="Autoplay Movement Settings">
+    <PreferenceCategory android:title="@string/movements_cat_type">
 
         <ListPreference
             android:key="autoplayStyle"
             android:title="@string/autoplay_movement_type"
-            android:summary="Select autoplay movement style"
+            android:summary="@string/movements_type_summary"
             android:entries="@array/autoplay_movement_names"
             android:entryValues="@array/autoplay_movement_values"
             android:defaultValue="linear"
-            app:layout="@layout/settings_preference"
+            app:layout="@layout/settings_preference_bottom"
         />
 
     </PreferenceCategory>

@@ -111,6 +111,14 @@
             app:layout="@layout/settings_preference_checkbox"
         />
 
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="hideReplaySettingsPanel"
+            android:summary="@string/opt_hide_replay_settings_panel_summary"
+            android:title="@string/opt_hide_replay_settings_panel_title"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
 
         <CheckBoxPreference
             android:defaultValue="true"
@@ -146,7 +154,7 @@
             hexValue="true"
             android:defaultValue="@integer/COLOR_GREEN"
             android:key="combo1"
-            android:title="Combo 1"
+            android:title="@string/combo_color_1"
         />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
@@ -154,7 +162,7 @@
             hexValue="true"
             android:defaultValue="@integer/COLOR_BLUE"
             android:key="combo2"
-            android:title="Combo 2"
+            android:title="@string/combo_color_2"
         />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
@@ -162,7 +170,7 @@
             hexValue="true"
             android:defaultValue="@integer/COLOR_RED"
             android:key="combo3"
-            android:title="Combo 3"
+            android:title="@string/combo_color_3"
         />
 
         <net.margaritov.preference.colorpicker.ColorPickerPreference
@@ -170,7 +178,7 @@
             hexValue="true"
             android:defaultValue="@integer/COLOR_YELLOW"
             android:key="combo4"
-            android:title="Combo 4"
+            android:title="@string/combo_color_4"
             app:layout="@layout/settings_preference_bottom"
         />
 

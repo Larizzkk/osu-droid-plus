@@ -6,6 +6,8 @@
     android:layout_marginTop="12dp"
     android:background="@drawable/rounded_half_top"
     android:backgroundTint="#161622"
+    android:clipChildren="false"
+    android:clipToPadding="false"
     android:gravity="center"
     android:padding="12dp">
 

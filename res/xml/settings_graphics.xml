@@ -16,8 +16,8 @@
 
         <Preference
             android:key="export_skin"
-            android:summary="Export current skin as .osk file"
-            android:title="Export Skin (.osk)"
+            android:summary="@string/droidplus_export_skin_summary"
+            android:title="@string/droidplus_export_skin_title"
             app:layout="@layout/settings_preference"
         />
 
@@ -25,7 +25,7 @@
             android:key="hud_editor"
             android:summary="@string/opt_hudEditor_summary"
             android:title="@string/opt_hudEditor_title"
-            app:layout="@layout/settings_preference"
+            app:layout="@layout/settings_preference_bottom"
         />
 
         <com.reco1l.osu.ui.SelectPreference
@@ -38,15 +38,6 @@
         />
 
 
-
-        <CheckBoxPreference
-            android:defaultValue="false"
-            android:key="skin"
-            android:summary="@string/opt_skin_summary"
-            android:title="@string/opt_skin_title"
-            app:layout="@layout/settings_preference_checkbox_bottom"
-        />
-
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/opt_category_cursor">
@@ -54,8 +45,8 @@
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="showcursor"
-            android:summary="@string/opt_showcursor_summary"
-            android:title="@string/opt_showcursor_title"
+            android:summary="@string/droidplus_show_cursor_summary"
+            android:title="@string/droidplus_show_cursor_title"
             app:layout="@layout/settings_preference_checkbox"
         />
 
@@ -75,9 +66,8 @@
             android:key="particles"
             android:summary="@string/opt_particles_summary"
             android:title="@string/opt_particles_title"
-            app:layout="@layout/settings_preference"
+            app:layout="@layout/settings_preference_bottom"
         />
-
 
 
     </PreferenceCategory>

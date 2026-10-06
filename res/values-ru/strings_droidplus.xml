@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+<!--
+    Русские переводы для настроек osu!droid+.
+    Применяются автоматически, когда в настройках выбран русский язык
+    (appLanguage = Русский, механизм AppCompatDelegate.setApplicationLocales).
+    Ключи дублируют литеральные строки из res/xml/*.xml — так переводы
+    подхватываются без правки самих XML настроек.
+-->
+
+    <!-- ══════════ Таб osu!droid+ (settings_osudroidplus.xml) ══════════ -->
+
+    <!-- Frame Rate & Performance -->
+    <string name="droidplus_cat_performance">Частота кадров и производительность</string>
+    <string name="droidplus_enhanced_animations_title">Улучшенные анимации</string>
+    <string name="droidplus_enhanced_animations_summary">Более плавные переходы интерфейса за счёт улучшенного сглаживания и контроля скорости</string>
+    <string name="droidplus_animation_speed_title">Скорость анимаций</string>
+    <string name="droidplus_animation_speed_summary">Множитель длительности анимаций (100 — обычная, 200 — в 2 раза медленнее/плавнее)</string>
+    <string name="droidplus_animation_easing_title">Тип сглаживания анимаций</string>
+    <string name="droidplus_animation_easing_summary">Кривая сглаживания для анимаций интерфейса</string>
+    <string name="droidplus_smooth_transitions_title">Плавные переходы</string>
+    <string name="droidplus_smooth_transitions_summary">Интерполяция между сценами для бесшовных переходов</string>
+    <string name="droidplus_menu_animations_title">Анимации меню</string>
+    <string name="droidplus_menu_animations_summary">Улучшает переходы в выборе песни, настройках и панели результатов</string>
+    <string name="droidplus_frame_limiter_title">Ограничитель частоты кадров</string>
+    <string name="droidplus_frame_limiter_summary">Контролирует частоту кадров для баланса производительности и заряда батареи</string>
+    <string name="droidplus_custom_fps_title">Своя частота кадров</string>
+    <string name="droidplus_custom_fps_summary">Задаёт свой лимит FPS (мин. 10, используется только когда ограничитель — «Без ограничения»)</string>
+    <string name="droidplus_force_max_refresh_title">Принудительно максимальная частота экрана</string>
+    <string name="droidplus_force_max_refresh_summary">Принудительно использует максимальную частоту обновления экрана, в том числе при записи экрана</string>
+
+    <!-- Gameplay Extras -->
+    <string name="droidplus_cat_gameplay_extras">Дополнительно (геймплей)</string>
+    <string name="droidplus_unrestricted_mods_title">Моды без ограничений</string>
+    <string name="droidplus_unrestricted_mods_summary">Разрешает выбирать любые моды независимо от совместимости</string>
+    <string name="droidplus_break_countdown_title">Отсчёт перед брейком</string>
+    <string name="droidplus_break_countdown_summary">Показывать отсчёт во время пауз между объектами</string>
+
+    <!-- Kiai Effects -->
+    <string name="droidplus_cat_kiai">Эффекты киая</string>
+    <string name="droidplus_kiai_particles_title">Частицы киая</string>
+    <string name="droidplus_kiai_particles_summary">Показывать звёздные частицы во время киая</string>
+    <string name="droidplus_kiai_flash_title">Вспышка киая</string>
+    <string name="droidplus_kiai_flash_summary">Показывать белую вспышку в начале киая</string>
+    <string name="droidplus_hit_circle_pulse_title">Пульс кружков</string>
+    <string name="droidplus_hit_circle_pulse_summary">Пульсация кружков в ритм во время киая</string>
+    <string name="droidplus_menu_kiai_flash_title">Вспышка киая в меню</string>
+    <string name="droidplus_menu_kiai_flash_summary">Показывать пульс бита в меню выбора песни</string>
+
+    <!-- Particles & Visual Effects -->
+    <string name="droidplus_cat_particles">Частицы и визуальные эффекты</string>
+    <string name="droidplus_parallax_title">Параллакс фона</string>
+    <string name="droidplus_parallax_summary">Фон смещается за курсором, создавая эффект глубины</string>
+    <string name="droidplus_triangles_title">Треугольники</string>
+    <string name="droidplus_triangles_summary">Показывать парящие частицы-треугольники</string>
+    <string name="droidplus_triangle_size_title">Размер треугольников</string>
+    <string name="droidplus_triangle_size_summary">Размер парящих треугольников в меню песен</string>
+    <string name="droidplus_triangle_count_title">Количество треугольников</string>
+    <string name="droidplus_triangle_count_summary">Максимальное число треугольников на экране</string>
+    <string name="droidplus_particle_shape_title">Форма частиц</string>
+    <string name="droidplus_particle_shape_summary">Выберите форму парящих частиц</string>
+    <string name="droidplus_particle_direction_title">Направление частиц</string>
+    <string name="droidplus_particle_direction_summary">Выберите направление движения частиц</string>
+    <string name="droidplus_particle_rotation_title">Вращение частиц</string>
+    <string name="droidplus_particle_rotation_summary">ВКЛ — частицы вращаются при движении. ВЫКЛ — летят прямо.</string>
+    <string name="droidplus_snowfall_title">Эффект снегопада</string>
+    <string name="droidplus_snowfall_summary">Показывать падающие снежинки в главном меню</string>
+
+    <!-- Cursor Enhancements -->
+    <string name="droidplus_cat_cursor">Улучшения курсора</string>
+    <string name="droidplus_trail_implementation_title">Стиль следа курсора</string>
+    <string name="droidplus_trail_implementation_summary">Выбор между обычным и длинным следом курсора</string>
+    <string name="droidplus_trail_length_title">Длина следа</string>
+    <string name="droidplus_trail_length_summary">Какой длины след (только длинный след)</string>
+    <string name="droidplus_trail_size_title">Размер следа (длинный)</string>
+    <string name="droidplus_trail_size_summary">Масштаб точек следа (100 = размер курсора). Только длинный след.</string>
+    <string name="droidplus_trail_width_title">Ширина следа (длинный)</string>
+    <string name="droidplus_trail_width_summary">Множитель ширины точек следа. Только длинный след.</string>
+    <string name="droidplus_trail_fast_removal_title">Быстрое исчезновение (длинный)</string>
+    <string name="droidplus_trail_fast_removal_summary">ВКЛ — след тает как в danser: чем больше точек, тем быстрее исчезает. ВЫКЛ — каждая точка живёт ровно время из «Время затухания следа», след не укорачивается на средних движениях.</string>
+    <string name="droidplus_trail_fade_time_title">Время затухания следа (длинный)</string>
+    <string name="droidplus_trail_fade_time_summary">Время полного исчезновения следа после остановки курсора (0.01 с: 200 = 2 с). Используется при выключенном «Быстром исчезновении». Только длинный след.</string>
+    <string name="droidplus_trail_delay_title">Задержка следа</string>
+    <string name="droidplus_trail_delay_summary">ВКЛ — след появляется после короткой задержки (1 с). ВЫКЛ — появляется мгновенно.</string>
+
+    <!-- Audio Extras -->
+    <string name="droidplus_cat_audio">Дополнительно (звук)</string>
+    <string name="droidplus_heartbeat_volume_title">Громкость сердцебиения</string>
+    <string name="droidplus_heartbeat_volume_summary">Громкость звука сердцебиения в главном меню</string>
+
+    <!-- ══════════ Таб Movements (settings_movements.xml) ══════════ -->
+
+    <!-- ══════════ Таб Plugins (settings_plugins.xml) ══════════ -->
+
+    <!-- ══════════ Graphics: экспорт скина ══════════ -->
+
+    <!-- ══════════ Gameplay: цвета комбо ══════════ -->
+
+    <!-- ══════════ Input: notelock ══════════ -->
+
+    <!-- ══════════ Литеральные строки интерфейса (R.string) ══════════ -->
+
+    <!-- Kiai flash brightness (используется settings_osudroidplus.xml) -->
+    <string name="opt_kiai_flash_brightness_title">Яркость вспышки киая</string>
+    <string name="opt_kiai_flash_brightness_summary">Настройте яркость эффектов вспышки киая (5–100%)</string>
+
+    <!-- Manual submit -->
+    <string name="opt_manual_submit_title">Ручная отправка счёта</string>
+    <string name="opt_manual_submit_summary">Показывать кнопку ручной отправки счёта во время игры</string>
+
+    <!-- Server -->
+    <string name="opt_server_title">Открыть сайт сервера</string>
+    <string name="opt_server_summary">Перейти на сайт сервера osu!droid+</string>
+
+    <!-- Language (settings_general.xml) -->
+    <string name="opt_language_title">Язык</string>
+    <string name="opt_language_summary">Сменить язык игры. Требуется перезапуск.</string>
+
+    <!-- High precision input (settings_input.xml) -->
+    <string name="opt_highPrecisionInput_title">Высокоточный ввод</string>
+    <string name="opt_highPrecisionInput_summary">Использует больше сэмплов касаний для более точного тайминга попаданий и движения курсора. Может увеличить расход батареи и снизить производительность на слабых устройствах</string>
+
+    <!-- Offset calibration -->
+    <string name="opt_offset_calibration_title">Калибровка оффсета</string>
+    <string name="opt_offset_calibration_summary">Постучите в ритм метронома, чтобы измерить задержку звука устройства</string>
+    <string name="opt_offset_calibration_tap_hint">СТУЧИТЕ В РИТМ БИТА</string>
+    <string name="opt_offset_calibration_calibration">КАЛИБРОВКА</string>
+    <string name="opt_offset_calibration_offset">ОФФСЕТ</string>
+    <string name="opt_offset_calibration_reset">СБРОС</string>
+    <string name="opt_offset_calibration_set">ПРИМЕНИТЬ</string>
+    <string name="opt_offset_calibration_settings">НАСТРОЙКИ</string>
+    <string name="opt_offset_calibration_judgement_perfect">ИДЕАЛЬНО</string>
+    <string name="opt_offset_calibration_judgement_good">ХОРОШО</string>
+    <string name="opt_offset_calibration_judgement_meh">СПОКОЙНО</string>
+    <string name="opt_offset_calibration_judgement_miss">ПРОМАХ</string>
+    <string name="opt_offset_calibration_streak">Продолжайте! %sx комбо</string>
+    <string name="opt_offset_calibration_streak_combo">%sx комбо</string>
+    <string name="opt_offset_calibration_feedback_perfect">Идеально!</string>
+    <string name="opt_offset_calibration_feedback_late">Поздно</string>
+    <string name="opt_offset_calibration_feedback_early">Рано</string>
+    <string name="opt_offset_calibration_feedback_tap_count">тапов</string>
+
+    <!-- Multi-window alert -->
+    <string name="multi_mode_window_alert_title">Режим нескольких окон</string>
+    <string name="multi_mode_window_alert_message">osu!droid не поддерживает режим нескольких окон. Вернитесь в однооконный режим, чтобы продолжить игру.</string>
+
+    <!-- Settings search -->
+    <string name="menu_search_settings">Настройки</string>
+
+    <!-- ══════════ Сервер (таб osu!droid+) ══════════ -->
+    <string name="droidplus_cat_server">Сервер</string>
+
+    <!-- ══════════ Скин: экспорт ══════════ -->
+    <string name="droidplus_export_skin_title">Экспорт скина (.osk)</string>
+    <string name="droidplus_export_skin_summary">Экспортировать текущий скин в файл .osk</string>
+
+    <!-- ══════════ Цвета комбо ══════════ -->
+    <string name="droidplus_combo1">Комбо 1</string>
+    <string name="droidplus_combo2">Комбо 2</string>
+    <string name="droidplus_combo3">Комбо 3</string>
+    <string name="droidplus_combo4">Комбо 4</string>
+
+    <!-- ══════════ Ввод: нотлок ══════════ -->
+    <string name="droidplus_remove_notelock_title">Отключить нотлок</string>
+    <string name="droidplus_remove_notelock_summary">Позволяет попадать по объектам в любом порядке (множитель очков 0.80x)</string>
+
+    <!-- ══════════ Таб Movements (settings_movements.xml) ══════════ -->
+
+    <string name="movements_cat_type">Тип движения</string>
+    <string name="movements_type_title">Тип движения</string>
+    <string name="movements_type_summary">Стиль движения курсора автоплея</string>
+    <string name="opt_removeSliderLock_title">Отключить нотлок</string>
+    <string name="opt_removeSliderLock_summary">Позволяет бить любые объекты независимо от порядка (множитель очков 0.80x)</string>
+    <string name="combo_color_1">Цвет комбо 1</string>
+    <string name="combo_color_2">Цвет комбо 2</string>
+    <string name="combo_color_3">Цвет комбо 3</string>
+    <string name="combo_color_4">Цвет комбо 4</string>
+
+    <string name="movements_cat_linear">Линейный</string>
+    <string name="movements_linear_wait_preempt_title">Ждать приближения</string>
+    <string name="movements_linear_wait_preempt_summary">Курсор ждёт, пока объект приблизится к экрану, и только потом двигается</string>
+    <string name="movements_linear_reaction_title">Время реакции (мс)</string>
+    <string name="movements_linear_reaction_summary">Насколько поздно курсор начинает движение при включённом «Ждать приближения»</string>
+    <string name="movements_linear_choppy_title">Рваные длинные объекты</string>
+    <string name="movements_linear_choppy_summary">Следовать по слайдерам шагами 60fps вместо плавной интерполяции</string>
+
+    <string name="movements_cat_bezier">Безье</string>
+    <string name="movements_bezier_aggressiveness_title">Агрессивность</string>
+    <string name="movements_bezier_aggressiveness_summary">Насколько энергичным будет движение между объектами</string>
+
+    <string name="movements_cat_flower">Flower (смещение угла)</string>
+    <string name="movements_flower_angle_offset_title">Смещение угла (°)</string>
+    <string name="movements_flower_angle_offset_summary">Базовое смещение угла, применяемое к движению</string>
+    <string name="movements_flower_distance_mult_title">Множитель дистанции</string>
+    <string name="movements_flower_distance_mult_summary">Дистанция контрольной точки движения (100 = 1.00x)</string>
+    <string name="movements_flower_stream_angle_offset_title">Смещение угла стрима (°)</string>
+    <string name="movements_flower_stream_angle_offset_summary">Смещение угла, используемое во время стримов</string>
+    <string name="movements_flower_long_jump_title">Длинный прыжок (мс)</string>
+    <string name="movements_flower_long_jump_summary">Порог по дельте времени для срабатывания длинного прыжка (-1 = выкл)</string>
+    <string name="movements_flower_long_jump_mult_title">Множитель длинного прыжка</string>
+    <string name="movements_flower_long_jump_mult_summary">Множитель дистанции при срабатывании длинного прыжка (100 = 1.00x)</string>
+    <string name="movements_flower_long_jump_equal_title">Прыжок при равной позиции</string>
+    <string name="movements_flower_long_jump_equal_summary">Применять длинный прыжок даже для стакнутых объектов</string>
+
+    <string name="movements_cat_circular">Circular (полукруг)</string>
+    <string name="movements_circular_radius_title">Множитель радиуса</string>
+    <string name="movements_circular_radius_summary">Размер дуги полукруга (100 = 1.00x)</string>
+    <string name="movements_circular_stream_trigger_title">Порог стрима (мс)</string>
+    <string name="movements_circular_stream_trigger_summary">Время, ниже которого направление дуги инвертируется (стримы)</string>
+
+    <string name="movements_cat_spline">Сплайн</string>
+    <string name="movements_spline_rotational_title">Вращательная сила</string>
+    <string name="movements_spline_rotational_summary">Чередовать направление вращения на больших прыжках между стримами</string>
+    <string name="movements_spline_half_circle_title">Полукруг на стримах</string>
+    <string name="movements_spline_half_circle_summary">Рисовать дуги-полукруги во время стримов</string>
+    <string name="movements_spline_wobble_title">Покачивание на стримах</string>
+    <string name="movements_spline_wobble_summary">Покачивать курсор во время стримов</string>
+    <string name="movements_spline_wobble_scale_title">Амплитуда покачивания</string>
+    <string name="movements_spline_wobble_scale_summary">Амплитуда покачивания (100 = 1.00x)</string>
+
+    <string name="movements_cat_momentum">Momentum (инерция)</string>
+    <string name="movements_momentum_skip_stack_title">Игнорировать стак-углы</string>
+    <string name="movements_momentum_skip_stack_summary">Использовать сырые позиции вместо стакнутых для расчёта углов</string>
+    <string name="movements_momentum_stream_restrict_title">Ограничение на стримах</string>
+    <string name="movements_momentum_stream_restrict_summary">Особая обработка стримов в Momentum</string>
+    <string name="movements_momentum_stream_mult_title">Множитель стрима</string>
+    <string name="movements_momentum_stream_mult_summary">Множитель дистанции во время стримов (100 = 1.00x)</string>
+    <string name="movements_momentum_duration_trigger_title">Порог длительности (мс)</string>
+    <string name="movements_momentum_duration_trigger_summary">Длина промежутка, включающая множитель длительности</string>
+    <string name="movements_momentum_duration_mult_title">Множитель длительности</string>
+    <string name="movements_momentum_duration_mult_summary">Дополнительный множитель дистанции на длинных промежутках (100 = 1.00x)</string>
+    <string name="movements_momentum_restrict_angle_title">Угол ограничения (°)</string>
+    <string name="movements_momentum_restrict_angle_summary">Ограничение угла при выходе из стрима</string>
+    <string name="movements_momentum_restrict_area_title">Зона ограничения (°)</string>
+    <string name="movements_momentum_restrict_area_summary">Угловая зона, в которой действует ограничение</string>
+    <string name="movements_momentum_restrict_invert_title">Инвертировать ограничение</string>
+    <string name="movements_momentum_restrict_invert_summary">Инвертировать сторону ограничения</string>
+    <string name="movements_momentum_distance_in_title">Множитель дистанции (внутри)</string>
+    <string name="movements_momentum_distance_in_summary">Дистанция контрольной точки внутри зоны ограничения (100 = 1.00x)</string>
+    <string name="movements_momentum_distance_out_title">Множитель дистанции (снаружи)</string>
+    <string name="movements_momentum_distance_out_summary">Дистанция контрольной точки вне зоны ограничения (100 = 1.00x)</string>
+
+    <string name="movements_cat_exgon">ExGon</string>
+    <string name="movements_exgon_delay_title">Задержка (мс)</string>
+    <string name="movements_exgon_delay_summary">Как часто курсор прыгает в новую случайную позицию</string>
+
+    <string name="movements_cat_pippi">Pippi (покачивание osu!pippi)</string>
+    <string name="movements_pippi_rotation_speed_title">Скорость вращения</string>
+    <string name="movements_pippi_rotation_speed_summary">Скорость вращения покачивания (100 = 1.0x)</string>
+    <string name="movements_pippi_radius_title">Множитель радиуса</string>
+    <string name="movements_pippi_radius_summary">Радиус покачивания относительно радиуса кружка (100 = 1.00x)</string>
+    <string name="movements_pippi_spinner_radius_title">Радиус спиннера (osu!px)</string>
+    <string name="movements_pippi_spinner_radius_summary">Радиус покачивания вокруг спиннеров</string>
+
+    <string name="movements_cat_spinner">Движение спиннера</string>
+    <string name="movements_spinner_shape_title">Форма спиннера</string>
+    <string name="movements_spinner_shape_summary">Траектория курсора при вращении (муверы спиннеров danser-go)</string>
+    <string name="movements_spinner_radius_title">Радиус спиннера (osu!px)</string>
+    <string name="movements_spinner_radius_summary">Размер формы движения спиннера</string>
+
+    <string name="movements_cat_reset">Сброс</string>
+    <string name="movements_reset_title">Сбросить все настройки движения</string>
+    <string name="movements_reset_summary">Возвращает все параметры движения к значениям danser-go</string>
+
+    <!-- ══════════ Таб Plugins (settings_plugins.xml) ══════════ -->
+
+    <string name="plugins_cat_system">Система плагинов</string>
+    <string name="plugins_enable_title">Включить плагины</string>
+    <string name="plugins_enable_summary">Загружать и запускать .lua плагины из osu!droid/Plugins/</string>
+    <string name="plugins_reload_title">Перезагрузить плагины</string>
+    <string name="plugins_reload_summary">Искать новые плагины без перезапуска игры</string>
+    <string name="plugins_cat_loaded">Загруженные плагины</string>
+    <string name="plugins_list_title">Список плагинов</string>
+    <string name="plugins_list_summary">Положите .lua файлы в папку plugins/, чтобы загрузить их</string>
+
+    <!-- Строки, которых нет в опубликованном language-pack AAR (есть только в локальном
+         исходнике language-pack). Держим здесь, чтобы линковка ресурсов проходила. -->
+    <string name="opt_hide_replay_settings_panel_title">Скрыть панель настроек реплея</string>
+    <string name="opt_hide_replay_settings_panel_summary">Скрывает кнопку Settings (настройки Playback, Visual settings) при просмотре реплея</string>
+
+    <!-- ══════════ Аудиовизуализатор (главное меню) ══════════ -->
+
+    <string name="droidplus_cat_visualizer">Аудиовизуализатор</string>
+    <string name="droidplus_visualizer_enabled_title">Включить визуализатор</string>
+    <string name="droidplus_visualizer_enabled_summary">Показывать реактивный спектр вокруг логотипа в меню</string>
+    <string name="droidplus_visualizer_intensity_title">Чувствительность</string>
+    <string name="droidplus_visualizer_intensity_summary">Общее усиление спектра. 100 — по умолчанию</string>
+    <string name="droidplus_visualizer_rotation_title">Скорость вращения</string>
+    <string name="droidplus_visualizer_rotation_summary">Как быстро бары вращаются вокруг логотипа, в барах за сэмпл. 0 — отключить вращение</string>
+    <string name="droidplus_visualizer_decay_title">Скорость затухания</string>
+    <string name="droidplus_visualizer_decay_summary">Как быстро бары опадают. Выше — резче, ниже — плавнее шлейфы. 100 — по умолчанию</string>
+    <string name="droidplus_visualizer_update_rate_title">Интервал сэмплирования</string>
+    <string name="droidplus_visualizer_update_rate_summary">Как часто опрашивается спектр, в миллисекундах. Ниже — живее реакция</string>
+    <string name="droidplus_visualizer_kiai_dim_title">Усиление только в киаи</string>
+    <string name="droidplus_visualizer_kiai_dim_summary">Ослаблять бары вне киаи (как в osu! PC). Выкл — реагировать на весь трек</string>
+
+    <!-- ══════════ Курсор (таб Graphics, категория Cursor) ══════════ -->
+
+    <string name="droidplus_show_cursor_title">Курсор</string>
+    <string name="droidplus_show_cursor_summary">Показывать курсор скина под пальцем — в игре и во всех сценах меню</string>
+
+    <!-- ══════════ Song menu (поисковая строка) ══════════ -->
+
+    <string name="menu_search_sort_source">Источник</string>
+    <string name="menu_search_upstream_db">Апстрим</string>
+    <string name="upstream_db_imported">База карт загружена из апстрима!</string>
+    <string name="upstream_db_not_found">База апстрима не найдена, сканирование папок...</string>
+
+</resources>

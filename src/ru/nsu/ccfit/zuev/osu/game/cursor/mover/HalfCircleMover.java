@@ -34,10 +34,9 @@ public class HalfCircleMover extends BaseMover implements CursorMover {
         Vector2f startV = new Vector2f(startPos);
         Vector2f endV = new Vector2f(endPos);
 
-        // StreamTrigger from config - default 130f
-        float streamTrigger = 130f;
-        // RadiusMultiplier from config - default 1.0f
-        float radiusMultiplier = 1.0f;
+        // danser-go circular settings (dance.go: circular)
+        float streamTrigger = MoverSettings.getCircularStreamTrigger();
+        float radiusMultiplier = MoverSettings.getCircularRadiusMultiplier();
 
         if (streamTrigger < 0 || (endTime - startTime) < streamTrigger) {
             invert = -1f * invert;

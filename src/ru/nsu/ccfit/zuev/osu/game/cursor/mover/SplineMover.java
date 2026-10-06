@@ -47,6 +47,12 @@ public class SplineMover extends BaseMover implements SliderAwareMover {
         List<Vector2f> splinePoints = new ArrayList<>();
         List<Float> splineTiming = new ArrayList<>();
 
+        // danser-go spline settings (dance.go: spline)
+        rotationalForce = MoverSettings.getSplineRotationalForce();
+        streamHalfCircle = MoverSettings.getSplineStreamHalfCircle();
+        streamWobble = MoverSettings.getSplineStreamWobble();
+        wobbleScale = MoverSettings.getSplineWobbleScale();
+
         angle = 0;
         stream = false;
 
@@ -245,8 +251,8 @@ public class SplineMover extends BaseMover implements SliderAwareMover {
         timings.add(ctx.endTime);
 
         processBatch(points, timings,
-                ctx.startIsSlider, ctx.startAngle,
-                ctx.endIsSlider, ctx.endAngle);
+                ctx.startIsSlider || ctx.startIsSpinner, ctx.startAngle,
+                ctx.endIsSlider || ctx.endIsSpinner, ctx.endAngle);
 
         lastStartPos = startV;
     }

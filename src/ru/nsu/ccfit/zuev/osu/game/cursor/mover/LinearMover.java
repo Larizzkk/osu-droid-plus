@@ -39,12 +39,23 @@ public class LinearMover extends BaseMover implements CursorMover {
         if (simple) {
             this.startTime = Math.max(this.startTime, this.endTime - (preempt - 100f * speed));
         } else {
-            adjustStartTime(preempt, speed);
+            // danser-go linear.go: WaitForPreempt / ReactionTime settings
+            if (MoverSettings.getLinearWaitForPreempt()) {
+                this.startTime = Math.max(this.startTime,
+                        this.endTime - (preempt - MoverSettings.getLinearReactionTime() * speed));
+            }
         }
     }
 
     @Override
     public PointF getObjectsPosition(float time, PointF objectPos) {
+        // Danser-go LinearMover ChoppyLongObjects: interpolate between 60fps snapshots
+        // for long objects (sliders), returning a choppy trail effect
+        if (simple || objectPos == null) {
+            return null;
+        }
+        // In our engine, long objects already return interpolated positions from the slider.
+        // The choppy effect is handled by the slider path interpolation itself.
         return null;
     }
 

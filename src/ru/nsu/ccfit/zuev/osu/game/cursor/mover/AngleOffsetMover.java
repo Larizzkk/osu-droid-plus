@@ -20,6 +20,16 @@ public class AngleOffsetMover extends BaseMover implements SliderAwareMover {
     private float longJumpMult = 0.7f;
     private boolean longJumpOnEqualPos = false;
 
+    private void loadSettings() {
+        // danser-go flower settings (dance.go: flower)
+        angleOffset = MoverSettings.getFlowerAngleOffset();
+        distanceMult = MoverSettings.getFlowerDistanceMult();
+        streamAngleOffset = MoverSettings.getFlowerStreamAngleOffset();
+        longJump = MoverSettings.getFlowerLongJump();
+        longJumpMult = MoverSettings.getFlowerLongJumpMult();
+        longJumpOnEqualPos = MoverSettings.getFlowerLongJumpOnEqualPos();
+    }
+
     public AngleOffsetMover() {
     }
 
@@ -36,6 +46,7 @@ public class AngleOffsetMover extends BaseMover implements SliderAwareMover {
     public void setMovement(SliderMovementContext ctx) {
         this.startTime = ctx.startTime;
         this.endTime = ctx.endTime;
+        loadSettings();
 
         Vector2f vStart = new Vector2f(ctx.startPos);
         Vector2f vEnd = new Vector2f(ctx.endPos);
@@ -52,19 +63,23 @@ public class AngleOffsetMover extends BaseMover implements SliderAwareMover {
 
         Vector2f[] points;
 
+        // danser-go ILongObject: sliders AND spinners provide boundary angles.
+        boolean startLong = ctx.startIsSlider || ctx.startIsSpinner;
+        boolean endLong = ctx.endIsSlider || ctx.endIsSpinner;
+
         if (vStart.equals(vEnd)) {
             if (longJumpOnEqualPos) {
                 scaledDistance = timeDelta * longJumpMult;
                 lastAngle += (float) Math.PI;
 
                 Vector2f pt1;
-                if (ctx.startIsSlider) {
+                if (startLong) {
                     pt1 = Vector2f.NewVec2fRad(ctx.startAngle, scaledDistance).add(vStart);
                 } else {
                     pt1 = Vector2f.NewVec2fRad(lastAngle, scaledDistance).add(vStart);
                 }
 
-                if (!ctx.endIsSlider) {
+                if (!endLong) {
                     float angle = lastAngle - newAngle * invert;
                     Vector2f pt2 = Vector2f.NewVec2fRad(angle, scaledDistance).add(vEnd);
                     lastAngle = angle;
@@ -76,14 +91,14 @@ public class AngleOffsetMover extends BaseMover implements SliderAwareMover {
             } else {
                 points = new Vector2f[]{vStart, vEnd};
             }
-        } else if (ctx.startIsSlider && ctx.endIsSlider) {
+        } else if (startLong && endLong) {
             invert *= -1;
 
             Vector2f pt1 = Vector2f.NewVec2fRad(ctx.startAngle, scaledDistance).add(vStart);
             Vector2f pt2 = Vector2f.NewVec2fRad(ctx.endAngle, scaledDistance).add(vEnd);
 
             points = new Vector2f[]{vStart, pt1, pt2, vEnd};
-        } else if (ctx.startIsSlider) {
+        } else if (startLong) {
             invert *= -1;
             lastAngle = vStart.angleRV(vEnd) - newAngle * invert;
 
@@ -91,7 +106,7 @@ public class AngleOffsetMover extends BaseMover implements SliderAwareMover {
             Vector2f pt2 = Vector2f.NewVec2fRad(lastAngle, scaledDistance).add(vEnd);
 
             points = new Vector2f[]{vStart, pt1, pt2, vEnd};
-        } else if (ctx.endIsSlider) {
+        } else if (endLong) {
             lastAngle += (float) Math.PI;
 
             Vector2f pt1 = Vector2f.NewVec2fRad(lastAngle, scaledDistance).add(vStart);

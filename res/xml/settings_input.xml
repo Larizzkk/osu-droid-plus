@@ -35,8 +35,8 @@
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="removeSliderLock"
-            android:title="Disable notelock"
-            android:summary="Allow hitting any object regardless of order (0.80x score multiplier)"
+            android:title="@string/opt_removeSliderLock_title"
+            android:summary="@string/opt_removeSliderLock_summary"
             app:layout="@layout/settings_preference_checkbox_bottom"
         />
 

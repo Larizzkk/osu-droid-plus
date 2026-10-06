@@ -4,14 +4,33 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
 >
 
-    <PreferenceCategory android:title="Loaded Plugins">
+    <PreferenceCategory android:title="@string/plugins_cat_system">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="pluginsEnabled"
+            android:title="@string/plugins_enable_title"
+            android:summary="@string/plugins_enable_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <Preference
+            android:key="pluginReload"
+            android:title="@string/plugins_reload_title"
+            android:summary="@string/plugins_reload_summary"
+            app:layout="@layout/settings_preference_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/plugins_cat_loaded">
 
         <Preference
             android:key="plugins_info"
-            android:title="Plugin System"
-            android:summary="Drop .lua files into the plugins/ folder to load them"
+            android:title="@string/plugins_list_title"
+            android:summary="@string/plugins_list_summary"
             android:selectable="false"
-            app:layout="@layout/settings_preference"
+            app:layout="@layout/settings_preference_bottom"
         />
 
         <!-- Plugin entries are added dynamically by handlePluginsSectionPreferences() -->

@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
+
+    <PreferenceCategory android:title="@string/movements_cat_type">
+
+        <ListPreference
+            android:key="autoplayStyle"
+            android:title="@string/movements_type_title"
+            android:summary="@string/movements_type_summary"
+            android:entries="@array/autoplay_movement_names"
+            android:entryValues="@array/autoplay_movement_values"
+            android:defaultValue="linear"
+            app:layout="@layout/settings_preference_bottom"
+        />
+
+
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_linear">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="linearWaitForPreempt"
+            android:title="@string/movements_linear_wait_preempt_title"
+            android:summary="@string/movements_linear_wait_preempt_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="linearReactionTime"
+            android:max="500"
+            android:min="10"
+            android:title="@string/movements_linear_reaction_title"
+            android:summary="@string/movements_linear_reaction_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="linearChoppyLongObjects"
+            android:title="@string/movements_linear_choppy_title"
+            android:summary="@string/movements_linear_choppy_summary"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_bezier">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="60"
+            android:key="bezierAggressiveness"
+            android:max="200"
+            android:min="1"
+            android:title="@string/movements_bezier_aggressiveness_title"
+            android:summary="@string/movements_bezier_aggressiveness_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_flower">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="90"
+            android:key="flowerAngleOffset"
+            android:max="360"
+            android:min="0"
+            android:title="@string/movements_flower_angle_offset_title"
+            android:summary="@string/movements_flower_angle_offset_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="67"
+            android:key="flowerDistanceMult"
+            android:max="300"
+            android:min="0"
+            android:title="@string/movements_flower_distance_mult_title"
+            android:summary="@string/movements_flower_distance_mult_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="90"
+            android:key="flowerStreamAngleOffset"
+            android:max="360"
+            android:min="0"
+            android:title="@string/movements_flower_stream_angle_offset_title"
+            android:summary="@string/movements_flower_stream_angle_offset_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="-1"
+            android:key="flowerLongJump"
+            android:max="1000"
+            android:min="-1"
+            android:title="@string/movements_flower_long_jump_title"
+            android:summary="@string/movements_flower_long_jump_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="70"
+            android:key="flowerLongJumpMult"
+            android:max="300"
+            android:min="0"
+            android:title="@string/movements_flower_long_jump_mult_title"
+            android:summary="@string/movements_flower_long_jump_mult_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="flowerLongJumpOnEqualPos"
+            android:title="@string/movements_flower_long_jump_equal_title"
+            android:summary="@string/movements_flower_long_jump_equal_summary"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_circular">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="circularRadiusMultiplier"
+            android:max="300"
+            android:min="10"
+            android:title="@string/movements_circular_radius_title"
+            android:summary="@string/movements_circular_radius_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="130"
+            android:key="circularStreamTrigger"
+            android:max="500"
+            android:min="0"
+            android:title="@string/movements_circular_stream_trigger_title"
+            android:summary="@string/movements_circular_stream_trigger_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_spline">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="splineRotationalForce"
+            android:title="@string/movements_spline_rotational_title"
+            android:summary="@string/movements_spline_rotational_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="splineStreamHalfCircle"
+            android:title="@string/movements_spline_half_circle_title"
+            android:summary="@string/movements_spline_half_circle_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="splineStreamWobble"
+            android:title="@string/movements_spline_wobble_title"
+            android:summary="@string/movements_spline_wobble_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="67"
+            android:key="splineWobbleScale"
+            android:max="200"
+            android:min="1"
+            android:title="@string/movements_spline_wobble_scale_title"
+            android:summary="@string/movements_spline_wobble_scale_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_momentum">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="momentumSkipStackAngles"
+            android:title="@string/movements_momentum_skip_stack_title"
+            android:summary="@string/movements_momentum_skip_stack_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="momentumStreamRestrict"
+            android:title="@string/movements_momentum_stream_restrict_title"
+            android:summary="@string/movements_momentum_stream_restrict_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="70"
+            android:key="momentumStreamMult"
+            android:max="1000"
+            android:min="-1000"
+            android:title="@string/movements_momentum_stream_mult_title"
+            android:summary="@string/movements_momentum_stream_mult_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="500"
+            android:key="momentumDurationTrigger"
+            android:max="4000"
+            android:min="0"
+            android:title="@string/movements_momentum_duration_trigger_title"
+            android:summary="@string/movements_momentum_duration_trigger_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="200"
+            android:key="momentumDurationMult"
+            android:max="800"
+            android:min="0"
+            android:title="@string/movements_momentum_duration_mult_title"
+            android:summary="@string/movements_momentum_duration_mult_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="90"
+            android:key="momentumRestrictAngle"
+            android:max="180"
+            android:min="0"
+            android:title="@string/movements_momentum_restrict_angle_title"
+            android:summary="@string/movements_momentum_restrict_angle_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="40"
+            android:key="momentumRestrictArea"
+            android:max="180"
+            android:min="0"
+            android:title="@string/movements_momentum_restrict_area_title"
+            android:summary="@string/movements_momentum_restrict_area_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="momentumRestrictInvert"
+            android:title="@string/movements_momentum_restrict_invert_title"
+            android:summary="@string/movements_momentum_restrict_invert_summary"
+            app:layout="@layout/settings_preference_checkbox"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="60"
+            android:key="momentumDistanceMult"
+            android:max="400"
+            android:min="-400"
+            android:title="@string/movements_momentum_distance_in_title"
+            android:summary="@string/movements_momentum_distance_in_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="45"
+            android:key="momentumDistanceMultOut"
+            android:max="400"
+            android:min="-400"
+            android:title="@string/movements_momentum_distance_out_title"
+            android:summary="@string/movements_momentum_distance_out_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_exgon">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="50"
+            android:key="exgonDelay"
+            android:max="500"
+            android:min="10"
+            android:title="@string/movements_exgon_delay_title"
+            android:summary="@string/movements_exgon_delay_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_pippi">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="160"
+            android:key="pippiRotationSpeed"
+            android:max="600"
+            android:min="10"
+            android:title="@string/movements_pippi_rotation_speed_title"
+            android:summary="@string/movements_pippi_rotation_speed_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="98"
+            android:key="pippiRadiusMultiplier"
+            android:max="100"
+            android:min="0"
+            android:title="@string/movements_pippi_radius_title"
+            android:summary="@string/movements_pippi_radius_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="pippiSpinnerRadius"
+            android:max="200"
+            android:min="0"
+            android:title="@string/movements_pippi_spinner_radius_title"
+            android:summary="@string/movements_pippi_spinner_radius_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_spinner">
+
+        <ListPreference
+            android:key="spinnerMover"
+            android:title="@string/movements_spinner_shape_title"
+            android:summary="@string/movements_spinner_shape_summary"
+            android:entries="@array/spinner_mover_names"
+            android:entryValues="@array/spinner_mover_values"
+            android:defaultValue="circle"
+            app:layout="@layout/settings_preference"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="spinnerRadius"
+            android:max="200"
+            android:min="10"
+            android:title="@string/movements_spinner_radius_title"
+            android:summary="@string/movements_spinner_radius_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/movements_cat_reset">
+
+        <Preference
+            android:key="resetMoverSettings"
+            android:title="@string/movements_reset_title"
+            android:summary="@string/movements_reset_summary"
+            app:layout="@layout/settings_preference_bottom"
+        />
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

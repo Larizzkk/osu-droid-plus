@@ -38,7 +38,7 @@
             android:title="@string/opt_offset_title"
             android:summary="@string/opt_offset_summary"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar"
+            app:layout="@layout/settings_preference_seekbar_bottom"
         />
 
         <Preference
@@ -49,6 +49,31 @@
 
     </PreferenceCategory>
 
+
+    <PreferenceCategory android:title="@string/droidplus_cat_audio">
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="20"
+            android:key="gameAudioSynchronizationThreshold"
+            app:min="0"
+            android:max="100"
+            android:title="@string/opt_gameAudioSynchronizationThreshold_title"
+            android:summary="@string/opt_gameAudioSynchronizationThreshold_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar"
+        />
+
+        <com.rian.osu.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="heartbeatVolume"
+            android:max="100"
+            android:title="@string/droidplus_heartbeat_volume_title"
+            android:summary="@string/droidplus_heartbeat_volume_summary"
+            app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+        />
+
+    </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/opt_category_effect">
 
@@ -86,7 +111,7 @@
             android:key="musicpreview"
             android:summary="@string/opt_musicpreview_summary"
             android:title="@string/opt_musicpreview_title"
-            app:layout="@layout/settings_preference_checkbox"
+            app:layout="@layout/settings_preference_checkbox_bottom"
         />
 
     </PreferenceCategory>

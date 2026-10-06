@@ -33,6 +33,20 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
     private boolean skipStackAngles = false;
     private boolean streamRestrict = true;
 
+    private void loadSettings() {
+        // danser-go momentum settings (dance.go: momentum)
+        skipStackAngles = MoverSettings.getMomentumSkipStackAngles();
+        streamRestrict = MoverSettings.getMomentumStreamRestrict();
+        streamMult = MoverSettings.getMomentumStreamMult();
+        durationMult = MoverSettings.getMomentumDurationMult();
+        durationTrigger = MoverSettings.getMomentumDurationTrigger();
+        restrictAngle = MoverSettings.getMomentumRestrictAngle();
+        restrictArea = MoverSettings.getMomentumRestrictArea();
+        restrictInvert = MoverSettings.getMomentumRestrictInvert();
+        distanceMult = MoverSettings.getMomentumDistanceMult();
+        distanceMultOut = MoverSettings.getMomentumDistanceMultOut();
+    }
+
     public MomentumMover() {
         last = Vector2f.NewVec2f(0, 0);
         first = true;
@@ -84,6 +98,7 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
     public void setMovement(SliderMovementContext ctx) {
         this.startTime = ctx.startTime;
         this.endTime = ctx.endTime;
+        loadSettings();
 
         Vector2f startV = new Vector2f(ctx.startPos);
         Vector2f endV = new Vector2f(ctx.endPos);
@@ -99,7 +114,7 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
         float a2;
         boolean fromLong = false;
 
-        if (ctx.endIsSlider) {
+        if (ctx.endIsSlider || ctx.endIsSpinner) {
             // danser: if objs[1] is ILongObject → a2 = its start angle, fromLong = true
             a2 = ctx.endAngle;
             fromLong = true;
@@ -166,7 +181,7 @@ public class MomentumMover extends BaseMover implements SliderAwareMover {
         wasStream = stream;
 
         float a1;
-        if (ctx.startIsSlider) {
+        if (ctx.startIsSlider || ctx.startIsSpinner) {
             a1 = ctx.startAngle;
         } else if (first) {
             a1 = a2 + (float) Math.PI;

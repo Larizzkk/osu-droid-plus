@@ -11,6 +11,8 @@ public class AggressiveMover extends BaseMover implements SliderAwareMover {
     private Bezier curve;
     private float lastAngle = 0;
 
+    // danser-go aggressive.go has NO tunable settings — the port is parameter-free.
+
     public AggressiveMover() {
     }
 
@@ -34,7 +36,9 @@ public class AggressiveMover extends BaseMover implements SliderAwareMover {
         float scaledDistance = ctx.endTime - ctx.startTime;
 
         float newAngle;
-        if (ctx.startIsSlider) {
+        // danser-go: start.(ILongObject) — sliders AND spinners provide the motion
+        // direction at their start; spinner segments carry that angle here.
+        if (ctx.startIsSlider || ctx.startIsSpinner) {
             newAngle = ctx.startAngle;
         } else {
             newAngle = lastAngle + (float) Math.PI;
@@ -46,10 +50,9 @@ public class AggressiveMover extends BaseMover implements SliderAwareMover {
             lastAngle = p1.angleRV(vEnd);
         }
 
-        if (ctx.startIsSlider && ctx.endIsSlider) {
-            Vector2f p2 = Vector2f.NewVec2fRad(ctx.endAngle, scaledDistance).add(vEnd);
-            curve = new Bezier(new Vector2f[]{vStart, p1, p2, vEnd}, false);
-        } else if (ctx.endIsSlider) {
+        if (ctx.endIsSlider || ctx.endIsSpinner) {
+            // danser-go: control point at scaledDistance along the long object's
+            // start angle (for a spinner: its exit motion direction).
             Vector2f p2 = Vector2f.NewVec2fRad(ctx.endAngle, scaledDistance).add(vEnd);
             curve = new Bezier(new Vector2f[]{vStart, p1, p2, vEnd}, false);
         } else {

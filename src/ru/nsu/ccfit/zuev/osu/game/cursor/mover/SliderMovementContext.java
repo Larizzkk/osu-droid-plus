@@ -27,10 +27,30 @@ public final class SliderMovementContext {
     public final float endAngle;
     public final float startDistance;
     public final float endDistance;
+    /**
+     * danser-go treats spinners as ILongObject too: movers get the spin motion
+     * direction and 10ms travel distance at the spinner's start/end exactly like
+     * for sliders. These flags mark that the angle/distance metadata comes from
+     * a spinner boundary (startAngle = motion direction into the spin, endAngle
+     * = the direction the spin leaves behind) rather than slider ball geometry.
+     */
+    public final boolean startIsSpinner;
+    public final boolean endIsSpinner;
 
     private SliderMovementContext(
             PointF startPos, PointF endPos, float startTime, float endTime,
             boolean startIsSlider, boolean endIsSlider,
+            float startAngle, float endAngle,
+            float startDistance, float endDistance) {
+        this(startPos, endPos, startTime, endTime,
+            startIsSlider, endIsSlider, false, false,
+            startAngle, endAngle, startDistance, endDistance);
+    }
+
+    private SliderMovementContext(
+            PointF startPos, PointF endPos, float startTime, float endTime,
+            boolean startIsSlider, boolean endIsSlider,
+            boolean startIsSpinner, boolean endIsSpinner,
             float startAngle, float endAngle,
             float startDistance, float endDistance) {
         this.startPos = startPos;
@@ -39,6 +59,8 @@ public final class SliderMovementContext {
         this.endTime = endTime;
         this.startIsSlider = startIsSlider;
         this.endIsSlider = endIsSlider;
+        this.startIsSpinner = startIsSpinner;
+        this.endIsSpinner = endIsSpinner;
         this.startAngle = startAngle;
         this.endAngle = endAngle;
         this.startDistance = startDistance;
@@ -66,6 +88,8 @@ public final class SliderMovementContext {
         private float endTime;
         private boolean startIsSlider;
         private boolean endIsSlider;
+        private boolean startIsSpinner;
+        private boolean endIsSpinner;
         private float startAngle;
         private float endAngle;
         private float startDistance;
@@ -101,6 +125,16 @@ public final class SliderMovementContext {
             return this;
         }
 
+        public Builder startIsSpinner(boolean v) {
+            this.startIsSpinner = v;
+            return this;
+        }
+
+        public Builder endIsSpinner(boolean v) {
+            this.endIsSpinner = v;
+            return this;
+        }
+
         public Builder startAngle(float a) {
             this.startAngle = a;
             return this;
@@ -125,6 +159,7 @@ public final class SliderMovementContext {
             return new SliderMovementContext(
                     startPos, endPos, startTime, endTime,
                     startIsSlider, endIsSlider,
+                    startIsSpinner, endIsSpinner,
                     startAngle, endAngle,
                     startDistance, endDistance
             );

@@ -40,6 +40,10 @@ public class BezierMover extends BaseMover implements SliderAwareMover {
     public void setMovement(SliderMovementContext ctx) {
         this.startTime = ctx.startTime;
         this.endTime = ctx.endTime;
+        // Read aggressiveness from settings on each segment so settings take effect immediately.
+        // SliderAggressiveness is the danser-go default (3) as a constant — slider settings removed.
+        this.aggressiveness = MoverSettings.getBezierAggressiveness();
+        this.sliderAggressiveness = 3.0f;
 
         Vector2f startV = new Vector2f(ctx.startPos);
         Vector2f endV = new Vector2f(ctx.endPos);
@@ -53,13 +57,18 @@ public class BezierMover extends BaseMover implements SliderAwareMover {
 
         Vector2f[] points;
 
+        // danser-go checks ILongObject: sliders AND spinners both provide
+        // start/end motion angles, so spinner boundaries take the same branches.
+        boolean startLong = ctx.startIsSlider || ctx.startIsSpinner;
+        boolean endLong = ctx.endIsSlider || ctx.endIsSpinner;
+
         if (startV.equals(endV)) {
             points = new Vector2f[]{startV, endV};
-        } else if (ctx.startIsSlider && ctx.endIsSlider) {
+        } else if (startLong && endLong) {
             Vector2f pt1 = Vector2f.NewVec2fRad(ctx.startAngle, ctx.startDistance * aggressiveness * sliderAggressiveness / 10f).add(startV);
             Vector2f pt2 = Vector2f.NewVec2fRad(ctx.endAngle, ctx.endDistance * aggressiveness * sliderAggressiveness / 10f).add(endV);
             points = new Vector2f[]{startV, pt1, pt2, endV};
-        } else if (ctx.startIsSlider) {
+        } else if (startLong) {
             Vector2f pt1 = Vector2f.NewVec2fRad(ctx.startAngle, ctx.startDistance * aggressiveness * sliderAggressiveness / 10f).add(startV);
             float angle = endV.angleRV(this.pt);
             if (Float.isNaN(angle)) {
@@ -67,7 +76,7 @@ public class BezierMover extends BaseMover implements SliderAwareMover {
             }
             this.pt = Vector2f.NewVec2fRad(angle, previousSpeed * aggressiveness).add(endV);
             points = new Vector2f[]{startV, pt1, this.pt, endV};
-        } else if (ctx.endIsSlider) {
+        } else if (endLong) {
             float angle = startV.angleRV(this.pt);
             if (Float.isNaN(angle)) {
                 angle = 0;
@@ -101,6 +110,10 @@ public class BezierMover extends BaseMover implements SliderAwareMover {
     @Override
     public void reset() {
         curve = null;
+        // NOTE: do NOT reset pt and previousSpeed here — they must persist across segments
+        // like danser-go where mover.pt carries over between SetObjects calls.
+        // pt is reset to center only on the VERY first segment (init()), not on each reset.
+        // Reset only for game restart.
         pt = Vector2f.NewVec2f(512f / 2f, 384f / 2f);
         previousSpeed = -1f;
         invert = 1f;

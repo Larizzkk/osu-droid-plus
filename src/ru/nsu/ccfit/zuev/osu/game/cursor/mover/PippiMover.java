@@ -54,6 +54,11 @@ public class PippiMover extends BaseMover implements CursorMover {
     }
 
     private Vector2f modifyPos(float time, boolean spinner, Vector2f pos) {
+        // danser-go pippi settings (dance.go: pippi)
+        rotationSpeed = MoverSettings.getPippiRotationSpeed();
+        radiusMultiplier = MoverSettings.getPippiRadiusMultiplier();
+        spinnerRadius = MoverSettings.getPippiSpinnerRadius();
+
         // rad = math.Mod(time/1000 * config.RotationSpeed, 1) * 2 * math.Pi
         double rad = ((time / 1000.0 * rotationSpeed) % 1.0) * 2.0 * Math.PI;
 
@@ -93,10 +98,14 @@ public class PippiMover extends BaseMover implements CursorMover {
         }
 
         // Intermediate points every 60fps frame
+        // danser-go order: lerp → modifyPos(wobble) → double-click blending
         for (float t = SIXTY_TIME; t < timeDifference; t += SIXTY_TIME) {
             float f = t / timeDifference;
 
             Vector2f basePos = startV.lerp(endV, f);
+
+            // Wobble is applied to the base lerp FIRST (before double-click)
+            basePos = modifyPos(adjustedStartTime + t, false, basePos);
 
             if (startDoubleClick) {
                 basePos = startV.lerp(basePos, f);
@@ -105,8 +114,6 @@ public class PippiMover extends BaseMover implements CursorMover {
             if (endDoubleClick) {
                 basePos = basePos.lerp(endV, f);
             }
-
-            basePos = modifyPos(adjustedStartTime + t, false, basePos);
 
             points.add(basePos);
         }
@@ -136,10 +143,16 @@ public class PippiMover extends BaseMover implements CursorMover {
 
     @Override
     public PointF getObjectsPosition(float time, PointF objectPos) {
-        // Danser-go PippiMover overrides GetObjectsPosition to return wobble positions
-        // during object hit windows instead of snapping to the object
+        // Danser-go PippiMover.GetObjectsPosition:
+        // if object is a double-click Circle → return stacked start position (no wobble)
+        // otherwise → apply modifyPos(time, isSpinner, basicMover.GetObjectsPosition(time, object))
+        if (startDoubleClick) {
+            // Double-click: return start position without wobble
+            return objectPos;
+        }
+        // Apply wobble to the actual object position at this time
         Vector2f pos = new Vector2f(objectPos);
-        return modifyPos(time, false, pos).toPointF();
+        return modifyPos(time, startIsSpinner, pos).toPointF();
     }
 
     @Override
