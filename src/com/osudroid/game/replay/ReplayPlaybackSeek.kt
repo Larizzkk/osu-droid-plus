@@ -98,10 +98,9 @@ class ReplayPlaybackSeek : UILinearContainer() {
         seekBar.control.min = minSeconds
         seekBar.control.max = maxSeconds
 
-        if (currentSeconds < minSeconds) {
-            seekBar.onControlValueChanged()
-        } else {
-            seekBar.value = currentSeconds.coerceAtMost(maxSeconds)
-        }
+        // Always keep the knob in sync, clamping to the valid range: before the first
+        // object (lead-in) currentSeconds is below minSeconds, and the ±1s/±10s buttons
+        // read seekBar.value as their seek source.
+        seekBar.value = currentSeconds.coerceIn(minSeconds, maxSeconds)
     }
 }
