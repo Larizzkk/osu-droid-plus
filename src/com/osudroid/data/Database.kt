@@ -74,6 +74,74 @@ object DatabaseManager {
 
     private lateinit var database: DroidDatabase
 
+    /**
+     * Imports song folders and beatmaps from the original upstream database file
+     * (e.g. room-release.db, room-debug.db, client.db) into this database.
+     * Falls back to scanning song directories if no upstream DB file is found.
+     *
+     * @return Number of beatmap sets after import, or -1 if fallback scanning was used.
+     */
+    @JvmStatic
+    fun importFromUpstreamDatabase(): Int {
+        val corePath = Config.getCorePath()
+        val dbDir = File(corePath, "databases")
+        val candidateNames = arrayOf(
+            "room-release.db",
+            "room-debug.db",
+            "client.db",
+            "osudroid.db"
+        )
+
+        var upstreamDbFile: File? = null
+        val currentPath = databasePath
+
+        if (dbDir.exists() && dbDir.isDirectory) {
+            for (name in candidateNames) {
+                val candidate = File(dbDir, name)
+                if (candidate.exists() && candidate.length() > 0 && candidate.absolutePath != currentPath) {
+                    upstreamDbFile = candidate
+                    break
+                }
+            }
+        }
+
+        if (upstreamDbFile == null) {
+            LibraryManager.scanDirectory(null)
+            LibraryManager.loadLibrary()
+            return -1
+        }
+
+        return try {
+            val writableDb = database.openHelper.writableDatabase
+            val escapedPath = upstreamDbFile.absolutePath.replace("'", "''")
+            writableDb.execSQL("ATTACH DATABASE '$escapedPath' AS upstream")
+            try {
+                writableDb.execSQL("INSERT OR IGNORE INTO BeatmapInfo SELECT * FROM upstream.BeatmapInfo")
+                try {
+                    writableDb.execSQL("INSERT OR IGNORE INTO BeatmapOptions SELECT * FROM upstream.BeatmapOptions")
+                } catch (e: Exception) {
+                    Log.w("DatabaseManager", "BeatmapOptions import skipped: ${e.message}")
+                }
+                try {
+                    writableDb.execSQL("INSERT OR IGNORE INTO BeatmapSetCollection SELECT * FROM upstream.BeatmapSetCollection")
+                    writableDb.execSQL("INSERT OR IGNORE INTO BeatmapSetCollection_BeatmapSetInfo SELECT * FROM upstream.BeatmapSetCollection_BeatmapSetInfo")
+                } catch (e: Exception) {
+                    Log.w("DatabaseManager", "Collections import skipped: ${e.message}")
+                }
+            } finally {
+                writableDb.execSQL("DETACH DATABASE upstream")
+            }
+
+            LibraryManager.loadLibrary()
+            beatmapInfoTable.getBeatmapSetList().size
+        } catch (e: Exception) {
+            Log.e("DatabaseManager", "Failed to attach upstream database $upstreamDbFile", e)
+            LibraryManager.scanDirectory(null)
+            LibraryManager.loadLibrary()
+            -1
+        }
+    }
+
 
     @JvmStatic
     fun load(context: Context) {

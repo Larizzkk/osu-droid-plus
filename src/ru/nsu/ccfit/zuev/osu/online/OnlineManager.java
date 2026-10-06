@@ -618,6 +618,40 @@ public class OnlineManager {
         return mapRank;
     }
 
+    /**
+     * Report player presence (online/offline/playing).
+     * Fire-and-forget: failures are silently ignored.
+     */
+    public void reportPresence(String status, String mapInfo) {
+        if (userId <= 0 || !stayOnline) return;
+        try {
+            JSONObject body = new JSONObject();
+            body.put("uid", userId);
+            body.put("status", status);
+            if (mapInfo != null) body.put("map", mapInfo);
+            RequestBody rb = RequestBody.create(
+                body.toString(),
+                MediaType.parse("application/json")
+            );
+            Request req = new Request.Builder()
+                .url("https://" + hostname + "/api/presence")
+                .post(rb)
+                .build();
+            client.newCall(req).enqueue(new okhttp3.Callback() {
+                @Override
+                public void onResponse(okhttp3.Call call, okhttp3.Response resp) {
+                    resp.close();
+                }
+                @Override
+                public void onFailure(okhttp3.Call call, IOException e) {
+                    // silently ignore
+                }
+            });
+        } catch (Exception e) {
+            // silently ignore
+        }
+    }
+
     public static class OnlineManagerException extends Exception {
 
         private static final long serialVersionUID = -5703212596292949401L;

@@ -79,7 +79,7 @@ public class ScoreBoardItem implements Cloneable {
         //noinspection DataFlowIssue
         if (
             Multiplayer.isConnected() &&
-            Multiplayer.room.getWinCondition() == WinCondition.HighestAccuracy
+            Multiplayer.room.getWinCondition() == WinCondition.Accuracy
         ) {
             accSb.setLength(0);
             text += DECIMAL_FORMAT.format("%2.2f%%", accuracy * 100f);

@@ -226,4 +226,7 @@ interface IScoreInfoDAO {
     @Query("SELECT EXISTS(SELECT 1 FROM ScoreInfo WHERE id = :id)")
     fun scoreExists(id: Long): Boolean
 
+    @Query("SELECT DISTINCT beatmapMD5 FROM ScoreInfo")
+    fun getAllPlayedBeatmapMD5s(): List<String>
+
 }

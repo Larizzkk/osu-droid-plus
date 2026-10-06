@@ -13,6 +13,7 @@ import org.anddev.andengine.util.Debug;
 import org.anddev.andengine.util.HorizontalAlign;
 import org.anddev.andengine.util.MathUtils;
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 
 public class OnlinePanel extends Entity {
@@ -27,6 +28,12 @@ public class OnlinePanel extends Entity {
     private final ChangeableText messageText, submessageText;
     private Sprite profileBanner = null;
     private Sprite avatar = null;
+
+    /**
+     * Banner URL whose download is already in flight, so repeated calls to
+     * {@link #setProfile} don't spawn duplicate downloads.
+     */
+    private String pendingBannerUrl = null;
 
     public OnlinePanel() {
         rect = new Rectangle(0, 0, 410, 110) {
@@ -259,9 +266,9 @@ public class OnlinePanel extends Entity {
                 );
 
             if (bannerTexture != null) {
-                profileBanner = new Sprite(0, 0, 410, 110, bannerTexture);
-                profileBanner.setColor(0.5f, 0.5f, 0.5f);
-                frontLayer.attachChild(profileBanner);
+                attachBanner(bannerTexture);
+            } else {
+                loadBanner(profileBannerUrl);
             }
         }
 
@@ -280,6 +287,58 @@ public class OnlinePanel extends Entity {
 
         avatar = new Sprite(0, 0, 110, 110, avatarTexture);
         frontLayer.attachChild(avatar);
+    }
+
+    private void attachBanner(final TextureRegion bannerTexture) {
+        profileBanner = new Sprite(0, 0, 410, 110, bannerTexture);
+        profileBanner.setColor(0.5f, 0.5f, 0.5f);
+        frontLayer.attachChild(profileBanner);
+    }
+
+    /**
+     * Downloads the profile banner in the background and attaches it once it
+     * reached the texture manager. The banner is served by the online backend
+     * ({@link OnlineManager#profileBannerEndpoint}), so it is never available
+     * synchronously when the panel is built right after login.
+     */
+    private void loadBanner(final String bannerUrl) {
+        if (bannerUrl.equals(pendingBannerUrl)) return;
+
+        pendingBannerUrl = bannerUrl;
+
+        Debug.i("Loading profile banner from " + bannerUrl);
+
+        new Thread(() -> {
+            OnlineManager.getInstance().loadProfileBannerToTextureManager(bannerUrl);
+
+            var texture =
+                ResourceManager.getInstance().getProfileBannerTextureIfLoaded(
+                    bannerUrl
+                );
+
+            if (texture == null) return;
+
+            GlobalManager
+                .getInstance()
+                .getMainActivity()
+                .runOnUpdateThread(() -> {
+                    pendingBannerUrl = null;
+
+                    // The user may have logged into another account, or logged out,
+                    // while the banner was downloading.
+                    if (
+                        !bannerUrl.equals(
+                            OnlineManager.getInstance().getProfileBannerURL()
+                        )
+                    ) {
+                        return;
+                    }
+
+                    if (profileBanner != null) profileBanner.detachSelf();
+
+                    attachBanner(texture);
+                });
+        }).start();
     }
 
     public void setAvatar() {

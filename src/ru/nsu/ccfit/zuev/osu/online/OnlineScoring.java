@@ -113,6 +113,7 @@ public class OnlineScoring {
                 if (success) {
                     updatePanels();
                     OnlineManager.getInstance().setStayOnline(true);
+                    OnlineManager.getInstance().reportPresence("online", null);
                     loadAvatar(true);
                 } else {
                     setPanelMessage(
