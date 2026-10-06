@@ -7,8 +7,7 @@ import org.anddev.andengine.entity.sprite.Sprite;
 
 import java.lang.ref.WeakReference;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.LibraryManager;
@@ -17,7 +16,6 @@ import com.osudroid.data.BeatmapInfo;
 import com.osudroid.data.DatabaseManager;
 
 import ru.nsu.ccfit.zuev.osu.Utils;
-import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm;
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
 
 public class BeatmapSetItem {
@@ -203,7 +201,7 @@ public class BeatmapSetItem {
         selectedBeatmapItem = null;
     }
 
-    public void applyFilter(final String filter, final boolean favs, List<String> limit) {
+    public void applyFilter(final SearchQuery query, final boolean favs, List<String> limit, final Set<String> playedHashes) {
         if ((favs && !isFavorite())
                 || (limit != null && !limit.isEmpty() && !limit.contains(beatmapSetDir))) {
             //System.out.println(trackDir);
@@ -234,39 +232,17 @@ public class BeatmapSetItem {
             builder.append(beatmapSetInfo.getBeatmap(i).getVersion());
         }
 
-        boolean canVisible = true;
-        final String lowerText = builder.toString().toLowerCase();
-        final String[] lowerFilterTexts = filter.toLowerCase().split("[ ]");
-        for (String filterText : lowerFilterTexts) {
-            Pattern pattern = Pattern.compile("(ar|od|cs|hp|star)(=|<|>|<=|>=)(\\d+)");
-            Matcher matcher = pattern.matcher(filterText);
-            if (matcher.find()) {
-                String key = matcher.group(1);
-                String opt = matcher.group(2);
-                String value = matcher.group(3);
-                boolean vis = false;
-                if(beatmapId < 0){
-                    for (var i = beatmapSetInfo.getCount() - 1; i >= 0; i--) {
-                        if (key != null) {
-                            vis |= visibleBeatmap(beatmapSetInfo.getBeatmap(i), key, opt, value);
-                        }
-                    }
-                }
-                else{
-                    if (key != null) {
-                        vis = visibleBeatmap(beatmapSetInfo.getBeatmap(beatmapId), key, opt, value);
-                    }
-                }
-                canVisible &= vis;
-            } else {
-                if (!lowerText.contains(filterText)) {
-                    canVisible = false;
-                    break;
-                }
-            }
+        boolean canVisible = query.matchesText(builder.toString().toLowerCase());
+
+        if (canVisible) {
+            canVisible = query.matchesDifficultyNames(beatmapSetInfo, beatmapId);
         }
 
-        if (filter.isEmpty()) {
+        if (canVisible) {
+            canVisible = query.matchesBeatmaps(beatmapSetInfo, beatmapId, playedHashes);
+        }
+
+        if (query.isEmpty()) {
             canVisible = true;
         }
 
@@ -285,31 +261,6 @@ public class BeatmapSetItem {
         }
         freeBackground();
         visible = false;
-    }
-
-    private boolean visibleBeatmap(BeatmapInfo beatmapInfo, String key, String opt, String value) {
-        return switch (key) {
-            case "ar" -> calOpt(beatmapInfo.getApproachRate(), Float.parseFloat(value), opt);
-            case "od" -> calOpt(beatmapInfo.getOverallDifficulty(), Float.parseFloat(value), opt);
-            case "cs" -> calOpt(beatmapInfo.getCircleSize(), Float.parseFloat(value), opt);
-            case "hp" -> calOpt(beatmapInfo.getHpDrainRate(), Float.parseFloat(value), opt);
-            case "droidstar" ->
-                calOpt(beatmapInfo.getStarRating(DifficultyAlgorithm.droid), Float.parseFloat(value), opt);
-            case "standardstar", "star" ->
-                calOpt(beatmapInfo.getStarRating(DifficultyAlgorithm.standard), Float.parseFloat(value), opt);
-            default -> false;
-        };
-    }
-
-    private boolean calOpt(float val1, float val2, String opt) {
-        return switch (opt) {
-            case "=" -> val1 == val2;
-            case "<" -> val1 < val2;
-            case ">" -> val1 > val2;
-            case "<=" -> val1 <= val2;
-            case ">=" -> val1 >= val2;
-            default -> false;
-        };
     }
 
     public void delete() {

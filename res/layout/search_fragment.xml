@@ -96,6 +96,19 @@
             tools:text="Settings"
         />
 
+        <Button
+            android:id="@+id/upstreamDbButton"
+            style="@style/button_borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:drawableLeft="@drawable/download_24px"
+            android:drawableTint="#8C8CB4"
+            android:text="@string/menu_search_upstream_db"
+            android:textColor="#8C8CB4"
+            tools:text="Upstream"
+        />
+
     </LinearLayout>
 
 </RelativeLayout>

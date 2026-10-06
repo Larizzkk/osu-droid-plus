@@ -104,10 +104,26 @@ public class SongMenu
     private String filterText = "";
     private boolean favsOnly = false;
 
+    /**
+     * Set whenever {@link #items} is rebuilt. Freshly created items are all
+     * visible, so the last filter has to be applied again even when its
+     * parameters did not change — otherwise re-entering the song select with
+     * the favourites heart still on shows every map while the heart claims
+     * otherwise.
+     */
+    private boolean filterStale = true;
+
     @Nullable
     private List<String> limitC;
 
     private float maxY = 100500;
+
+    /**
+     * ResourceManager skin generation snapshot taken when the scene sprites were
+     * built. A mismatch in show() means a skin hot-swap happened while this scene
+     * was not visible — rebuild before showing (white "menu-back" button fix).
+     */
+    private int skinGenerationAtBuild = ResourceManager.getSkinGeneration();
     private int pointerId = -1;
     private float initalY = -1;
     private float secPassed = 0,
@@ -203,6 +219,9 @@ public class SongMenu
     }
 
     public synchronized void load() {
+        // Scene textures are pulled from the CURRENT skin — snapshot the generation
+        // so show() only rebuilds when the skin actually changed after this point.
+        skinGenerationAtBuild = ResourceManager.getSkinGeneration();
         scene = new UIScene();
         // This is needed for UIScene to behave on par with regular Scene, otherwise we would have weird scenarios such
         // as entities in the back layer having touch priority despite being rendered behind the front layer.
@@ -944,6 +963,16 @@ public class SongMenu
 
     public void loadFilterFragment() {
         searchBar = new SearchBarFragment();
+
+        // load() rebuilds the whole item list from the library, so the filter the search
+        // bar restored (favorites-only heart, folder, text) has to be applied again once
+        // its views exist — otherwise the menu shows every map while the heart is on.
+        final SearchBarFragment bar = searchBar;
+        bar.setOnStateRestored(() -> scene.postRunnable(() -> {
+            if (searchBar != bar) return;
+            loadFilter(bar);
+        }));
+
         searchBar.loadConfig(context);
     }
 
@@ -977,6 +1006,22 @@ public class SongMenu
     }
 
     public void show() {
+        // Skin generation guard: if a skin was loaded while the game/another scene was
+        // active (settings skin picker, in-game hot-swap), this menu's sprites — most
+        // visibly the animated "menu-back" button — still reference the OLD skin's
+        // TextureRegions. ANIMATABLE textures (menu-back-*) are unloaded+reloaded by
+        // loadCustomSkin, so their GL texture object changes and stale regions render
+        // WHITE. Rebuilding the scene re-pulls every texture from the new skin.
+        int generation = ResourceManager.getSkinGeneration();
+        if (skinGenerationAtBuild != generation) {
+            skinGenerationAtBuild = generation;
+            reload();
+        }
+        // Safety net: if a hot-swap happened while gameplay was active and its refresh
+        // did not flush the retired old-skin textures (e.g. the user left the map
+        // immediately), free them here — the menu scene was just rebuilt above, so no
+        // sprite references them anymore.
+        ResourceManager.flushRetiredSkinTextures();
         engine.setScene(scene);
     }
 
@@ -997,7 +1042,7 @@ public class SongMenu
             reSelectItem(beatmapFilename);
         }
         if (filter == null || filterText.equals(filter)) {
-            if (favsOnly == this.favsOnly && limitC == limit) {
+            if (!filterStale && favsOnly == this.favsOnly && limitC == limit) {
                 return;
             }
         }
@@ -1006,8 +1051,10 @@ public class SongMenu
         camY = 0;
         velocityY = 0;
         final String lowerFilter = filter.toLowerCase();
+        final SearchQuery query = SearchQuery.parse(lowerFilter);
+        final Set<String> playedHashes = getPlayedHashes();
         for (final BeatmapSetItem item : items) {
-            item.applyFilter(lowerFilter, favsOnly, limit);
+            item.applyFilter(query, favsOnly, limit, playedHashes);
         }
         if (favsOnly != this.favsOnly) {
             this.favsOnly = favsOnly;
@@ -1017,6 +1064,7 @@ public class SongMenu
         if (selectedItem != null && !selectedItem.isVisible()) {
             selectedItem = null;
         }
+        filterStale = false;
     }
 
     public void sort() {
@@ -1063,6 +1111,10 @@ public class SongMenu
                     final Long length1 = i1.getFirstBeatmap().getLength();
                     final Long length2 = i2.getFirstBeatmap().getLength();
                     return length2.compareTo(length1);
+                case Source:
+                    s1 = i1.getFirstBeatmap().getSource();
+                    s2 = i2.getFirstBeatmap().getSource();
+                    break;
                 default:
                     s1 = i1.getFirstBeatmap().getTitle();
                     s2 = i2.getFirstBeatmap().getTitle();
@@ -1530,12 +1582,47 @@ public class SongMenu
 
         if (
             !reloadBG &&
-            (beatmapInfo.getBackgroundFilename() == null ||
-                backgroundPath.equals(beatmapInfo.getBackgroundPath()))
+            beatmapInfo.getBackgroundFilename() != null &&
+            backgroundPath.equals(beatmapInfo.getBackgroundPath())
         ) {
             return;
         }
+
+        boolean bgChanged = !backgroundPath.equals(beatmapInfo.getBackgroundPath());
         backgroundPath = beatmapInfo.getBackgroundPath();
+
+        // The gameplay scene reuses the "::background" texture loaded HERE (see
+        // GameScene.loadBackground → getTextureIfLoaded("::background")), so a full
+        // reload must not be started when only the playback settings were toggled
+        // (reloadBG=false) and the selected beatmap did not change. Rebuild the
+        // menu's own background sprite from the current "::background" region instead.
+        if (!reloadBG && !bgChanged) {
+            TextureRegion currentTex =
+                Config.isSafeBeatmapBg() ||
+                beatmapInfo.getBackgroundFilename() == null
+                    ? ResourceManager.getInstance().getTexture("menu-background")
+                    : ResourceManager.getInstance().getTextureIfLoaded("::background");
+
+            if (currentTex != null) {
+                float height = currentTex.getHeight();
+                height *= Config.getRES_WIDTH() / (float) currentTex.getWidth();
+                bg = new Sprite(
+                    0,
+                    (Config.getRES_HEIGHT() - height) / 2,
+                    Config.getRES_WIDTH(),
+                    height,
+                    currentTex
+                );
+                bg.setColor(0, 0, 0);
+                // selectBeatmap can be reached from call sites already running on the
+                // update thread (setFilter → reSelectItem) and from touch handlers;
+                // routing the swap through the update-thread queue is safe in both
+                // cases (the handler executes on the same thread it was posted from).
+                Execution.updateThread(() -> scene.setBackground(new SpriteBackground(bg)));
+            }
+            return;
+        }
+
         bg = null;
         scene.setBackground(new ColorBackground(0, 0, 0));
 
@@ -1592,18 +1679,30 @@ public class SongMenu
 
             JobKt.ensureActive(scope.getCoroutineContext());
 
-            Execution.updateThread(() -> {
-                if (
-                    selectedBeatmap != null &&
-                    !selectedBeatmap
-                        .getFilename()
-                        .equals(beatmapInfo.getFilename())
-                ) {
-                    return;
-                }
+            scheduleBackgroundApply(beatmapInfo);
+        });
+    }
 
-                scene.setBackground(new SpriteBackground(bg));
-            });
+    /**
+     * Applies the selected beatmap's background to the SongMenu scene once the
+     * {@link #bg} sprite has been (re)built. Runs the final assignment on the
+     * update thread, guarded by a filename re-check so a newer selection always
+     * wins. Shared by the async {@link #backgroundLoadingJob} and the synchronous
+     * reload-free path of {@link #selectBeatmap} — extracting it guarantees both
+     * paths perform the identical guard + swap sequence.
+     */
+    private void scheduleBackgroundApply(final BeatmapInfo beatmapInfo) {
+        Execution.updateThread(() -> {
+            if (
+                selectedBeatmap != null &&
+                !selectedBeatmap
+                    .getFilename()
+                    .equals(beatmapInfo.getFilename())
+            ) {
+                return;
+            }
+
+            scene.setBackground(new SpriteBackground(bg));
         });
     }
 
@@ -1799,7 +1898,7 @@ public class SongMenu
         }
 
         // Locking host from change beatmap before the server responses to beatmapChange
-        Multiplayer.roomScene.isWaitingForBeatmapChange = true;
+        Multiplayer.roomScene.isWaitingForBeatmapChange.set(true);
 
         if (!Multiplayer.isConnected()) {
             return;
@@ -1830,7 +1929,7 @@ public class SongMenu
         }
 
         // Locking host from change beatmap before the server responses to beatmapChange
-        Multiplayer.roomScene.isWaitingForBeatmapChange = true;
+        Multiplayer.roomScene.isWaitingForBeatmapChange.set(true);
 
         if (!Multiplayer.isConnected()) {
             return;
@@ -1843,8 +1942,7 @@ public class SongMenu
                 beatmapInfo.getTitle(),
                 beatmapInfo.getArtist(),
                 beatmapInfo.getVersion(),
-                beatmapInfo.getCreator(),
-                beatmapInfo.getSetId() != null && beatmapInfo.getSetId() > 0 ? beatmapInfo.getSetId().longValue() : null
+                beatmapInfo.getCreator()
             );
         } else {
             RoomAPI.changeBeatmap();
@@ -2060,6 +2158,14 @@ public class SongMenu
         return selectedBeatmap;
     }
 
+    /**
+     * Returns the MD5 hashes of beatmaps that have at least one local score.
+     * Used by the "played" search filter.
+     */
+    private Set<String> getPlayedHashes() {
+        return new HashSet<>(DatabaseManager.getScoreInfoTable().getAllPlayedBeatmapMD5s());
+    }
+
     private void tryReloadMenuItems(SortOrder order) {
         switch (order) {
             case Title:
@@ -2067,6 +2173,7 @@ public class SongMenu
             case Creator:
             case Date:
             case Bpm:
+            case Source:
                 reloadMenuItems(GroupType.MapSet);
                 break;
             case DroidStars:
@@ -2080,6 +2187,7 @@ public class SongMenu
     private void reloadMenuItems(GroupType type) {
         if (!groupType.equals(type)) {
             groupType = type;
+            filterStale = true;
             //            float oy = 10;
             for (BeatmapSetItem item : items) {
                 item.removeFromScene();
@@ -2111,13 +2219,15 @@ public class SongMenu
             }
             final String lowerFilter = searchBar.getFilter().toLowerCase();
             final boolean favsOnly = searchBar.isFavoritesOnly();
+            final SearchQuery query = SearchQuery.parse(lowerFilter);
+            final Set<String> playedHashes = getPlayedHashes();
 
             var limit =
                 DatabaseManager.getBeatmapCollectionsTable().getBeatmaps(
                     searchBar.getFavoriteFolder()
                 );
             for (final BeatmapSetItem item : items) {
-                item.applyFilter(lowerFilter, favsOnly, limit);
+                item.applyFilter(query, favsOnly, limit, playedHashes);
             }
         }
     }
@@ -2316,6 +2426,9 @@ public class SongMenu
         DroidStars,
         StandardStars,
         Length,
+        // Appended at the end: the ordinal is persisted in the "sortorder" preference,
+        // so inserting an entry in the middle would shift the saved sort orders.
+        Source,
     }
 
     public enum GroupType {

@@ -42,6 +42,14 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
     private lateinit var sortButton: Button
     private var updater: Updater? = null
 
+    /**
+     * Invoked once the views exist and the saved state (filter, favorites-only,
+     * favorite folder) has been restored onto them. SongMenu rebuilds its beatmap
+     * list from the library every time the menu is loaded, so it has to re-apply
+     * this state instead of only trusting its own fields.
+     */
+    var onStateRestored: (() -> Unit)? = null
+
     init {
         isDismissOnBackgroundClick = true
     }
@@ -227,6 +235,28 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
                 com.osudroid.ui.v1.SettingsFragment().show()
             }
 
+            val upstreamDbButton = findViewById<Button>(R.id.upstreamDbButton)
+            onStateRestored?.let { callback ->
+                onStateRestored = null
+                callback()
+            }
+
+            upstreamDbButton?.setOnClickListener {
+                filter.clearFocus()
+                context?.getSystemService<InputMethodManager>()
+                    ?.hideSoftInputFromWindow(filter.windowToken, 0)
+
+                com.osudroid.utils.async {
+                    com.osudroid.data.DatabaseManager.importFromUpstreamDatabase()
+                    com.osudroid.utils.updateThread {
+                        val isRu = java.util.Locale.getDefault().language.equals("ru", ignoreCase = true)
+                        val msg = if (isRu) "База данных успешно загружена из апстрима!" else "Upstream database successfully loaded!"
+                        ToastLogger.showText(msg, true)
+                        getGlobal().songMenu?.reloadCurrentSelection()
+                    }
+                }
+            }
+
         }
     }
 
@@ -300,6 +330,7 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
             SongMenu.SortOrder.DroidStars -> StringTable.get(string.menu_search_sort_droid_stars)
             SongMenu.SortOrder.StandardStars -> StringTable.get(string.menu_search_sort_standard_stars)
             SongMenu.SortOrder.Length -> StringTable.get(string.menu_search_sort_length)
+            SongMenu.SortOrder.Source -> StringTable.get(R.string.menu_search_sort_source)
         }
 
         sortButton.text = s
