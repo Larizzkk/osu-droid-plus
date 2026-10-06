@@ -123,7 +123,7 @@ public class PluginManager {
                   .append("\n  ").append(plugin.getDescription())
                   .append("\n\n");
             }
-            sb.append("Place .lua files in Downloads/osudroidplus/plugins/");
+            sb.append("Place .lua files in osu!droid/Plugins/");
 
             dialog.setMessage(sb.toString());
             dialog.addButton("OK", android.graphics.Color.WHITE, new kotlin.jvm.functions.Function1<com.reco1l.osu.ui.MessageDialog, kotlin.Unit>() {
@@ -166,22 +166,23 @@ public class PluginManager {
     }
 
     /**
-     * Get the external plugin directory: Downloads/osudroidplus/plugins/
+     * Get the external plugin directory: osu!droid/Plugins/
      * Returns null if external storage is not available.
      */
     private File getExternalPluginDir(Context context) {
         try {
-            // Try Downloads/osudroidplus/plugins first
-            File downloads = android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOWNLOADS);
-            if (downloads != null) {
-                return new File(downloads, "osudroidplus/plugins");
+            // Primary: osu!droid/Plugins (shared with other osu!droid tools)
+            File extStorage = android.os.Environment.getExternalStorageDirectory();
+            if (extStorage != null) {
+                File primary = new File(extStorage, "osu!droid/Plugins");
+                if (!primary.exists()) primary.mkdirs();
+                return primary;
             }
 
-            // Fallback: use context.getExternalFilesDir
+            // Fallback: context.getExternalFilesDir
             File extDir = context.getExternalFilesDir(null);
             if (extDir != null) {
-                return new File(extDir, "osudroidplus/plugins");
+                return new File(extDir, "Plugins");
             }
         } catch (Exception e) {
             Log.w(TAG, "Cannot access external storage: " + e.getMessage());
