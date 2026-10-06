@@ -282,7 +282,9 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
             }
         }
 
-        if (isEmpty()) {
+        // Length, not map size: a mod missing from modStringOrder appends nothing, and
+        // deleteCharAt on an empty builder would throw.
+        if (length == 0) {
             append('-')
         } else {
             deleteCharAt(length - 1)
@@ -312,6 +314,7 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
             ModNoFail(),
             ModHardRock(),
             ModDifficultyAdjust(),
+            ModSmallCircle(),
             ModMirror(),
             ModRandom(),
             ModHidden(),
@@ -331,6 +334,7 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
             ModSuddenDeath(),
             ModMuted(),
             ModSynesthesia(),
+            ModGravity(),
             ModScoreV2(),
             ModReplayV6()
         )
