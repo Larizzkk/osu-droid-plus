@@ -1,28 +1,26 @@
 package com.osudroid.ui.v2.multi
 
-import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
-
 import android.util.Log
 import com.osudroid.multiplayer.*
 import com.reco1l.andengine.sprite.*
 import ru.nsu.ccfit.zuev.osu.SecurityUtils
 import com.osudroid.multiplayer.api.LobbyAPI
 import com.osudroid.utils.updateThread
-import com.osudroid.resources.R.string
+import ru.nsu.ccfit.zuev.osuplusplus.R.string
 import com.reco1l.andengine.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.component.UIComponent.Companion.FillParent
 import com.reco1l.andengine.container.*
-import com.reco1l.andengine.modifier.*
 import com.reco1l.andengine.shape.*
 import com.reco1l.andengine.ui.*
 import com.reco1l.framework.math.*
+import com.reco1l.andengine.modifier.ModifierType
 import kotlinx.coroutines.*
 import ru.nsu.ccfit.zuev.osu.*
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import kotlin.coroutines.cancellation.CancellationException
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
-import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 
 class LobbyScene : UIScene() {
 
@@ -112,8 +110,7 @@ class LobbyScene : UIScene() {
                             key = "search"
                             width = 500f
                             height = FillParent
-                            placeholder =
-                                StringTable.get(ru.nsu.ccfit.zuev.osuplusplus.R.string.multiplayer_lobby_search_rooms)
+                            placeholder = StringTable.get(string.multiplayer_lobby_search_rooms)
                         }
 
                         override fun onValueChanged() {
@@ -235,19 +232,20 @@ class LobbyScene : UIScene() {
 
             isFetching = false
         }) {
+            updateThread {
+                messageContainer.apply {
+                    detachChildren()
 
-            messageContainer.apply {
-                detachChildren()
-
-                +CircularProgressBar().apply {
-                    anchor = Anchor.Center
-                    origin = Anchor.Center
-                    size = Vec2(48f, 48f)
+                    +CircularProgressBar().apply {
+                        anchor = Anchor.Center
+                        origin = Anchor.Center
+                        size = Vec2(48f, 48f)
+                    }
                 }
-            }
 
-            switchContainers(messageContainer)
-            roomContainer.detachChildren()
+                switchContainers(messageContainer)
+                roomContainer.detachChildren()
+            }
 
             val list = LobbyAPI.getRooms(
                 query = searchQuery,
@@ -286,7 +284,7 @@ class LobbyScene : UIScene() {
         Multiplayer.isMultiplayer = false
         GlobalManager.getInstance().songService.isGaming = false
 
-        GlobalManager.getInstance().engine.scene = GlobalManager.getInstance().mainScene.scene
+        GlobalManager.getInstance().mainScene.show()
     }
 
 

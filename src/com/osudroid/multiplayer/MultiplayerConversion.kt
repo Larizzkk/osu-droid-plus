@@ -2,7 +2,7 @@
 
 package com.osudroid.multiplayer
 
-import com.rian.osu.utils.ModUtils
+import com.rian.osu.utils.ModUtils.deserializeMods
 import org.json.JSONObject
 import ru.nsu.ccfit.zuev.osu.menu.ScoreBoardItem
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2
@@ -27,16 +27,17 @@ fun jsonToScoreboardItem(json: JSONObject) = ScoreBoardItem().apply {
  */
 fun jsonToStatistic(json: JSONObject) = StatisticV2().apply {
 
+    uid = json.optLong("uid", -1L)
     playerName = json.optString("username", "")
     setForcedScore(json.optInt("score", 0))
     time = System.currentTimeMillis()
-    mod = ModUtils.deserializeMods(json.optJSONArray("mods")?.toString() ?: "")
-    scoreMaxCombo = json.optInt("maxCombo", 0)
-    hit300k = json.optInt("geki", 0)
-    hit300 = json.optInt("perfect", 0)
-    hit100k = json.optInt("katu", 0)
-    hit100 = json.optInt("good", 0)
-    hit50 = json.optInt("bad", 0)
-    misses = json.optInt("miss", 0)
+    mod = deserializeMods(json.optJSONArray("mods")?.toString() ?: "")
+    scoreMaxCombo = json.optInt("maxCombo")
+    hit300k = json.optInt("geki")
+    hit300 = json.optInt("perfect")
+    hit100k = json.optInt("katu")
+    hit100 = json.optInt("good")
+    hit50 = json.optInt("bad")
+    misses = json.optInt("miss")
     isAlive = json.optBoolean("isAlive", true)
 }
