@@ -31,10 +31,10 @@ public class GameplaySpinner extends GameObject {
     private final UISprite background;
     private final UISprite circle;
     private final UISprite approachCircle;
-    private final Sprite metre;
+    private Sprite metre;
     private float metreY;
     private final UISprite spinText;
-    private final TextureRegion metreRegion;
+    private TextureRegion metreRegion;
     private final UISprite clearText;
     private final ScoreNumber bonusScore;
 
@@ -57,6 +57,14 @@ public class GameplaySpinner extends GameObject {
     protected final GameplaySequenceHitSampleInfo spinnerBonusSample;
 
     protected final PointF currMouse = new PointF();
+
+    /**
+     * Guards against double pooling (same contract as GameplayHitCircle.isPooled):
+     * removeFromScene() (deferred via Execution.updateThread) and onExpire() (immediate)
+     * can both run for the same instance, but the spinner must be returned to the
+     * {@link GameObjectPool} exactly once per lifetime.
+     */
+    protected boolean isPooled = false;
 
     public GameplaySpinner() {
         ResourceManager.getInstance().checkSpinnerTextures();
@@ -105,10 +113,33 @@ public class GameplaySpinner extends GameObject {
         endsCombo = true;
     }
 
+    /**
+     * Re-pulls spinner textures from the (possibly hot-swapped) skin. Live in-scene
+     * spinners keep their old TextureRegion after a mid-game skin switch until this
+     * runs. Called for every active object by GameScene.onReplaySkinChanged().
+     */
+    public void refreshSkinTextures() {
+        ResourceManager.getInstance().checkSpinnerTextures();
+        background.setTextureRegion(ResourceManager.getInstance().getTexture("spinner-background"));
+        background.setScale(Config.getRES_WIDTH() / background.getWidth());
+        circle.setTextureRegion(ResourceManager.getInstance().getTexture("spinner-circle"));
+        metreRegion = ResourceManager.getInstance().getTexture("spinner-metre").deepCopy();
+        if (metre != null && metre.hasParent()) {
+            metre.detachSelf();
+        }
+        metre = new Sprite(position.x - Config.getRES_WIDTH() / 2f, Config.getRES_HEIGHT(), metreRegion);
+        metre.setWidth(Config.getRES_WIDTH());
+        metre.setHeight(background.getHeightScaled());
+        approachCircle.setTextureRegion(ResourceManager.getInstance().getTexture("spinner-approachcircle"));
+        spinText.setTextureRegion(ResourceManager.getInstance().getTexture("spinner-spin"));
+        clearText.setTextureRegion(ResourceManager.getInstance().getTexture("spinner-clear"));
+    }
+
     public void init(final GameObjectListener listener, final Scene scene,
                      final Spinner beatmapSpinner, final float rps, final StatisticV2 stat) {
         fullRotations = 0;
         rotations = 0;
+        isPooled = false;
         this.scene = scene;
         this.duration = Math.max((float) beatmapSpinner.getDuration() / 1000f, 0);
         this.beatmapSpinner = beatmapSpinner;
@@ -186,6 +217,12 @@ public class GameplaySpinner extends GameObject {
     }
 
     void removeFromScene() {
+        // Pool exactly once per lifetime (same contract as GameplayHitCircle.isPooled).
+        if (isPooled) {
+            return;
+        }
+        isPooled = true;
+
         clearText.clearEntityModifiers();
         scene.detachChild(clearText);
 
@@ -307,13 +344,9 @@ public class GameplaySpinner extends GameObject {
         if (autoPlay) {
             dfill = 5 * 4 * dt;
             circle.setRotation((rotations + dfill / 4f) * 360);
-            //auto时，FL光圈绕中心旋转
-            if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
-               float angle = (rotations + dfill / 4f) * 360;
-               float pX = position.x + 50 * (float)Math.sin(angle);
-               float pY = position.y + 50 * (float)Math.cos(angle);
-               listener.updateAutoBasedPos(pX, pY);
-            }
+            // NOTE: the cursor is NOT repositioned here. AutoCursor owns the cursor during
+            // autoplay/autopilot (its spinner segment spins it around the configured circle);
+            // Flashlight still follows the real auto cursor through onUpdatedAutoCursor().
         }
 
         rotations += dfill / 4f;
@@ -436,6 +469,53 @@ public class GameplaySpinner extends GameObject {
     @Override
     public void stopLoopingSamples() {
         spinnerSpinSample.stopAll();
+    }
+
+    @Override
+    public void onExpire() {
+        // Spinner visuals live on the scene passed in init(); detach them directly.
+        // Guard against double pooling: onExpire() may run while removeFromScene()'s deferred
+        // putSpinner() is pending, and both may run in the same seek (see GameplayHitCircle).
+        if (isPooled) {
+            return;
+        }
+        isPooled = true;
+
+        clearText.clearEntityModifiers();
+        scene.detachChild(clearText);
+
+        spinText.clearEntityModifiers();
+        scene.detachChild(spinText);
+
+        background.clearEntityModifiers();
+        scene.detachChild(background);
+
+        approachCircle.clearEntityModifiers();
+        approachCircle.detachSelf();
+
+        circle.clearEntityModifiers();
+        scene.detachChild(circle);
+
+        metre.clearEntityModifiers();
+        scene.detachChild(metre);
+
+        scene.detachChild(bonusScore);
+
+        stopLoopingSamples();
+
+        for (int i = hitSamples.size() - 1; i >= 0; --i) {
+            var sample = hitSamples.get(i);
+            sample.reset();
+            GameplayHitSampleInfo.pool.free(sample);
+
+            hitSamples.remove(i);
+        }
+
+        listener.removeObject(this);
+        scene = null;
+
+        // isPooled was already set by the onExpire()/removeFromScene() entry guard.
+        GameObjectPool.getInstance().putSpinner(this);
     }
 
     protected void updateSamples(float dt) {

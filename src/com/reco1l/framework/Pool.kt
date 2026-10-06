@@ -20,7 +20,8 @@ class Pool<T : Any> @JvmOverloads constructor(
 ) {
 
 
-    private val objects = LinkedList<T>()
+    @PublishedApi
+    internal val objects = LinkedList<T>()
 
 
     /**
@@ -53,6 +54,15 @@ class Pool<T : Any> @JvmOverloads constructor(
      */
     fun clear() {
         objects.clear()
+    }
+
+    /**
+     * Iterates over the pooled (idle) objects without removing them.
+     */
+    inline fun forEach(block: (T) -> Unit) {
+        for (obj in objects) {
+            block(obj)
+        }
     }
 
     /**

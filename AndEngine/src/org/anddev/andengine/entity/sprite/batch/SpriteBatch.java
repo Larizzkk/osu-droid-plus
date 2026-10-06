@@ -32,17 +32,19 @@ public class SpriteBatch extends Entity {
 	// Fields
 	// ===========================================================
 
-	protected final ITexture mTexture;
+	protected ITexture mTexture;
 	protected final int mCapacity;
 
 	protected int mIndex;
-	private int mVertices;
+	// protected so subclasses (ColoredSpriteBatch) can replicate the draw pipeline
+	protected int mVertices;
 
 	private int mSourceBlendFunction;
 	private int mDestinationBlendFunction;
 
 	private final SpriteBatchVertexBuffer mSpriteBatchVertexBuffer;
-	private final SpriteBatchTextureRegionBuffer mSpriteBatchTextureRegionBuffer;
+	// protected so subclasses (ColoredSpriteBatch) can replicate the draw pipeline
+	protected final SpriteBatchTextureRegionBuffer mSpriteBatchTextureRegionBuffer;
 
 	// ===========================================================
 	// Constructors
@@ -68,6 +70,16 @@ public class SpriteBatch extends Entity {
 	public void setBlendFunction(final int pSourceBlendFunction, final int pDestinationBlendFunction) {
 		this.mSourceBlendFunction = pSourceBlendFunction;
 		this.mDestinationBlendFunction = pDestinationBlendFunction;
+	}
+
+	/**
+	 * Swaps the texture this batch binds on draw (skin hot-swap support). Must be
+	 * called from the update/GL thread while the batch is not mid-draw. The caller
+	 * is responsible for submitting an empty frame first if the old region data is
+	 * no longer valid for the new texture.
+	 */
+	public void setTexture(final ITexture pTexture) {
+		this.mTexture = pTexture;
 	}
 
 	public int getIndex() {

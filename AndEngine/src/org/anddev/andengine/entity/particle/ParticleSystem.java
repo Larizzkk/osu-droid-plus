@@ -53,7 +53,7 @@ public class ParticleSystem extends Entity {
 	private final float mRateMinimum;
 	private final float mRateMaximum;
 
-	private final TextureRegion mTextureRegion;
+	private TextureRegion mTextureRegion;
 
 	private boolean mParticlesSpawnEnabled = true;
 
@@ -98,6 +98,15 @@ public class ParticleSystem extends Entity {
 
 	public boolean isParticlesSpawnEnabled() {
 		return this.mParticlesSpawnEnabled;
+	}
+
+	/**
+	 * osu!droid+ addition: rebinds the particle texture after a skin hot-swap.
+	 * The region is captured by every spawned Particle at creation time and goes
+	 * stale on a skin switch.
+	 */
+	public void setTextureRegion(final TextureRegion pTextureRegion) {
+		this.mTextureRegion = pTextureRegion;
 	}
 
 	public void setParticlesSpawnEnabled(final boolean pParticlesSpawnEnabled) {

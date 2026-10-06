@@ -42,6 +42,14 @@ class CursorEvent : IPoolable {
     var action = TouchEvent.ACTION_DOWN
 
     /**
+     * Whether this event was produced by a real user touch (as opposed to synthetic
+     * replay/autoplay input). Used to gate interactions that must only respond to the
+     * person watching/playing, e.g. the skip button during replay playback.
+     */
+    @JvmField
+    var isRealInput = true
+
+    /**
      * Whether the action is [TouchEvent.ACTION_DOWN].
      */
     val isActionDown
@@ -93,6 +101,7 @@ class CursorEvent : IPoolable {
         copy.trackTime = trackTime
         copy.action = action
         copy.offset = offset
+        copy.isRealInput = isRealInput
         copy.position.set(position)
         copy.trackPosition.set(trackPosition)
     }
@@ -134,7 +143,19 @@ class CursorEvent : IPoolable {
          * @return An instance of [CursorEvent].
          */
         @JvmStatic
-        fun obtain() = pool.acquire() ?: CursorEvent()
+        fun obtain(): CursorEvent {
+            val event = pool.acquire() ?: CursorEvent()
+            // Reset ALL mutable state: the pool does not clear fields of reused
+            // instances, so stale coordinates/actions would leak into the next event.
+            event.systemTime = 0L
+            event.trackTime = 0f
+            event.offset = 0.0
+            event.action = TouchEvent.ACTION_DOWN
+            event.isRealInput = true
+            event.position.set(0f, 0f)
+            event.trackPosition.set(0f, 0f)
+            return event
+        }
 
         /**
          * Obtains an instance of [CursorEvent] from the pool or creates a new one if the pool is empty.

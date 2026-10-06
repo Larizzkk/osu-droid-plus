@@ -170,6 +170,81 @@ public class ResourceManager {
         if (!textures.containsKey("lighting")) textures.put("lighting", null);
 
         UIEngine.getCurrent().onSkinChange();
+        incrementSkinGeneration();
+    }
+
+    /**
+     * Incremented every time a skin finishes loading ({@link #loadSkin}). UI scenes
+     * built BEFORE the load (SongMenu's back/mods buttons, background sprites) hold
+     * TextureRegions of the previous skin; after an ANIMATABLE texture like
+     * "menu-back-*" was unloaded and re-loaded under a new GL texture, those stale
+     * regions render WHITE. Consumers compare the generation they were built with
+     * against this counter and rebuild themselves when it differs (see SongMenu.show).
+     */
+    private static final java.util.concurrent.atomic.AtomicInteger skinGeneration =
+        new java.util.concurrent.atomic.AtomicInteger(0);
+
+    public static int getSkinGeneration() {
+        return skinGeneration.get();
+    }
+
+    private static void incrementSkinGeneration() {
+        skinGeneration.incrementAndGet();
+    }
+
+    /**
+     * When true, {@link #loadCustomSkin} does NOT GL-unload the previous skin's
+     * animatable textures immediately; instead the old TextureRegions are parked in
+     * {@link #pendingRetiredTextures} and are freed later by
+     * {@link #flushRetiredSkinTextures} once every live scene has been refreshed or
+     * rebuilt. Enabled only for the in-game hot-swap path, keeping the old skin's
+     * pixels valid for any sprite the refresh missed.
+     */
+    private static final java.util.concurrent.atomic.AtomicBoolean deferSkinTextureUnload =
+        new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    private static final java.util.List<TextureRegion> pendingRetiredTextures =
+        new java.util.ArrayList<>();
+
+    /**
+     * Enables deferred unloading for the duration of {@code action}. Must wrap the
+     * whole hot-swap (resource load + scene refresh scheduling): the retire list is
+     * flushed when {@link #flushRetiredSkinTextures} is called after the last scene
+     * refresh.
+     */
+    public static void runWithDeferredSkinUnload(Runnable action) {
+        deferSkinTextureUnload.set(true);
+        try {
+            action.run();
+        } finally {
+            deferSkinTextureUnload.set(false);
+        }
+    }
+
+    /**
+     * Actually GL-unloads the textures retired by the last deferred hot-swap. Safe to
+     * call from any thread: unloading itself is queued through the engine's texture
+     * manager. Call once the scene refresh triggered by the swap has completed.
+     */
+    public static void flushRetiredSkinTextures() {
+        java.util.List<TextureRegion> retired;
+        synchronized (pendingRetiredTextures) {
+            if (pendingRetiredTextures.isEmpty()) {
+                return;
+            }
+            retired = new ArrayList<>(pendingRetiredTextures);
+            pendingRetiredTextures.clear();
+        }
+        var engine = mgr.engine;
+        if (engine == null) {
+            return;
+        }
+        for (TextureRegion region : retired) {
+            try {
+                engine.getTextureManager().unloadTexture(region.getTexture());
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     public void loadCustomSkin(String folder) {
@@ -228,11 +303,6 @@ public class ResourceManager {
         }
         final Map<String, File> availableFiles = new HashMap<>();
         if (skinFiles != null) {
-            boolean removeUnsupportedElements = Config.getBoolean(
-                "removeUnsupportedSkinElements",
-                true
-            );
-
             for (final File f : skinFiles) {
                 if (f.isFile()) {
                     if (
@@ -247,45 +317,6 @@ public class ResourceManager {
                     }
                     if (f.length() == 0) {
                         continue;
-                    }
-
-                    // Filter unsupported skin elements if enabled
-                    if (removeUnsupportedElements) {
-                        String fileName = f.getName();
-                        // Skip @2x (high DPI) elements
-                        if (fileName.contains("@2x")) {
-                            continue;
-                        }
-                        // Skip mania mode elements
-                        if (
-                            fileName.contains("mania") ||
-                            fileName.startsWith("mania-")
-                        ) {
-                            continue;
-                        }
-                        // Skip catch mode elements
-                        if (
-                            fileName.contains("catch") ||
-                            fileName.startsWith("catch-")
-                        ) {
-                            continue;
-                        }
-                        // Skip taiko mode elements
-                        if (
-                            fileName.contains("taiko") ||
-                            fileName.startsWith("taiko-")
-                        ) {
-                            continue;
-                        }
-                        // Skip other game mode specific elements
-                        if (
-                            fileName.contains("fruits") ||
-                            fileName.startsWith("fruits-") ||
-                            fileName.contains("pippidon") ||
-                            fileName.startsWith("pippidon-")
-                        ) {
-                            continue;
-                        }
                     }
 
                     final String filename = f
@@ -325,10 +356,32 @@ public class ResourceManager {
         }
 
         // Removing loaded animatable textures from the previous skin. Usage of toArray() is necessary to avoid ConcurrentModificationException.
+        //
+        // During an in-game hot-swap the GL unload must be DEFERRED (see
+        // runWithDeferredSkinUnload): unloading here would free the GL texture while
+        // live sprites (follow points, menu button, HUD, hit-circle numbers...) still draw
+        // through TextureRegions of the OLD skin until the scene refresh completes —
+        // anything the refresh misses renders WHITE. Deferring keeps those sprites valid
+        // (old pixels, correct transparency) and the actual GL free happens later, when the
+        // caller confirms every scene has been rebuilt.
+        boolean deferUnload = deferSkinTextureUnload.get();
+        java.util.List<TextureRegion> retired = deferUnload ? new ArrayList<>() : null;
         for (var key : textures.keySet().toArray(new String[0])) {
             if (any(ANIMATABLE_TEXTURES, key::startsWith)) {
-                unloadTexture(key);
+                if (deferUnload) {
+                    TextureRegion region = textures.get(key);
+                    if (region != null) {
+                        retired.add(region);
+                    }
+                    textures.remove(key);
+                    textureSkinSource.remove(key);
+                } else {
+                    unloadTexture(key);
+                }
             }
+        }
+        if (deferUnload && !retired.isEmpty()) {
+            pendingRetiredTextures.addAll(retired);
         }
 
         frameCount.clear();
@@ -693,8 +746,22 @@ public class ResourceManager {
         return loadBackground(file, this.engine);
     }
 
+    /**
+     * The file path the CURRENT "::background" texture was loaded from. loadBackground
+     * is called from several consumers (SongMenu async job, MainScene.loadTimingPoints,
+     * watchReplay, multiplayer room) — the same-path short-circuit below lets them
+     * share one loaded texture until the path actually changes.
+     */
+    private String loadedBackgroundPath = null;
+
     public TextureRegion loadBackground(final String file, Engine engine) {
         if (textures.containsKey("::background")) {
+            // Same image requested again: reuse the loaded region instead of
+            // unloading/reloading it out from under existing Sprites.
+            if (file != null && file.equals(loadedBackgroundPath)) {
+                return textures.get("::background");
+            }
+
             engine
                 .getTextureManager()
                 .unloadTexture(
@@ -702,6 +769,8 @@ public class ResourceManager {
                         textures.get("::background")
                     ).getTexture()
                 );
+            textures.remove("::background");
+            loadedBackgroundPath = null;
         }
         if (file == null) {
             return textures.get("menu-background");
@@ -716,6 +785,7 @@ public class ResourceManager {
             !source.preload()
         ) {
             textures.put("::background", textures.get("menu-background"));
+            loadedBackgroundPath = file;
             return textures.get("::background");
         }
         final BitmapTextureAtlas tex = new BitmapTextureAtlas(
@@ -732,6 +802,7 @@ public class ResourceManager {
         );
         engine.getTextureManager().loadTexture(tex);
         textures.put("::background", region);
+        loadedBackgroundPath = file;
         return region;
     }
 
@@ -896,6 +967,14 @@ public class ResourceManager {
         }
     }
 
+    /**
+     * Tracks which skin folder every loaded texture came from. On a skin change,
+     * getTextureWithPrefix() must RELOAD prefix textures (score-*, default-* digits)
+     * even when the key already exists in {@link #textures} — otherwise the previous
+     * skin's glyph stays cached under the same name.
+     */
+    private final Map<String, String> textureSkinSource = new HashMap<>();
+
     public TextureRegion getTextureWithPrefix(
         StringSkinData prefix,
         String name
@@ -909,18 +988,31 @@ public class ResourceManager {
         }
 
         var customName = prefix.getCurrentValue() + "-" + name;
+        var currentSkin = Config.getSkinPath();
+        var cachedSource = textureSkinSource.get(customName);
 
-        if (!textures.containsKey(customName)) {
-            loadTexture(
-                customName,
-                Config.getSkinPath() + customName.replace("\\", "") + ".png",
-                true
-            );
-        }
-
-        if (textures.get(customName) != null) {
+        if (textures.containsKey(customName) && currentSkin.equals(cachedSource)) {
             return textures.get(customName);
         }
+
+        var region = loadTexture(
+            customName,
+            currentSkin + customName.replace("\\", "") + ".png",
+            true
+        );
+
+        // loadTexture returns a 1x1 BlankTextureRegion (solid WHITE) when the file is
+        // missing — never cache or return that: fall back to the default skin's glyph
+        // instead (the white combo numbers after a hot-swap into a skin without its
+        // own hitCirclePrefix digits).
+        if (region != null && !(region instanceof BlankTextureRegion)) {
+            textureSkinSource.put(customName, currentSkin);
+            return region;
+        }
+
+        // Remember the miss too, so every frame does not retry the file IO.
+        textureSkinSource.put(customName, currentSkin);
+        textures.put(customName, textures.get(defaultName));
         return textures.get(defaultName);
     }
 
@@ -1178,6 +1270,7 @@ public class ResourceManager {
                     Objects.requireNonNull(textures.get(name)).getTexture()
                 );
             textures.remove(name);
+            textureSkinSource.remove(name);
             Debug.i("Texture \"" + name + "\"unloaded");
         }
     }

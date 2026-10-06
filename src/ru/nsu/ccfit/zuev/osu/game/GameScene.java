@@ -112,6 +112,10 @@ import ru.nsu.ccfit.zuev.osu.SecurityUtils;
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.Utils;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper.SliderPath;
+import ru.nsu.ccfit.zuev.osu.game.GameplayHitCircle;
+import ru.nsu.ccfit.zuev.osu.game.GameplaySlider;
+import ru.nsu.ccfit.zuev.osu.game.GameplaySpinner;
+import ru.nsu.ccfit.zuev.osu.game.cursor.AutoplayStyle;
 import ru.nsu.ccfit.zuev.osu.game.cursor.flashlight.FlashLightEntity;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
@@ -131,6 +135,12 @@ import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 
 public class GameScene implements GameObjectListener, IOnSceneTouchListener {
+
+    // FailingLayer constants, ported from osu!(lazer) HUD/FailingLayer.cs.
+    private static final float LOW_HEALTH_MAX_ALPHA = 0.4f;
+    private static final float LOW_HEALTH_THRESHOLD = 0.20f;
+    // Lerp speed per second; matches the original's elapsedMs * 0.01 lerp (~0.15 per frame at 60fps).
+    private static final float LOW_HEALTH_LERP_SPEED = 10f;
 
     public static final int CursorCount = 10;
     private final int maximumActiveCursorCount = CursorCount;
@@ -163,6 +173,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private boolean comboWas100 = false;
     private ArrayList<GameObject> activeObjects;
     private ArrayList<GameObject> expiredObjects;
+    /** Identity-based set of objects already force-expired (seek) or expired (update) this frame. */
+    private final Set<GameObject> processedExpiredObjects = Collections.newSetFromMap(new IdentityHashMap<>());
     private GameObject judgeableObject;
     private BreakPeriod[] breakPeriods;
     private int breakPeriodIndex;
@@ -178,7 +190,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private boolean musicStarted;
     private double distToNextObject;
     private CursorEntity[] cursorSprites;
-    private AutoCursor autoCursor;
+    public AutoCursor autoCursor;
     private FlashLightEntity flashlightSprite;
     private int mainCursorId = -1;
     private Replay replay;
@@ -187,28 +199,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     public boolean autoExportReplay = false;
     public String autoExportOutputPath = null;
 
-    // Static pending export state: set by ScoringScene before launching replay
-    private static volatile String pendingExportPath = null;
-    private static volatile boolean hasPendingExport = false;
-
-    /**
-     * Set a pending MP4 export. Called from ScoringScene before launching the replay.
-     */
-    public static void setPendingExport(String outputPath) {
-        pendingExportPath = outputPath;
-        hasPendingExport = true;
-    }
-
-    /**
-     * Check and consume the pending export state. Returns the output path, or null if none.
-     */
-    public static String consumePendingExport() {
-        if (hasPendingExport) {
-            hasPendingExport = false;
-            return pendingExportPath;
-        }
-        return null;
-    }
     public float offsetSum;
     public int offsetRegs;
     private Rectangle dimRectangle = null;
@@ -220,8 +210,31 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private float parallaxPosY = 0f;
     private float parallaxScale = 0f;
     private float parallaxLastTime = 0f;
+    /** Mirrors the state the background was last built with (replay panel toggle). */
+    private boolean parallaxApplied = false;
     private ComboBurst comboBurst;
     private int failcount = 0;
+    private int postSeekFrameCount = 0; // Suppress hitsounds after seek
+
+    // Last point written into the replay per pointer, in track space + gameplay ms.
+    // MOVE events are only recorded at least 1 osu!px apart (or 33ms apart), otherwise
+    // Replay.MoveArray.checkNewPoint collapses the dense sub-pixel samples into a
+    // single point and the recorded path is lost.
+    private final float[] replayRecLastX = new float[CursorCount];
+    private final float[] replayRecLastY = new float[CursorCount];
+    private final int[] replayRecLastTime = new int[CursorCount];
+    private final boolean[] replayRecWasDown = new boolean[CursorCount];
+
+    // Replay playback pause: gameplay time is frozen while the scene (HUD, panel)
+    // keeps updating, mirroring osu-droid's stopped gameplayClock.
+    private boolean replayPlaybackPaused = false;
+    private boolean replayPlaybackWasPlaying = false;
+    /**
+     * User-requested playback rate from the replay settings panel (upstream:
+     * ReplayPlaybackRate.rate). Combined with the mod rate every frame the same way
+     * osu-droid does: currentSpeedMultiplier = modRate * replaySettingsRate.
+     */
+    private float replaySettingsRate = 1f;
     private Color4 sliderBorderColor;
     private SliderPath[] sliderPaths = null;
     private LinePath[] sliderRenderPaths = null;
@@ -238,6 +251,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private boolean kiaiFlashTriggered = false;
     private boolean wasKiaiFlash = false;
     private float kiaiFlashTimer = 0f;
+
+    // FailingLayer from osu!(lazer): fullscreen red overlay shown while health is low.
+    private Rectangle lowHealthOverlay;
+    private float lowHealthAlpha = 0f;
     private ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground triangleBg;
     private UISprite unrankedSprite;
     private final ArrayList<IModApplicableToTrackRate> rateAdjustingMods =
@@ -250,7 +267,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     // GPU replay renderer — bypasses per-entity draw path during replay playback
     @Nullable
-    private com.osudroid.game.replay.BatchedGameplayScene batchedMgScene;
     private ProxySprite storyboardOverlayProxy;
 
     public HitWindow hitWindow;
@@ -594,6 +610,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         // This is used instead of getBackgroundBrightness to directly obtain the
         // updated value from the brightness slider.
         float brightness = Config.getInt("bgbrightness", 25) / 100f;
+        // Track the parallax state the background was built with, so the replay
+        // panel's toggle can detect redundant rebuilds.
+        parallaxApplied = Config.isParallaxEnabled();
 
         boolean isStoryboardEnabled =
             brightness > 0.02f && Config.getBoolean("enableStoryboard", false);
@@ -949,34 +968,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         // same time regardless of the setting.
         elapsedTime = Math.min(elapsedTime, videoOffset);
 
-        sliderBorderColor = BeatmapSkinManager.getInstance().getSliderColor();
-        if (playableBeatmap.getColors().getSliderBorderColor() != null) {
-            sliderBorderColor = playableBeatmap
-                .getColors()
-                .getSliderBorderColor();
-        }
-
-        if (OsuSkin.get().isForceOverrideSliderBorderColor()) {
-            sliderBorderColor = OsuSkin.get().getSliderBorderColor();
-        }
-
-        comboColors = new ArrayList<>();
-        for (ComboColor comboColor : playableBeatmap.getColors().comboColors) {
-            if (scope != null) {
-                ensureActive(scope.getCoroutineContext());
-            }
-
-            comboColors.add(comboColor.getColor());
-        }
-
-        if (comboColors.isEmpty() || Config.isUseCustomComboColors()) {
-            comboColors.clear();
-            comboColors.addAll(Arrays.asList(Config.getComboColors()));
-        }
-        if (OsuSkin.get().isForceOverrideComboColor()) {
-            comboColors.clear();
-            comboColors.addAll(OsuSkin.get().getComboColor());
-        }
+        loadSkinDrivenColors();
 
         if (scope != null) {
             ensureActive(scope.getCoroutineContext());
@@ -1045,6 +1037,19 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         offsetRegs = 0;
 
         replaying = false;
+
+        // Reset the replay panel's playback rate so a rate chosen in a previous replay
+        // session does not leak into normal play (or the next replay).
+        replaySettingsRate = 1f;
+
+        // Reset the centralized replay movement recorder (see recordReplayMovements):
+        // stale per-pointer state from a previous session would corrupt the density
+        // filter and the down/up pairing of the next recording.
+        java.util.Arrays.fill(replayRecLastX, 0f);
+        java.util.Arrays.fill(replayRecLastY, 0f);
+        java.util.Arrays.fill(replayRecLastTime, 0);
+        java.util.Arrays.fill(replayRecWasDown, false);
+
         replay = new Replay(true);
         replay.setObjectCount(hitObjects.size());
         replay.setBeatmap(
@@ -1070,7 +1075,20 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             // off such that it causes gameplay to appear very wrong (e.g., a score has Hard Rock/Mirror mod while its
             // replay does not). While this can theoretically happen to any score data (not just mods), checking for
             // mods for the time being is enough to dislodge major inconsistencies in gameplay.
-            if (!replaying || !replay.getStat().getMod().equals(mods)) {
+            // Difficulty Adjust rewrites its settings' default values when the beatmap is
+            // applied (applyFromBeatmap), so the live mod instances in `mods` never compare
+            // equal to the ones freshly read from the replay file. Canonicalizing both sides
+            // through the same serialization filter makes the comparison independent of that
+            // mutation (and of irrelevant mods that the filter drops on both sides).
+            boolean modsMatch = false;
+
+            if (replaying) {
+                var replayMods = ModUtils.deserializeMods(replay.getStat().getMod().serializeMods());
+                var expectedMods = ModUtils.deserializeMods(mods.serializeMods());
+                modsMatch = replayMods.equals(expectedMods);
+            }
+
+            if (!modsMatch) {
                 ToastLogger.showText(
                     com.osudroid.resources.R.string.replay_invalid,
                     true
@@ -1079,12 +1097,19 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             }
             GameHelper.setReplayVersion(replay.replayVersion);
 
-            // Check for pending MP4 export from ScoringScene
-            String pendingPath = consumePendingExport();
-            if (pendingPath != null) {
-                autoExportReplay = true;
-                autoExportOutputPath = pendingPath;
+            // Replays recorded by older builds may contain no cursor movements at all,
+            // which renders no cursor during playback — tell the user why.
+            {
+                int totalMovements = 0;
+                for (int i = 0; i < replay.cursorMoves.size(); i++) {
+                    totalMovements += replay.cursorMoves.get(i).size;
+                }
+
+                if (totalMovements == 0) {
+                    ToastLogger.showText("Replay contains no cursor data", false);
+                }
             }
+
         } else if (mods.contains(ModAutoplay.class)) {
             replay = null;
         }
@@ -1194,12 +1219,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         scene = createMainScene();
         bgScene = new UIScene();
-        if (replaying) {
-            batchedMgScene = new com.osudroid.game.replay.BatchedGameplayScene();
-            mgScene = batchedMgScene;
-        } else {
-            mgScene = new UIScene();
-        }
+        mgScene = new UIScene();
         mgScene.setClipToBounds(true);
         fgScene = new UIScene();
         scene.attachChild(bgScene);
@@ -1430,7 +1450,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         // TODO passive objects
         // Create cursor entities regardless of particles setting; trail is created conditionally inside CursorEntity
+        // The preference is read live (not the loadConfig cache): the settings toggle
+        // applies to the next game without an app restart.
         if (
+            (replaying || Config.getBoolean("showcursor", false)) &&
             !GameHelper.isAutoplay() &&
             !GameHelper.isAutopilot()
         ) {
@@ -1465,6 +1488,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         com.osudroid.plugin.GameState.setObjectCount(playableBeatmap.getHitObjects().objects.size());
         com.osudroid.plugin.GameState.setActiveMods(com.osudroid.plugin.GameState.getActiveMods());
 
+        // Report presence: playing
+        if (lastBeatmapInfo != null) {
+            ru.nsu.ccfit.zuev.osu.online.OnlineManager.getInstance().reportPresence(
+                "playing",
+                (lastBeatmapInfo.getArtist() != null ? lastBeatmapInfo.getArtist() : "Unknown") +
+                " - " + (lastBeatmapInfo.getTitle() != null ? lastBeatmapInfo.getTitle() : "Unknown") +
+                " [" + (lastBeatmapInfo.getVersion() != null ? lastBeatmapInfo.getVersion() : "Unknown") + "]"
+            );
+        }
+
         // Dispatch beatmap loaded event
         com.osudroid.plugin.PluginManager.getInstance().dispatchBeatmapLoaded(
             playableBeatmap.getMetadata().title,
@@ -1472,6 +1505,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             playableBeatmap.getMetadata().version,
             playableBeatmap.getHitObjects().objects.size()
         );
+
+        // Refresh per-session mover settings cache (hot-path reads are cached).
+        ru.nsu.ccfit.zuev.osu.game.cursor.mover.MoverSettings.clearCache();
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor = new AutoCursor();
@@ -1536,6 +1572,20 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         kiaiFlashOverlay.setColor(1f, 1f, 1f, 0f);
         kiaiFlashOverlay.setVisible(false);
         fgScene.attachChild(kiaiFlashOverlay);
+
+        // FailingLayer: fullscreen red overlay while health is low.
+        lowHealthOverlay = new Rectangle(
+            0,
+            0,
+            Config.getRES_WIDTH(),
+            Config.getRES_HEIGHT()
+        );
+        lowHealthOverlay.setColor(1f, 0f, 0f, 0f);
+        lowHealthOverlay.setVisible(false);
+        fgScene.attachChild(lowHealthOverlay);
+        // Reset the alpha left over from the previous play.
+        lowHealthAlpha = 0f;
+        lowHealthOverlay.setAlpha(0f);
 
         // Triangle background
         triangleBg =
@@ -1655,12 +1705,17 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         // Initialize replay control overlay
         if (replaying || GameHelper.isAutoplay()) {
-            replayPanel = new com.osudroid.game.replay.ReplaySettingsPanel();
-            ru.nsu.ccfit.zuev.osu.ReplayControlBridge.wireReplayPanel(
-                replayPanel,
-                this
-            );
-            hud.attachChild(replayPanel);
+            if (!Config.isHideReplaySettingsPanel()) {
+                replayPanel = new com.osudroid.game.replay.ReplaySettingsPanel();
+                ru.nsu.ccfit.zuev.osu.ReplayControlBridge.wireReplayPanel(
+                    replayPanel,
+                    this
+                );
+                // The movement tab only affects the AUTOPLAY cursor; hide it when
+                // watching a replay (the cursor belongs to the recording).
+                replayPanel.setMovementTabVisible(!replaying);
+                hud.attachChild(replayPanel);
+            }
         }
 
         skipBtn = null;
@@ -1736,9 +1791,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         breakAnimator = new BreakAnimator(fgScene, stat, hud);
 
         // Activate batched rendering during replay playback
-        if (replaying && batchedMgScene != null) {
-            batchedMgScene.activateBatching();
-        }
 
         if (Multiplayer.isMultiplayer) {
             RoomAPI.INSTANCE.notifyBeatmapLoaded();
@@ -1811,22 +1863,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             touchController.applyTouchOptions(touchOptions);
             touchController.resetRawPointers();
 
-            // Start Choreographer-driven vsync input polling
-            // This runs a callback on EVERY vsync to sample input at the
-            // display's native refresh rate, independent of the game's
-            // update-render cycle.
-            var mainActivity = GlobalManager.getInstance().getMainActivity();
-            mainActivity.startHighPrecisionInput(() -> {
-                // This runs on the UI thread at vsync rate (60-144Hz)
-                // The raw pointer data from DirectInputSurfaceView is always
-                // up-to-date; this callback ensures the game engine can
-                // use the latest vsync timestamp for precise timing.
-            });
-        } else {
-            // Stop high precision input if it was running
-            GlobalManager.getInstance()
-                .getMainActivity()
-                .stopHighPrecisionInput();
+            // Stale samples from a previous session (or pre-start touches) must not
+            // leak into gameplay as phantom DOWN/MOVE events.
+            var directInputView = GlobalManager.getInstance().getMainActivity().getDirectInputSurface();
+            if (directInputView != null) {
+                directInputView.clearPointerSamples();
+            }
+            // Input sampling is fully covered by the SPSC sample queue + raw pointers;
+            // there is deliberately no Choreographer-based vsync polling here.
         }
 
         // Disable screen dimming
@@ -1859,6 +1903,45 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         return comboColors.get(
             hitObject.getComboIndexWithOffsets() % comboColors.size()
         );
+    }
+
+    /**
+     * Loads the combo colors and slider border color from the beatmap skin, the
+     * user's custom colors, or the forceOverride colors of the current skin — in
+     * that priority order. Extracted from the map-loading path so a MID-GAME skin
+     * hot-swap can re-run it: {@link OsuSkin#get()}'s comboColor list and border
+     * color are replaced by loadSkin(), and gameplay objects spawned afterwards
+     * must pick up the new skin's palette, not the one captured at map load.
+     */
+    private void loadSkinDrivenColors() {
+        var playableBeatmap = this.playableBeatmap;
+
+        sliderBorderColor = BeatmapSkinManager.getInstance().getSliderColor();
+        if (playableBeatmap != null && playableBeatmap.getColors().getSliderBorderColor() != null) {
+            sliderBorderColor = playableBeatmap
+                .getColors()
+                .getSliderBorderColor();
+        }
+
+        if (OsuSkin.get().isForceOverrideSliderBorderColor()) {
+            sliderBorderColor = OsuSkin.get().getSliderBorderColor();
+        }
+
+        comboColors = new ArrayList<>();
+        if (playableBeatmap != null) {
+            for (ComboColor comboColor : playableBeatmap.getColors().comboColors) {
+                comboColors.add(comboColor.getColor());
+            }
+        }
+
+        if (comboColors.isEmpty() || Config.isUseCustomComboColors()) {
+            comboColors.clear();
+            comboColors.addAll(Arrays.asList(Config.getComboColors()));
+        }
+        if (OsuSkin.get().isForceOverrideComboColor()) {
+            comboColors.clear();
+            comboColors.addAll(OsuSkin.get().getComboColor());
+        }
     }
 
     private void update(final float dt) {
@@ -1932,13 +2015,21 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         final float mSecPassed = elapsedTime * 1000;
 
         if (!isGameOver) {
-            float currentSpeedMultiplier = getRateAt(mSecPassed);
+            // Match osu-droid: the effective rate is the mod rate multiplied by the
+            // replay panel's playback rate.
+            float currentSpeedMultiplier =
+                getRateAt(mSecPassed) * replaySettingsRate;
 
             if (currentSpeedMultiplier != GameHelper.getSpeedMultiplier()) {
                 GameHelper.setSpeedMultiplier(currentSpeedMultiplier);
-                GlobalManager.getInstance()
-                    .getSongService()
-                    .setSpeed(currentSpeedMultiplier);
+
+                var songService = GlobalManager.getInstance().getSongService();
+                if (songService != null) {
+                    // Upstream: mod rate goes to tempo (setSpeed), the panel rate goes to
+                    // pitchRate. Both combine inside BASS to the effective playback speed.
+                    songService.setSpeed(getRateAt(mSecPassed));
+                    songService.setPitchRate(replaySettingsRate);
+                }
             }
         }
 
@@ -1969,6 +2060,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     event.systemTime = movement.getTime();
                     event.trackTime = movement.getTime();
                     event.offset = 0;
+                    event.isRealInput = false;
                     event.position.set(movement.getX(), movement.getY());
 
                     if (movement.getTouchType() == TouchType.DOWN) {
@@ -1994,9 +2086,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     final int lIndex = replay.lastMoveIndex[i];
                     final Replay.ReplayMovement lastMovement =
                         replay.cursorMoves.get(i).movements[lIndex];
-                    float t =
-                        (elapsedTime * 1000 - movement.getTime()) /
-                        (lastMovement.getTime() - movement.getTime());
+                    int movementTime = movement.getTime();
+                    int lastMovementTime = lastMovement.getTime();
+                    int duration = lastMovementTime - movementTime;
+
+                    if (duration == 0) {
+                        continue;
+                    }
+
+                    float t = (mSecPassed - movementTime) / duration;
 
                     var event = CursorEvent.obtain();
 
@@ -2005,6 +2103,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     event.systemTime = (long) mSecPassed;
                     event.trackTime = (long) mSecPassed;
                     event.offset = 0;
+                    event.isRealInput = false;
                     event.action = TouchEvent.ACTION_MOVE;
                     event.position.set(
                         lastMovement.getX() * t + movement.getX() * (1 - t),
@@ -2025,26 +2124,34 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 var cursor = cursors[i];
                 var latestEvent = cursor.getLatestEvent();
 
-                // Set cursor sprite position from the latest event BEFORE calling
-                // sprite.update(dt), so the trail (which reads getX()/getY() inside
-                // CursorEntity.update()) sees the current frame's position instead of
-                // the previous frame's.
-                if (latestEvent != null) {
-                    sprite.setPosition(
-                        latestEvent.position.x,
-                        latestEvent.position.y
-                    );
+                // Replay path: update the sprite position/visibility before sprite.update(dt),
+                // so the trail never lags a frame behind the cursor.
+                if (replaying && latestEvent != null) {
+                    // UP events carry no position (stored as (0,0) on disk) — keep the last
+                    // real position and only hide the cursor, otherwise it would jump to
+                    // the top-left corner on global replays.
+                    if (!latestEvent.isActionUp()) {
+                        sprite.setPosition(
+                            latestEvent.position.x,
+                            latestEvent.position.y
+                        );
+                        sprite.setShowing(true);
+
+                        // Recorded press: the trail must restart from the new tap instead of
+                        // interpolating from the previous gesture's lift point.
+                        if (latestEvent.isActionDown()) {
+                            sprite.onCursorPress();
+                        }
+                    } else {
+                        sprite.setShowing(false);
+                    }
+                    // Enable trail immediately during replay (bypass 1s delay)
+                    sprite.setForceTrailEnabled(true);
+                } else if (!replaying) {
+                    sprite.setShowing(cursor.isMouseDown());
                 }
 
                 sprite.update(dt);
-
-                if (replaying && latestEvent != null) {
-                    sprite.setShowing(!latestEvent.isActionUp());
-                } else {
-                    // Show the cursor only while the pointer is held down; hide it on
-                    // release so it does not linger at the last tap location.
-                    sprite.setShowing(cursor.isMouseDown());
-                }
 
                 if (cursor.getLatestEvent(TouchEvent.ACTION_DOWN) != null) {
                     sprite.click();
@@ -2143,6 +2250,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         updateKiaiEffects();
         updateKiaiFlash(dt);
+        updateLowHealthOverlay(dt);
 
         if (screenShake != null) screenShake.update(dt);
 
@@ -2180,9 +2288,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             beatmapBackground.setPosition(bgBaseX + parallaxPosX, bgBaseY + parallaxPosY);
         }
 
-        // Update replay seek position
+        // Update replay seek position (panel is attached for both replay and autoplay).
         if (
-            replaying &&
             replayPanel != null &&
             objects != null &&
             objects.length > 0
@@ -2281,8 +2388,20 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             }
         }
 
-        // Clearing expired objects.
+        // Clearing expired objects. onExpire() detaches visuals, stops looping samples, releases pooled
+        // resources and returns the object to its pool. The identity set guards against double-expiry when a
+        // seek force-expired an object that was still queued in expiredObjects.
+        processedExpiredObjects.clear();
+
         if (!expiredObjects.isEmpty()) {
+            for (int i = 0, size = expiredObjects.size(); i < size; i++) {
+                var obj = expiredObjects.get(i);
+
+                if (processedExpiredObjects.add(obj)) {
+                    obj.onExpire();
+                }
+            }
+
             activeObjects.removeAll(expiredObjects);
             expiredObjects.clear();
         }
@@ -2543,6 +2662,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 kiaiFlashOverlay = null;
             }
 
+            if (lowHealthOverlay != null) {
+                lowHealthOverlay.detachSelf();
+                lowHealthOverlay = null;
+            }
+            lowHealthAlpha = 0f;
+
             this.playableBeatmap = null;
             performanceCalculationParameters = null;
             droidTimedDifficultyAttributes = null;
@@ -2568,13 +2693,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             cancelStoryboardLoading();
             cancelVideoLoading();
 
-        // Deactivate batched rendering
-        if (batchedMgScene != null) {
-            batchedMgScene.deactivateBatching();
-            batchedMgScene = null;
-        }
 
         if (scoringScene != null && !startedFromHUDEditor) {
+            ru.nsu.ccfit.zuev.osu.online.OnlineManager.getInstance().reportPresence("online", null);
             if (replaying) scoringScene.load(
                     scoringScene.getReplayStat(),
                     null,
@@ -2676,10 +2797,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             skipBtn = null;
         } else if (skipBtn != null) {
             for (int i = 0; i < cursors.length; ++i) {
-                var latestDownEvent = cursors[i].getLatestEvent(
-                    TouchEvent.ACTION_DOWN,
-                    TouchEvent.ACTION_MOVE
-                );
+                // This hit test uses cursor events, which for autoplay are the synthetic
+                // autoplay cursor (the only "finger" there is). During replay playback real
+                // touches are handled directly in onSceneTouchEvent (the replay gate), so
+                // they never enter cursors[] and cannot skip from here.
+                CursorEvent latestDownEvent = cursors[i].getLatestEvent(
+                      TouchEvent.ACTION_DOWN,
+                      TouchEvent.ACTION_MOVE
+                  );
 
                 if (
                     latestDownEvent != null &&
@@ -2793,7 +2918,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
             var songService = GlobalManager.getInstance().getSongService();
 
-            if (elapsedTime >= getRateAdjustedOffset() && !musicStarted) {
+            // Mirror seekReplay: never un-pause music the user explicitly paused via
+            // the replay panel — the skip would otherwise blast audio while paused.
+            if (elapsedTime >= getRateAdjustedOffset() && !musicStarted && !replayPlaybackPaused) {
                 songService.play();
                 songService.setVolume(Config.getBgmVolume());
                 musicStarted = true;
@@ -2813,13 +2940,195 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     /**
+     * Pauses replay/autoplay playback honestly: gameplay time stops advancing (dt = 0),
+     * music, video and looping samples are stopped. Mirrors osu-droid's
+     * gameplayClock.stop() + stopLoopingSamples() + video.pause().
+     */
+    public void pauseReplayPlayback() {
+        if (replayPlaybackPaused) {
+            return;
+        }
+
+        replayPlaybackPaused = true;
+
+        stopLoopingSamples();
+
+        var songService = GlobalManager.getInstance().getSongService();
+
+        if (songService != null && songService.getStatus() == Status.PLAYING) {
+            songService.pause();
+            replayPlaybackWasPlaying = true;
+        } else {
+            replayPlaybackWasPlaying = false;
+        }
+
+        if (video != null && videoStarted) {
+            video.pause();
+        }
+    }
+
+    /**
+     * Resumes replay/autoplay playback after {@link #pauseReplayPlayback()}.
+     */
+    public void resumeReplayPlayback() {
+        if (!replayPlaybackPaused) {
+            return;
+        }
+
+        replayPlaybackPaused = false;
+
+        playLoopingSamples();
+
+        var songService = GlobalManager.getInstance().getSongService();
+
+        if (songService != null && replayPlaybackWasPlaying && elapsedTime >= getRateAdjustedOffset()) {
+            songService.play();
+            songService.setVolume(Config.getBgmVolume());
+        }
+
+        if (video != null && videoStarted && elapsedTime >= videoOffset) {
+            video.play();
+        }
+    }
+
+    public boolean isReplayPlaybackPaused() {
+        return replayPlaybackPaused;
+    }
+
+    /**
+     * Called when the user changes background brightness via the replay visual settings panel.
+     */
+    public void onReplayBrightnessChanged(float brightness) {
+        if (breakAnimator != null) {
+            breakAnimator.setDimBrightness(brightness);
+
+            // Match upstream: during a break the BreakAnimator owns the dim layer.
+            if (!breakAnimator.isBreak() && dimRectangle != null) {
+                dimRectangle.setAlpha(1f - brightness);
+            }
+        }
+    }
+
+    /**
+     * Called when the user toggles parallax via the replay visual settings panel.
+     * The background is rebuilt so the parallax scale factor (1.1x) applies immediately.
+     */
+    public void onReplayParallaxChanged(boolean enabled) {
+        if (parallaxApplied == enabled) {
+            return;
+        }
+        parallaxApplied = enabled;
+        Config.setParallaxEnabled(enabled);
+        applyBackground();
+    }
+
+    /**
+     * Called after a mid-replay skin hot-swap finished reloading resources on a
+     * background thread. Refreshes sprites whose textures were captured at
+     * construction (cursor entities). Gameplay objects re-pull textures in their
+     * init() as they spawn from the pool.
+     */
+    public void onReplaySkinChanged() {
+        int refreshed = 0;
+        if (cursorSprites != null) {
+            for (var sprite : cursorSprites) {
+                if (sprite != null) {
+                    sprite.refreshSkinTextures();
+                    refreshed++;
+                }
+            }
+        }
+        if (autoCursor != null) {
+            autoCursor.refreshSkinTextures();
+            refreshed++;
+        }
+
+        // Pooled gameplay objects capture TextureRegions in their constructor, so a
+        // hot-swapped skin leaves the pool full of sprites bound to unloaded GL
+        // textures. purge() drops them; the next spawn rebuilds from the new skin.
+        GameObjectPool.getInstance().purge();
+        // Follow points / slider ticks live in their own pools with the same problem.
+        FollowPointConnection.refreshTextures();
+        // In-flight follow points (attached to the scene, modifiers running) need
+        // their region re-bound in place.
+        FollowPointConnection.refreshLiveTextures();
+        // Same for slider ticks, which are scene grandchildren.
+        SliderTickSprite.refreshLiveTickTextures(scene);
+
+        // Live objects keep the previous skin's TextureRegion until refreshed in place.
+        // Combo colors are re-derived as well since the skin's palette changed with the swap.
+        loadSkinDrivenColors();
+        int liveRefreshed = 0;
+        for (int i = 0, size = activeObjects.size(); i < size; i++) {
+            var obj = activeObjects.get(i);
+            if (obj instanceof GameplayHitCircle circle) {
+                circle.refreshSkinTextures();
+                liveRefreshed++;
+            } else if (obj instanceof GameplaySlider slider) {
+                slider.refreshSkinTextures();
+                liveRefreshed++;
+            } else if (obj instanceof GameplaySpinner spinner) {
+                spinner.refreshSkinTextures();
+                liveRefreshed++;
+            }
+        }
+
+        // HUD elements (score/combo/accuracy fonts, health bar sprites) capture skinned
+        // textures at construction — rebuild them from the new skin. Runs on the update
+        // thread (this whole callback is invoked there).
+        if (hud != null) {
+            hud.onSkinChanged();
+        }
+
+        // The skip button is an ANIMATABLE (play-skip-*) UIAnimatedSprite captured at
+        // scene build; re-pull its frames from the new skin.
+        if (skipBtn instanceof UIAnimatedSprite animatedSkip) {
+            animatedSkip.setFrames("play-skip", true);
+        }
+    }
+
+    /**
+     * Called when the user changes the autoplay movement style (or one of its
+     * sub-settings) via the visual settings panel during autoplay. The cursor
+     * queue is re-baked with the new mover and the cursor resumes from the
+     * current gameplay time.
+     *
+     * @param styleValue the new autoplayStyle value (null/empty = keep the current
+     *                   style — only sub-settings were edited).
+     */
+    public void onReplayMovementStyleChanged(String styleValue) {
+        if (autoCursor == null) {
+            return;
+        }
+
+        AutoplayStyle style = (styleValue == null || styleValue.isEmpty())
+            ? null
+            : AutoplayStyle.fromValue(styleValue);
+
+        // Re-baking the queue touches the trail + cursor position → update thread.
+        com.osudroid.utils.Execution.updateThread(() ->
+            autoCursor.applyStyleLive(
+                style,
+                playableBeatmap != null
+                    ? playableBeatmap.getHitObjects().objects.toArray(new com.rian.osu.beatmap.hitobject.HitObject[0])
+                    : null,
+                this,
+                elapsedTime
+            )
+        );
+    }
+
+    /**
      * Seek the replay/autoplay to a specific time (in seconds).
      * Resets game state so objects reappear on backward seek
      * and replay cursor events play correctly on forward seek.
      */
     public void seekReplay(float targetTimeSeconds) {
-        if (!replaying && !GameHelper.isAutoplay()) return;
-        if (objects == null || playableBeatmap == null) return;
+        var playableBeatmap = this.playableBeatmap;
+
+        if (playableBeatmap == null || objects == null) {
+            return;
+        }
         // Safety: don't seek if timing points aren't initialized yet
         if (
             timingControlPoints == null || timingControlPoints.length == 0
@@ -2828,26 +3137,30 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             effectControlPoints == null || effectControlPoints.length == 0
         ) return;
 
-        float oldTime = elapsedTime;
-        elapsedTime = Math.max(
+        float clampedTime = Math.max(
             0,
             Math.min(
                 targetTimeSeconds,
-                totalLength < Integer.MAX_VALUE ? totalLength / 1000f : 120f
+                (float) (objects[objects.length - 1].getEndTime() / 1000)
             )
         );
 
-        double elapsedTimeMs = Math.ceil(elapsedTime * 1000);
+        float oldTime = elapsedTime;
+        elapsedTime = clampedTime;
+        float targetMs = clampedTime * 1000;
+
+        // Seek music (also recompute the rate at the seek target, see osu-droid).
+        double elapsedTimeMs = Math.ceil(targetMs);
         int musicSeekTime = Math.max(
             0,
             (int) (elapsedTimeMs -
                 totalOffset * getRateAt(elapsedTimeMs) * 1000)
         );
 
-        // Seek music
         var songService = GlobalManager.getInstance().getSongService();
         if (songService != null) {
-            if (elapsedTime >= getRateAdjustedOffset() && !musicStarted) {
+            // Do not un-pause music the user explicitly paused via the replay panel.
+            if (elapsedTime >= getRateAdjustedOffset() && !musicStarted && !replayPlaybackPaused) {
                 songService.play();
                 songService.setVolume(Config.getBgmVolume());
                 musicStarted = true;
@@ -2855,84 +3168,242 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             songService.seekTo(musicSeekTime);
         }
 
+        // Seek video.
+        if (videoEnabled && video != null) {
+            video.seekTo(Math.max(0, (int) ((clampedTime - videoOffset) * 1000)));
+        }
+
         // ---- Reset game state so objects reappear ----
 
-        // Clear active/expired objects so they get re-added from the objects array
+        // Force-expire all active objects (detach from scene and return to pool).
+        for (int i = 0, size = activeObjects.size(); i < size; ++i) {
+            var obj = activeObjects.get(i);
+
+            if (processedExpiredObjects.add(obj)) {
+                obj.onExpire();
+            }
+        }
+
+        // Also expire objects that were queued for cleanup but not yet processed.
+        for (int i = 0, size = expiredObjects.size(); i < size; ++i) {
+            var obj = expiredObjects.get(i);
+
+            if (processedExpiredObjects.add(obj)) {
+                obj.onExpire();
+            }
+        }
+
         activeObjects.clear();
         expiredObjects.clear();
-
-        // Reset object index to the first object that should be active at the new time
-        objectIndex = 0;
-        for (int i = 0; i < objects.length; i++) {
-            float objStartTime = (float) objects[i].startTime / 1000f;
-            if (objStartTime > elapsedTime - 0.5f) {
-                objectIndex = i;
-                break;
-            }
-        }
-        // If all objects are in the past, set to end
-        if (objectIndex >= objects.length) {
-            objectIndex = objects.length;
-        }
-
-        // Reset object tracking state
-        lastObjectId = -1;
+        processedExpiredObjects.clear();
         judgeableObject = null;
-        leadOut = 0;
 
-        // Reset replay cursor indices so replay events replay from the new position
-        if (replaying && replay != null) {
-            for (int i = 0; i < replay.cursorIndex.length; i++) {
-                replay.cursorIndex[i] = 0;
+        // Detach any lingering hit effects from the gameplay scene.
+        for (int i = mgScene.getChildCount() - 1; i >= 0; --i) {
+            var child = mgScene.getChild(i);
+
+            // Hit effects are pooled; their fade-out callback schedules putEffect(), but on a hard detach the
+            // callback is lost. Finishing the modifiers first lets GameEffect's own completion handler return
+            // the wrapper to the pool rather than orphaning it.
+            if (child instanceof com.reco1l.andengine.sprite.UISprite sprite) {
+                sprite.finishModifiers();
+            }
+
+            child.detachSelf();
+        }
+
+        // Remove follow points spawned for objects before the seek point.
+        FollowPointConnection.clearAll(bgScene);
+
+        // Reset spawn counters.
+        objectIndex = 0;
+        sliderIndex = 0;
+        lastObjectId = -1;
+        gameStarted = false;
+        leadOut = 0;
+        comboWasMissed = false;
+        comboWas100 = false;
+        failcount = 0;
+        isGameOver = false;
+        hasFailed = false;
+
+        // Rewind the auto cursor's precomputed queue to the seek target: the queue
+        // only advances forward, so a backward seek without re-indexing left the
+        // cursor at the old (future) segment's start position until gameplay caught
+        // up. seekTo also restores spinning (at the correct angle) and marks a trail
+        // discontinuity across the jump.
+        if (autoCursor != null) {
+            autoCursor.clearEntityModifiers();
+            autoCursor.seekTo(elapsedTime);
+        }
+
+        // Clear pending cursor events.
+        for (int i = 0; i < cursors.length; ++i) {
+            var cursor = cursors[i];
+
+            if (cursor != null) {
+                cursor.reset(SystemClock.uptimeMillis(), 0);
+                cursor.latestProcessedDownEventIndex = 0;
+                cursor.latestProcessedEventIndex = 0;
+            }
+
+            // Reset trails: otherwise the trail stretches across the seek jump
+            // (points from the old position interpolate to the new one).
+            if (cursorSprites != null && cursorSprites[i] != null) {
+                cursorSprites[i].resetTrail();
             }
         }
 
-        // Reset timing control points to match the new time
-        while (
-            timingControlPointIndex > 0 &&
-            timingControlPoints[timingControlPointIndex].time >
-                elapsedTime * 1000
-        ) {
-            timingControlPointIndex--;
-        }
+        // Advance timing and effect control points to the target time.
+        timingControlPointIndex = 0;
+        effectControlPointIndex = 0;
+
         while (
             timingControlPointIndex + 1 < timingControlPoints.length &&
-            timingControlPoints[timingControlPointIndex + 1].time <=
-                elapsedTime * 1000
+            timingControlPoints[timingControlPointIndex + 1].time <= targetMs
         ) {
             timingControlPointIndex++;
         }
-        if (timingControlPoints != null && timingControlPoints.length > 0) {
-            activeTimingPoint = timingControlPoints[timingControlPointIndex];
-        }
 
         while (
-            effectControlPointIndex > 0 &&
-            effectControlPoints[effectControlPointIndex].time >
-                elapsedTime * 1000
-        ) {
-            effectControlPointIndex--;
-        }
-        while (
             effectControlPointIndex + 1 < effectControlPoints.length &&
-            effectControlPoints[effectControlPointIndex + 1].time <=
-                elapsedTime * 1000
+            effectControlPoints[effectControlPointIndex + 1].time <= targetMs
         ) {
             effectControlPointIndex++;
         }
-        if (effectControlPoints != null && effectControlPoints.length > 0) {
-            activeEffectPoint = effectControlPoints[effectControlPointIndex];
+
+        activeTimingPoint = timingControlPoints.length > 0 ?
+            timingControlPoints[timingControlPointIndex] :
+            playableBeatmap.getControlPoints().timing.defaultControlPoint;
+
+        activeEffectPoint = effectControlPoints.length > 0 ?
+            effectControlPoints[effectControlPointIndex] :
+            playableBeatmap.getControlPoints().effect.defaultControlPoint;
+
+        // Advance break period index past fully elapsed breaks.
+        breakPeriodIndex = 0;
+
+        if (breakPeriods != null) {
+            while (
+                breakPeriodIndex < breakPeriods.length &&
+                breakPeriods[breakPeriodIndex].endTime <= targetMs
+            ) {
+                breakPeriodIndex++;
+            }
         }
 
-        // Reset miss tracking so combo isn't broken incorrectly
-        comboWasMissed = false;
-        comboWas100 = false;
-
-        // Reset the auto cursor to prevent it from jumping to old positions
-        if (autoCursor != null) {
-            autoCursor.setPosition(100f, 100f);
-            autoCursor.setAutoplayStyle(autoCursor.getAutoplayStyle());
+        // Reset replay cursor movement indices.
+        if (replaying && replay != null && replay.lastMoveIndex != null) {
+            Arrays.fill(replay.cursorIndex, 0);
+            Arrays.fill(replay.lastMoveIndex, -1);
         }
+
+        // Reconstruct scoring state up to the seek target.
+        stat.reset();
+        reconstructStatAtTime(targetMs);
+
+        // Reset any in-progress break animation, then re-initialize if the seek target is inside a break.
+        breakAnimator.reset();
+
+        if (breakPeriods != null && breakPeriodIndex < breakPeriods.length) {
+            var bp = breakPeriods[breakPeriodIndex];
+
+            if (bp.startTime <= targetMs && targetMs < bp.endTime) {
+                gameStarted = false;
+                float totalDuration = bp.getDuration() / 1000f;
+                float breakElapsedTime = (float) ((targetMs - bp.startTime) / 1000.0);
+                breakAnimator.init(totalDuration, breakElapsedTime);
+                breakPeriodIndex++;
+                hud.onBreakStateChange(true);
+            } else {
+                hud.onBreakStateChange(false);
+            }
+        } else {
+            hud.onBreakStateChange(false);
+        }
+
+        // Recreate the skip button when seeking back into the lead-in: update() removes
+        // it past skipTime and never restores it, but the replay-gate touch check needs
+        // it present to allow skipping.
+        if (elapsedTime < skipTime - 1f && skipBtn == null) {
+            float paddingBottom = Multiplayer.isConnected()
+                ? Multiplayer.roomScene.getChat().getButtonHeight()
+                : 0f;
+
+            skipBtn = new UIAnimatedSprite(
+                "play-skip",
+                true,
+                OsuSkin.get().getAnimationFramerate()
+            );
+            skipBtn.setOrigin(Anchor.BottomRight);
+            skipBtn.setPosition(
+                Config.getRES_WIDTH(),
+                Config.getRES_HEIGHT() - paddingBottom
+            );
+            skipBtn.setAlpha(0.7f);
+            hud.attachChild(skipBtn);
+        }
+
+        hud.onNoteHit(stat);
+        hud.onSeek();
+
+        // Replay all touch-down events up to the seek target so HUD elements
+        // that depend on touch history can reconstruct their state correctly.
+        if (GameHelper.isAutoplay()) {
+            for (int i = 0; i < objects.length; ++i) {
+                float tapTime = (float) objects[i].startTime / 1000f;
+
+                if (tapTime > clampedTime) {
+                    break;
+                }
+
+                hud.onGameplayTouchDown(tapTime);
+            }
+        } else if (replaying) {
+            int cursorCount = replay.cursorMoves.size();
+
+            for (int i = 0; i < cursorCount; ++i) {
+                var moveArray = replay.cursorMoves.get(i);
+
+                for (int j = 0; j < moveArray.size; ++j) {
+                    var movement = moveArray.movements[j];
+
+                    float tapTime = movement.getTime() / 1000f;
+
+                    if (tapTime > clampedTime) {
+                        break;
+                    }
+
+                    if (movement.getTouchType() == TouchType.DOWN) {
+                        hud.onGameplayTouchDown(tapTime);
+                    }
+                }
+            }
+        }
+
+        updatePPValue(objectIndex - 1);
+
+        // For variable-rate mods (WindUp/WindDown), the rate at the seek target may differ from
+        // the current rate. The music seek above already accounted for the target rate, so sync
+        // the engine-side multiplier too. Matches upstream: modRate is scaled by the panel rate.
+        {
+            float modRate = getRateAt(targetMs);
+            float targetSpeedMultiplier = modRate * replaySettingsRate;
+
+            if (targetSpeedMultiplier != GameHelper.getSpeedMultiplier()) {
+                GameHelper.setSpeedMultiplier(targetSpeedMultiplier);
+
+                if (songService != null) {
+                    songService.setSpeed(modRate);
+                    songService.setPitchRate(replaySettingsRate);
+                }
+            }
+        }
+
+        // Suppress hitsounds for objects judged on the seek target frame (they were already
+        // reconstructed into the stat). Objects are spawned in the same frame as the seek, but
+        // updated in the next frame, so the flag must survive 2 update frames.
+        postSeekFrameCount = 2;
 
         android.util.Log.d(
             "GameScene",
@@ -2942,10 +3413,354 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 elapsedTime +
                 "s (music: " +
                 musicSeekTime +
-                "ms, objectIndex: " +
-                objectIndex +
-                ")"
+                "ms)"
         );
+    }
+
+    private void reconstructStatAtTime(float targetMs) {
+        var playableBeatmap = this.playableBeatmap;
+
+        if (playableBeatmap == null || objects == null || objects.length == 0) {
+            return;
+        }
+
+        var difficulty = playableBeatmap.getDifficulty();
+        int localTimingIdx = 0;
+        int localBreakIdx = 0;
+        var objectData = replaying ? replay.objectData : null;
+
+        // How far continuous HP drain has been applied, and which object-to-object rate segment
+        // it's currently within ([objects[rateSegIdx].startTime - timePreempt,
+        // objects[rateSegIdx + 1].startTime - timePreempt)). Both advance with elapsed
+        // time and is independent of which object's own judgement has been applied yet.
+        double drainCursorMs = objects[0].startTime - objects[0].timePreempt;
+        int rateSegIdx = 0;
+
+        for (int i = 0; i < objects.length; i++) {
+            var obj = objects[i];
+
+            double judgementTimeMs = getJudgementTimeMs(i, obj, objectData);
+
+            if (judgementTimeMs > targetMs) {
+                break;
+            }
+
+            double drainTargetMs = Math.min(judgementTimeMs, targetMs);
+
+            while (drainCursorMs < drainTargetMs && rateSegIdx < objects.length - 1) {
+                var segFromObj = objects[rateSegIdx];
+                var segToObj = objects[rateSegIdx + 1];
+
+                // Advance local timing point index to this segment's own "to" object.
+                while (
+                    localTimingIdx + 1 < timingControlPoints.length &&
+                    timingControlPoints[localTimingIdx + 1].time <= segToObj.startTime
+                ) {
+                    localTimingIdx++;
+                }
+
+                double msPerBeat = timingControlPoints[localTimingIdx].msPerBeat;
+                double distToNextObject = Math.max(segToObj.startTime - segFromObj.startTime, msPerBeat / 2) / 1000;
+
+                double drainRate = difficulty.hp > 0 && distToNextObject > 0
+                    ? 1 + difficulty.hp / (2 * distToNextObject)
+                    : 0.375;
+
+                double segEndMs = segToObj.startTime - segToObj.timePreempt;
+                double stopAtMs = Math.min(segEndMs, drainTargetMs);
+
+                if (stopAtMs > drainCursorMs) {
+                    // Advance past breaks that fully precede the current segment.
+                    if (breakPeriods != null) {
+                        while (
+                            localBreakIdx < breakPeriods.length &&
+                            breakPeriods[localBreakIdx].endTime <= drainCursorMs
+                        ) {
+                            localBreakIdx++;
+                        }
+                    }
+
+                    double effectiveSecs = calculateEffectiveDrainDuration(drainCursorMs, stopAtMs, localBreakIdx);
+
+                    // Apply drain incrementally so that a large drain section can consume multiple Easy lives.
+                    // A one-shot stat.changeHp clamps at 0 and loses the excess, causing at most one Easy revive per drain
+                    // section regardless of how deep HP would have gone.
+                    float remainingDrain = (float) (drainRate * 0.01 * effectiveSecs);
+
+                    while (remainingDrain > 0) {
+                        float currentHp = stat.getHp();
+
+                        if (remainingDrain < currentHp) {
+                            stat.changeHp(-remainingDrain);
+                            break;
+                        }
+
+                        remainingDrain -= currentHp;
+                        stat.changeHp(-currentHp);
+
+                        if (!stat.canFail) {
+                            break;
+                        }
+
+                        if (GameHelper.isEasy() && failcount < 3) {
+                            failcount++;
+                            stat.changeHp(1f);
+                        } else {
+                            return;
+                        }
+                    }
+
+                    drainCursorMs = stopAtMs;
+                }
+
+                if (drainCursorMs >= segEndMs) {
+                    rateSegIdx++;
+                } else {
+                    // Capped short of this segment's own end by drainTargetMs - stop crossing
+                    // further for now. The remainder of this same segment continues once a
+                    // later object's own judgement time lets drain proceed past it.
+                    break;
+                }
+            }
+
+            if (!gameStarted) {
+                gameStarted = true;
+            }
+
+            var data = (objectData != null && i < objectData.length) ? objectData[i] : null;
+
+            boolean endCombo = obj.isLastInCombo();
+
+            if (obj instanceof HitCircle) {
+                applyCircleResult(data, endCombo);
+            } else if (obj instanceof Slider slider) {
+                sliderIndex++;
+                applySliderResult(slider, data, endCombo);
+            } else if (obj instanceof Spinner parsedSpinner) {
+                applySpinnerResult(parsedSpinner, data, endCombo);
+            }
+
+            lastObjectId = i;
+            objectIndex = i + 1;
+        }
+    }
+
+    private double getJudgementTimeMs(int idx, HitObject obj, @Nullable Replay.ReplayObjectData[] objectData) {
+        if (obj instanceof Slider || obj instanceof Spinner) {
+            return obj.getEndTime();
+        }
+
+        // Circle: judged when hit (or miss window expires).
+        if (objectData != null && idx < objectData.length) {
+            var data = objectData[idx];
+
+            if (data != null && data.result != ResultType.MISS.getId()) {
+                return obj.startTime + Math.abs(data.accuracy);
+            }
+        }
+
+        double mehWindow = obj.hitWindow != null ? obj.hitWindow.getMehWindow() : HitWindow.MISS_WINDOW;
+
+        return obj.startTime + mehWindow;
+    }
+
+    private void reconstructHitOffset(double accSeconds) {
+        if (Math.abs(accSeconds) <= hitWindow.getMehWindow() / 1000) {
+            stat.addHitOffset(accSeconds);
+        }
+    }
+
+    private void applyCircleResult(@Nullable Replay.ReplayObjectData data, boolean endCombo) {
+        byte result = data != null ? data.result : ResultType.HIT300.getId();
+
+        if (result == ResultType.MISS.getId()) {
+            comboWasMissed = true;
+            stat.registerHit(0, false, false);
+        } else {
+            reconstructHitOffset(data != null ? data.accuracy / 1000.0 : 0.0);
+
+            if (result == ResultType.HIT50.getId()) {
+                stat.registerHit(50, false, false);
+                comboWas100 = true;
+            } else if (result == ResultType.HIT100.getId()) {
+                comboWas100 = true;
+                stat.registerHit(100, endCombo && !comboWasMissed, false);
+            } else {
+                if (endCombo && !comboWasMissed) {
+                    stat.registerHit(300, true, !comboWas100);
+                } else {
+                    stat.registerHit(300, false, false);
+                }
+            }
+        }
+
+        if (endCombo) {
+            comboWas100 = false;
+            comboWasMissed = false;
+        }
+    }
+
+    private void applySliderResult(Slider slider, @Nullable Replay.ReplayObjectData data, boolean endCombo) {
+        byte result = data != null ? data.result : ResultType.HIT300.getId();
+
+        if (result == ResultType.MISS.getId()) {
+            comboWasMissed = true;
+            stat.registerHit(0, false, false);
+
+            if (endCombo) {
+                comboWas100 = false;
+                comboWasMissed = false;
+            }
+
+            return;
+        }
+
+        // Slider head: HIT300 implies all ticks were hit; autoplay (data==null) always hits.
+        // For HIT50/HIT100, reconstruct whether the head was actually within the hit window,
+        // mirroring GameplaySlider.onSliderHeadHit.
+        double accSeconds = data != null ? data.accuracy / 1000.0 : 0.0;
+        boolean headHit;
+
+        if (data == null || result == ResultType.HIT300.getId()) {
+            headHit = true;
+        } else {
+            int replayVersion = GameHelper.getReplayVersion();
+            double mehWindowSecs = hitWindow.getMehWindow() / 1000.0;
+            double sliderDurationSecs = slider.getDuration() / 1000.0;
+            double lateHitThreshold = replayVersion <= 7 ? Math.min(mehWindowSecs, sliderDurationSecs) : mehWindowSecs;
+
+            if (replayVersion >= 6 || mehWindowSecs <= sliderDurationSecs) {
+                headHit = -mehWindowSecs <= accSeconds && accSeconds <= lateHitThreshold;
+            } else {
+                headHit = accSeconds <= sliderDurationSecs;
+            }
+        }
+
+        if (headHit) {
+            reconstructHitOffset(accSeconds);
+            stat.registerHit(30, false, false);
+            stat.addSliderHeadHit();
+        }
+
+        // Ticks and repeats from tickSet.
+        var nested = slider.getNestedHitObjects();
+
+        // Skip head (index 0) and tail (last index).
+        for (int i = 1, end = nested.size() - 1; i < end; i++) {
+            boolean wasHit = data == null || (data.tickSet != null && data.tickSet.get(i - 1));
+
+            if (!wasHit) {
+                stat.registerHit(0, true, false);
+                continue;
+            }
+
+            var nestedObj = nested.get(i);
+
+            if (nestedObj instanceof com.rian.osu.beatmap.hitobject.sliderobject.SliderTick) {
+                stat.registerHit(10, false, false);
+                stat.addSliderTickHit();
+            } else if (nestedObj instanceof com.rian.osu.beatmap.hitobject.sliderobject.SliderRepeat) {
+                stat.registerHit(30, false, false);
+                stat.addSliderRepeatHit();
+            }
+        }
+
+        // Slider tail: combo is only awarded when the player was tracking at the endpoint.
+        // Unlike circles, the result score reflects ticks hit, not timing accuracy.
+        boolean tailTracked = data == null || (data.tickSet != null && data.tickSet.get(nested.size() - 2));
+        byte tailResult = data != null ? data.result : ResultType.HIT300.getId();
+
+        if (tailResult == ResultType.HIT50.getId()) {
+            comboWas100 = true;
+            stat.registerHit(50, false, false, tailTracked);
+        } else if (tailResult == ResultType.HIT100.getId()) {
+            comboWas100 = true;
+            stat.registerHit(100, endCombo && !comboWasMissed, false, tailTracked);
+        } else {
+            if (endCombo && !comboWasMissed) {
+                stat.registerHit(300, true, !comboWas100, tailTracked);
+            } else {
+                stat.registerHit(300, false, false, tailTracked);
+            }
+        }
+
+        if (endCombo) {
+            comboWas100 = false;
+            comboWasMissed = false;
+        }
+
+        if (tailTracked) {
+            stat.addSliderEndHit();
+        }
+    }
+
+    private void applySpinnerResult(Spinner spinner, @Nullable Replay.ReplayObjectData data, boolean endCombo) {
+        float duration = (float) spinner.getDuration() / 1000;
+        float needRotations = (2 + 2 * playableBeatmap.getDifficulty().od / 10f) * duration;
+
+        if (duration < 0.05f) {
+            needRotations = 0.1f;
+        }
+
+        int preClear;
+        int bonus;
+
+        if (data != null) {
+            // data.accuracy = totalSpins * 4 + resultCode, where totalSpins = fullRotations (pre-clear, 100 pts each)
+            // + (bonusScoreCounter - 1) (bonus, 1000 pts each). Split by needRotations to award the correct amounts.
+            int totalSpins = (data.accuracy & 0xFFFF) >> 2;
+            preClear = Math.min(totalSpins, (int) Math.ceil(needRotations) - 1);
+            bonus = totalSpins - preClear;
+        } else {
+            // Autoplay always clears the spinner. Reconstruct the pre-clear (100 pts each) and bonus (1000 pts each)
+            // rotation split from the spinner's parameters.
+            // ceil(needRotations) - 1 rotations are pre-clear; bonus rotations begin at ceil(needRotations) total.
+            float totalRotations = 5f * duration;
+
+            preClear = (int) Math.ceil(needRotations) - 1;
+            bonus = Math.max(0, (int) totalRotations - (int) Math.ceil(needRotations) + 1);
+        }
+
+        for (int s = 0; s < preClear; s++) {
+            stat.registerSpinnerHit();
+        }
+
+        for (int s = 0; s < bonus; s++) {
+            stat.registerHit(1000, false, false);
+        }
+
+        applyCircleResult(data, endCombo);
+    }
+
+    /**
+     * Returns the effective drain duration in seconds for the segment [startMs, endMs], subtracting any time that
+     * falls within a break period. {@code startBreakIdx} should be the first break period index whose end time is
+     * >= startMs (caller advances this monotonically as segments progress forward in time).
+     */
+    private double calculateEffectiveDrainDuration(double startMs, double endMs, int startBreakIdx) {
+        if (startMs >= endMs) {
+            return 0;
+        }
+
+        double total = endMs - startMs;
+
+        if (breakPeriods != null) {
+            for (int i = startBreakIdx; i < breakPeriods.length; ++i) {
+                var bp = breakPeriods[i];
+
+                if (bp.startTime >= endMs) {
+                    break;
+                }
+
+                double overlap = Math.min(bp.endTime, endMs) - Math.max(bp.startTime, startMs);
+
+                if (overlap > 0) {
+                    total -= overlap;
+                }
+            }
+        }
+
+        return Math.max(0, total) / 1000;
     }
 
     private void onExit() {
@@ -2965,7 +3780,21 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             effectControlPoints = null;
             parsedBeatmap = null;
             playableBeatmap = null;
+            if (cursorSprites != null) {
+                for (var cs : cursorSprites) {
+                    if (cs != null) cs.cleanupTrail();
+                }
+            }
             cursorSprites = null;
+            // Detach + trail cleanup: otherwise the AutoCursor leaks its GL buffers and
+            // stays referenced by the old scene until the next gameplay session.
+            if (autoCursor != null) {
+                autoCursor.cleanupTrail();
+                autoCursor.detachSelf();
+                autoCursor = null;
+            }
+            replay = null;
+            replayPanel = null;
             lastMods = null;
             performanceCalculationParameters = null;
             droidTimedDifficultyAttributes = null;
@@ -3015,8 +3844,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         touchController.applyTouchOptions(touchOptions);
         touchController.resetRawPointers();
 
-        // Stop Choreographer-driven input polling
-        GlobalManager.getInstance().getMainActivity().stopHighPrecisionInput();
+        // Drop queued samples so they can't be consumed by the next session.
+        {
+            var directInputView = GlobalManager.getInstance().getMainActivity().getDirectInputSurface();
+            if (directInputView != null) {
+                directInputView.clearPointerSamples();
+            }
+        }
 
         engine.getEngineOptions().setWakeLockOptions(WakeLockOptions.SCREEN_ON);
         GlobalManager.getInstance()
@@ -3491,6 +4325,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
     }
 
+    private void playLoopingSamples() {
+        if (activeObjects == null) {
+            return;
+        }
+
+        for (int i = 0, size = activeObjects.size(); i < size; i++) {
+            activeObjects.get(i).playLoopingSamples();
+        }
+    }
+
     private void stopLoopingSamples() {
         if (activeObjects == null) {
             return;
@@ -3534,11 +4378,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 : 0;
         int eventTime = (int) (elapsedTime * 1000 + offset);
 
-        if (replaying) {
-            // Don't block touch - let scene dispatch to registered touch areas (replay controls)
-            return false;
-        }
-
         if (paused || isGameOver) {
             return false;
         }
@@ -3546,6 +4385,23 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         var id = event.getPointerID();
         if (id < 0 || id >= getCursorsCount()) {
             return false;
+        }
+
+        // During replay playback real touches must not control the game: the watched
+        // cursor belongs to the recorded player. The only allowed interaction is the
+        // skip button while it is visible; everything else is swallowed.
+        if (replaying) {
+            if (skipBtn != null && event.isActionDown()) {
+                float touchX = event.getX();
+                float touchY = event.getY();
+                float dx = touchX - Config.getRES_WIDTH();
+                float dy = touchY - Config.getRES_HEIGHT();
+                if (dx * dx + dy * dy < 250f * 250f) {
+                    skip();
+                }
+            }
+            // Swallow everything (DOWN/MOVE/UP/CANCEL).
+            return true;
         }
 
         // When raw pointers are active, the high-precision path in onManagedUpdate
@@ -3610,6 +4466,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         var sprite =
             !GameHelper.isAutoplay() &&
             !GameHelper.isAutopilot() &&
+            !replaying &&
             cursorSprites != null
                 ? cursorSprites[id]
                 : null;
@@ -3618,6 +4475,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         cursorEvent.trackTime = elapsedTime * 1000;
         cursorEvent.offset = offset;
+        cursorEvent.isRealInput = true;
 
         if (sprite != null) {
             sprite.setPosition(cursorEvent.position.x, cursorEvent.position.y);
@@ -3626,6 +4484,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         if (event.isActionDown()) {
             if (sprite != null) {
                 sprite.setShowing(true);
+                // Fresh press: restart the trail from the new position (no interpolation
+                // across the lift→press gap, regardless of distance).
+                sprite.onCursorPress();
             }
 
             if (!GameHelper.isAutoplay()) {
@@ -3634,9 +4495,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
             cursor.addEvent(cursorEvent);
 
-            if (replay != null) {
-                replay.addPress(eventTime, cursorEvent.trackPosition, id);
-            }
+            // Replay recording is centralized in recordReplayMovements().
 
             com.osudroid.plugin.GameState.setKeyState(id == 0 ? "m1" : "m2", true);
         } else if (event.isActionMove()) {
@@ -3645,10 +4504,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             }
 
             cursor.addEvent(cursorEvent);
-
-            if (replay != null) {
-                replay.addMove(eventTime, cursorEvent.trackPosition, id);
-            }
         } else if (event.isActionUp()) {
             com.osudroid.plugin.GameState.setKeyState(id == 0 ? "m1" : "m2", false);
 
@@ -3657,16 +4512,99 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             }
 
             cursor.addEvent(cursorEvent);
-
-            if (replay != null) {
-                replay.addUp(eventTime, id);
-            }
         } else if (event.isActionCancel() || event.isActionOutside()) {
             removeAllCursors();
         } else {
             return false;
         }
         return true;
+    }
+
+    /**
+     * Records this tick's cursor events into the replay. Runs over the same events that drive
+     * gameplay, so the replay matches what happened on screen regardless of the input path.
+     * MOVE events keep the ≥1 osu!px / ≥33ms density rule (see the fields above).
+     */
+    private void recordReplayMovements() {
+        var currentReplay = this.replay;
+
+        if (currentReplay == null || replaying || isGameOver) {
+            return;
+        }
+
+        for (int i = 0; i < cursors.length && i < currentReplay.cursorMoves.size(); ++i) {
+            var cursor = cursors[i];
+            var events = cursor.events;
+            int size = events.size();
+
+            for (int j = 0; j < size; ++j) {
+                var ev = events.get(j);
+
+                // Drop (0,0) press/move artifacts of secondary pointers (multi-touch
+                // coordinate glitch); UP carries no position and is unaffected.
+                if (!ev.isActionUp() && ev.position.x == 0f && ev.position.y == 0f) {
+                    continue;
+                }
+
+                // Safety net: some producers fill `position` but leave `trackPosition`
+                // at its pool default (0,0). Never record blind zeros — derive the
+                // track-space coordinates from the screen-space position instead.
+                if (!ev.isActionUp() &&
+                    ev.trackPosition.x == 0f && ev.trackPosition.y == 0f &&
+                    !(ev.position.x == 0f && ev.position.y == 0f)) {
+                    PointF converted = Utils.realToTrackCoords(
+                        new PointF(ev.position.x, ev.position.y)
+                    );
+                    ev.trackPosition.set(converted);
+                }
+
+                int eventTime = (int) (ev.trackTime + ev.offset);
+
+                if (ev.isActionDown()) {
+                    if (replayRecWasDown[i]) {
+                        // Duplicate DOWN inside an already-recorded press (input glitch or
+                        // state desync). Never write a second DOWN: paired with the single UP
+                        // it would corrupt playback (cursor re-pressed without release).
+                        // Keep the position as a MOVE so taps without drag still record it.
+                        recordReplayMove(currentReplay, i, eventTime, ev.trackPosition);
+                        continue;
+                    }
+
+                    currentReplay.addPress(eventTime, ev.trackPosition, i);
+                    replayRecWasDown[i] = true;
+                    replayRecLastX[i] = ev.trackPosition.x;
+                    replayRecLastY[i] = ev.trackPosition.y;
+                    replayRecLastTime[i] = eventTime;
+                } else if (ev.isActionMove()) {
+                    recordReplayMove(currentReplay, i, eventTime, ev.trackPosition);
+                } else if (ev.isActionUp() && replayRecWasDown[i]) {
+                    // An UP that was already recorded directly by removeAllCursors()
+                    // has its pressed flag cleared there, so no duplicate is written.
+                    currentReplay.addUp(eventTime, i);
+                    replayRecWasDown[i] = false;
+                    replayRecLastTime[i] = eventTime;
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes one MOVE event into the replay honoring the density rule:
+     * ≥1 osu!px of movement since the last recorded point, or ≥33ms since it
+     * (slow drags must not collapse into the interpolation base point).
+     * Shared by the DOWN→MOVE demotion path and the regular MOVE path.
+     */
+    private void recordReplayMove(Replay currentReplay, int pointer, int eventTime, PointF trackPos) {
+        float moveDx = trackPos.x - replayRecLastX[pointer];
+        float moveDy = trackPos.y - replayRecLastY[pointer];
+
+        if (moveDx * moveDx + moveDy * moveDy >= 1f ||
+            eventTime - replayRecLastTime[pointer] >= 33) {
+            currentReplay.addMove(eventTime, trackPos, pointer);
+            replayRecLastX[pointer] = trackPos.x;
+            replayRecLastY[pointer] = trackPos.y;
+            replayRecLastTime[pointer] = eventTime;
+        }
     }
 
     private void removeAllCursors() {
@@ -3687,11 +4625,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 upEvent.systemTime = currentTime;
                 upEvent.trackTime = time;
                 upEvent.action = TouchEvent.ACTION_UP;
+                upEvent.isRealInput = true;
 
                 cursor.addEvent(upEvent);
 
                 if (replay != null) {
+                    // Recorded directly (a pause/cancel can end the tick before the
+                    // centralized recorder runs); clear the recorder's pressed flag so
+                    // the same UP event isn't written into the replay twice.
                     replay.addUp((int) time, i);
+                    replayRecWasDown[i] = false;
                 }
             }
 
@@ -3778,15 +4721,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
         isGameOver = true;
-
-        // Stop MP4 export if running (game scene is ending)
-        try {
-            com.osudroid.game.replay.video.VideoExportManager mgr =
-                com.osudroid.game.replay.video.VideoExportManager.getInstance();
-            if (mgr.isExporting()) {
-                mgr.forceStop();
-            }
-        } catch (Exception ignored) {}
 
         if (!replaying) {
             removeAllCursors();
@@ -3978,11 +4912,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             video.play();
         }
 
+        // Match upstream: un-pausing the pause menu must not resume playback that the user
+        // explicitly paused through the replay panel.
         if (
             GlobalManager.getInstance().getSongService() != null &&
             GlobalManager.getInstance().getSongService().getStatus() !=
                 Status.PLAYING &&
-            elapsedTime > 0
+            elapsedTime > 0 &&
+            !isReplayPlaybackPaused()
         ) {
             GlobalManager.getInstance().getSongService().play();
             GlobalManager.getInstance()
@@ -4379,15 +5316,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         return replaying;
     }
 
-    /**
-     * Returns the total replay duration in seconds.
-     * Used by VideoExportManager to determine when to stop encoding.
-     */
-    public void setAutoExport(String outputPath) {
-        this.autoExportReplay = true;
-        this.autoExportOutputPath = outputPath;
-    }
-
     public float getReplayDurationSec() {
         if (totalLength < Integer.MAX_VALUE) {
             return totalLength / 1000f;
@@ -4545,10 +5473,25 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             // Raw pointer data only changes at the OS touch rate (~120 Hz).
             // We only create a CursorEvent when the MotionEvent timestamp changes,
             // avoiding ~7 redundant events per 120 Hz cycle at 900 Hz game rate.
+            // The position guard matters on 240Hz+ digitizers: several real samples
+            // can share the same uptimeMillis millisecond and would be lost by a
+            // time-only dedup (visible as input steps during fast flicks).
             private final long[] rawLastEventTime = new long[CursorCount];
+            private final float[] rawLastSampleX = new float[CursorCount];
+            private final float[] rawLastSampleY = new float[CursorCount];
 
             // Reset deduplication state each tick.
             private boolean isInterpolating;
+
+            // Scratch buffers for the raw-pointer sample drain, allocated once and
+            // reused every tick to avoid GC pressure on the update thread.
+            // sampleCoords: [0]=x [1]=y [2]=unused [3]=down(1/0)
+            // rawSampleTime holds the sample timestamp; it must be a long, a float
+            // loses all sub-~32ms precision for uptimeMillis values.
+            private final float[] sampleCoords = new float[4];
+            private final long[] rawSampleTime = new long[1];
+            private final int[] rawSampleAction = new int[1];
+            private float[] sceneCoords = new float[2];
 
             @Override
             protected void onManagedDraw(GL10 pGL, Camera pCamera) {
@@ -4559,20 +5502,6 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 // Render gameplay FIRST, THEN trigger export
                 // so glReadPixels captures the fully rendered frame.
                 super.onManagedDraw(pGL, pCamera);
-
-                // osu!droid: Auto-export trigger — fires only when gameplay is rendering.
-                if (autoExportReplay && autoExportOutputPath != null) {
-                    autoExportReplay = false;
-                    String outputPath = autoExportOutputPath;
-                    autoExportOutputPath = null;
-                    float duration = getReplayDurationSec();
-                    try {
-                        com.osudroid.game.replay.video.VideoExportManager.getInstance()
-                            .startExport(outputPath, duration);
-                    } catch (Exception e) {
-                        android.util.Log.e("GameScene", "Failed to start video export", e);
-                    }
-                }
             }
 
             @Override
@@ -4591,97 +5520,155 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     var touchController = engine.getTouchController();
                     var gameCamera = engine.getCamera();
                     var cap = touchController.getRawPointerCapacity();
+                    var directInputView = GlobalManager.getInstance().getMainActivity().getDirectInputSurface();
+
                     for (int pi = 0; pi < Math.min(cap, cursors.length); pi++) {
                         var cursor = cursors[pi];
                         if (cursor == null) continue;
-                        if (!touchController.isRawPointerDown(pi)) continue;
-                        // Read raw pointer data with thread-safe version check
-                        for (int attempt = 0; attempt < 2; attempt++) {
-                            int verBefore =
-                                touchController.getRawPointerVersion(pi);
-                            if ((verBefore & 1) != 0) continue;
-                            float sx = touchController.getRawPointerSurfaceX(
-                                pi
-                            );
-                            float sy = touchController.getRawPointerSurfaceY(
-                                pi
-                            );
-                            int verAfter = touchController.getRawPointerVersion(
-                                pi
-                            );
-                            if (verBefore == verAfter && (verAfter & 1) == 0) {
-                                // ── Deduplication: only emit when raw data actually changed ──
-                                // Android MotionEvents arrive at display refresh rate (~120 Hz).
-                                // Between events, raw pointer arrays are stale.
-                                // Creating a CursorEvent on every 900 Hz tick with the same
-                                // position floods the event list with identical entries.
-                                long rawEventTime = touchController.getRawPointerEventTime(pi);
-                                if (rawEventTime == rawLastEventTime[pi]) {
-                                    break; // No new touch data — skip this tick
-                                }
-                                rawLastEventTime[pi] = rawEventTime;
 
-                                // Compute sub-frame offset from the touch event timestamp
-                                // vs the last game frame boundary, same as onSceneTouchEvent.
-                                double frameOffset =
-                                    previousFrameTime > 0
-                                        ? (rawEventTime - previousFrameTime) *
-                                          GameHelper.getSpeedMultiplier()
-                                        : 0;
+                        // Process samples even for pointers the controller already considers
+                        // up: the final UP sample (down=0) arrives in the same batch that
+                        // cleared the raw-down flag, and the UP CursorEvent must still be
+                        // generated (otherwise the cursor stays in a pressed state forever).
+                        boolean pointerMarkedDown = touchController.isRawPointerDown(pi);
+                        boolean hasQueuedSamples =
+                            directInputView != null && directInputView.getQueuedSampleCount(pi) > 0;
 
-                                // Create a cursor event from the raw pointer data
-                                var ev = CursorEvent.obtain();
-                                ev.systemTime = rawEventTime;
-                                ev.trackTime = elapsedTime * 1000;
-                                ev.action = cursor.isMouseDown()
-                                    ? TouchEvent.ACTION_MOVE
-                                    : TouchEvent.ACTION_DOWN;
-                                ev.offset = frameOffset;
-                                // Convert surface coords to scene coords
-                                tmpSurfaceCoords[0] = sx;
-                                tmpSurfaceCoords[1] = sy;
-                                float[] scene =
-                                    Cameras.convertSurfaceToSceneCoordinates(
-                                        gameCamera,
-                                        tmpSurfaceCoords
-                                    );
-                                ev.position.x = Math.max(
-                                    0,
-                                    Math.min(scene[0], Config.getRES_WIDTH())
-                                );
-                                ev.position.y = Math.max(
-                                    0,
-                                    Math.min(scene[1], Config.getRES_HEIGHT())
-                                );
-                                ev.trackPosition.x = scene[0];
-                                ev.trackPosition.y = scene[1];
-                                if (GameHelper.isHardRock()) {
-                                    ev.trackPosition.y -=
-                                        Config.getRES_HEIGHT() / 2f;
-                                    ev.trackPosition.y *= -1;
-                                    ev.trackPosition.y +=
-                                        Config.getRES_HEIGHT() / 2f;
-                                }
+                        if (!pointerMarkedDown && !hasQueuedSamples) continue;
 
-                                ev.trackPosition.x -=
-                                    (Config.getRES_WIDTH() -
-                                        Constants.MAP_ACTUAL_WIDTH) /
-                                    2f;
-                                ev.trackPosition.y -=
-                                    (Config.getRES_HEIGHT() -
-                                        Constants.MAP_ACTUAL_HEIGHT) /
-                                    2f;
-                                ev.trackPosition.x *=
-                                    Constants.MAP_WIDTH /
-                                    Constants.MAP_ACTUAL_WIDTH;
-                                ev.trackPosition.y *=
-                                    Constants.MAP_HEIGHT /
-                                    Constants.MAP_ACTUAL_HEIGHT;
+                        // ── Drain ALL queued samples in chronological order. ──
+                        // Every historical+current sample of each batched MotionEvent is
+                        // queued, so consuming the complete path preserves intermediate
+                        // positions during fast flicks (hit detection follows the finger
+                        // exactly and sliders don't "skip").
+                        while (directInputView != null && directInputView.popPointerSample(pi, sampleCoords, rawSampleTime, rawSampleAction)) {
+                            float sx = sampleCoords[0];
+                            float sy = sampleCoords[1];
+                            long sampleTime = rawSampleTime[0];
+                            boolean sampleDown = sampleCoords[3] > 0f;
 
-                                cursor.addEvent(ev);
-                                break;
+                            // Classify strictly from the action recorded at queue time:
+                            // inferring it from cursor state would resurrect a lifted finger
+                            // whenever a MOVE batch still listed the pointer (phantom DOWNs
+                            // while streaming with a second finger).
+
+                            // Dedup: identical timestamp AND position to the last
+                            // consumed sample — a true duplicate, skip. Same-ms samples
+                            // with movement are KEPT (high-Hz digitizers).
+                            if (sampleTime == rawLastEventTime[pi]
+                                && sx == rawLastSampleX[pi]
+                                && sy == rawLastSampleY[pi]) {
+                                continue;
                             }
+                            rawLastEventTime[pi] = sampleTime;
+                            rawLastSampleX[pi] = sx;
+                            rawLastSampleY[pi] = sy;
+
+                            // Some devices back-fill the historical track of a just-added
+                            // pointer with (0,0); a real finger can never be at the exact
+                            // top-left surface corner. UP carries no position — unaffected.
+                            if (sampleDown && sx == 0f && sy == 0f) {
+                                continue;
+                            }
+
+                            // Compute sub-frame offset from the sample timestamp vs the last
+                            // game frame boundary, same as onSceneTouchEvent.
+                            double frameOffset =
+                                previousFrameTime > 0
+                                    ? (sampleTime - previousFrameTime) *
+                                      GameHelper.getSpeedMultiplier()
+                                    : 0;
+
+                            // Create a cursor event from the queued sample; the UP sample is
+                            // queued like any other so the lift is consumed in-order.
+                            var ev = CursorEvent.obtain();
+                            ev.systemTime = sampleTime;
+                            ev.trackTime = elapsedTime * 1000;
+                            ev.action = rawSampleAction[0] == android.view.MotionEvent.ACTION_DOWN
+                                ? TouchEvent.ACTION_DOWN
+                                : rawSampleAction[0] == android.view.MotionEvent.ACTION_UP
+                                    ? TouchEvent.ACTION_UP
+                                    : TouchEvent.ACTION_MOVE;
+                            ev.offset = frameOffset;
+                            ev.isRealInput = true;
+
+                            // Convert surface coords to scene coords
+                            tmpSurfaceCoords[0] = sx;
+                            tmpSurfaceCoords[1] = sy;
+                            sceneCoords = Cameras.convertSurfaceToSceneCoordinates(
+                                gameCamera,
+                                tmpSurfaceCoords
+                            );
+                            ev.position.x = Math.max(
+                                0,
+                                Math.min(sceneCoords[0], Config.getRES_WIDTH())
+                            );
+                            ev.position.y = Math.max(
+                                0,
+                                Math.min(sceneCoords[1], Config.getRES_HEIGHT())
+                            );
+                            ev.trackPosition.x = sceneCoords[0];
+                            ev.trackPosition.y = sceneCoords[1];
+                            if (GameHelper.isHardRock()) {
+                                ev.trackPosition.y -=
+                                    Config.getRES_HEIGHT() / 2f;
+                                ev.trackPosition.y *= -1;
+                                ev.trackPosition.y +=
+                                    Config.getRES_HEIGHT() / 2f;
+                            }
+
+                            ev.trackPosition.x -=
+                                (Config.getRES_WIDTH() -
+                                    Constants.MAP_ACTUAL_WIDTH) /
+                                2f;
+                            ev.trackPosition.y -=
+                                (Config.getRES_HEIGHT() -
+                                    Constants.MAP_ACTUAL_HEIGHT) /
+                                2f;
+                            ev.trackPosition.x *=
+                                Constants.MAP_WIDTH /
+                                Constants.MAP_ACTUAL_WIDTH;
+                            ev.trackPosition.y *=
+                                Constants.MAP_HEIGHT /
+                                Constants.MAP_ACTUAL_HEIGHT;
+
+                            cursor.addEvent(ev);
+
+                            // Keep the sprite position in sync on the update thread (mirrors
+                            // the replay branch): the trail reads the entity position inside
+                            // sprite.update(dt) later this tick, and the draw-thread fast path
+                            // may not have observed the new tap yet. UP carries only the lift
+                            // position; the cursor is hidden there, so the last position stays.
+                            if (ev.action != TouchEvent.ACTION_UP && cursorSprites != null && cursorSprites[pi] != null) {
+                                cursorSprites[pi].setPosition(ev.position.x, ev.position.y);
+
+                                // Fresh press: restart the trail instead of interpolating
+                                // across the re-press gap (see markDiscontinuity).
+                                if (ev.action == TouchEvent.ACTION_DOWN) {
+                                    cursorSprites[pi].onCursorPress();
+                                }
+                            }
+
+                            if (!sampleDown) {
+                                // Finger lifted: hide the sprite immediately (mirrors the
+                                // UP branch of onSceneTouchEvent).
+                                if (cursorSprites != null && cursorSprites[pi] != null) {
+                                    cursorSprites[pi].setShowing(false);
+                                }
+                            }
+
+                            // Replay recording is centralized in recordReplayMovements()
+                            // (end of the tick, over cursors[i].events) — see its docs.
                         }
+                    }
+                } else {
+                    // Raw path inactive (replays, pause, game over, mods): drain ALL slots
+                    // so queued samples can't flood gameplay as a burst of stale events
+                    // when the raw path re-enables.
+                    var directInputView = GlobalManager.getInstance().getMainActivity().getDirectInputSurface();
+
+                    if (directInputView != null) {
+                        directInputView.clearPointerSamples();
                     }
                 }
 
@@ -4689,7 +5676,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 float speedMultiplier = GameHelper.getSpeedMultiplier();
                 float dt = secElapsed * speedMultiplier;
 
-                if (songService.getStatus() == Status.PLAYING) {
+                // Replay playback pause: gameplay time freezes while the scene (HUD,
+                // replay panel) keeps updating, mirroring osu-droid's stopped gameplayClock.
+                if (replayPlaybackPaused) {
+                    dt = 0;
+                } else if (songService.getStatus() == Status.PLAYING) {
                     // BASS may report the wrong position. When that happens, `dt` will either be negative or more than the
                     // actual progressed time. To prevent that situation from happening, we keep `dt` between thresholds.
                     // They serve as a buffer zone to allow audio and gameplay time to synchronize in cases where one is
@@ -4774,13 +5765,19 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
                 update(dt);
 
+                // Record this tick's cursor events into the replay BEFORE they are
+                // cleared by Cursor.reset below (see recordReplayMovements).
+                recordReplayMovements();
+
                 //noinspection ForLoopReplaceableByForEach
                 for (int i = 0; i < cursors.length; ++i) {
                     cursors[i].reset(previousFrameTime, elapsedTime * 1000);
                 }
 
                 super.onManagedUpdate(dt);
-            }            private void applyRawPointerFastPath(final Camera camera) {
+            }
+
+            private void applyRawPointerFastPath(final Camera camera) {
                 var touchController = engine.getTouchController();
 
                 if (
@@ -5008,6 +6005,19 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     private float getRateAt(double time) {
         return ModUtils.calculateRateWithTrackRateMods(rateAdjustingMods, time);
+    }
+
+    /**
+     * Called when the user changes the playback rate in the replay settings panel.
+     * The rate is applied by the update loop (modRate * replaySettingsRate), mirroring
+     * upstream's gameplayClock.setRate() path.
+     */
+    public void onReplayRateChanged(float rate) {
+        replaySettingsRate = rate;
+    }
+
+    public float getReplaySettingsRate() {
+        return replaySettingsRate;
     }
 
     private float getRateAdjustedOffset() {
@@ -5288,6 +6298,61 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             android.util.Log.e(
                 "GameScene",
                 "Error updating kiai flash: " + e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Updates the FailingLayer (ported from osu!(lazer) HUD/FailingLayer.cs): a fullscreen red overlay
+     * whose alpha rises as health falls below {@link #LOW_HEALTH_THRESHOLD}, and drops back as it recovers.
+     * Only shown when failing is possible; replays, autoplay and multiplayer never see it.
+     */
+    private void updateLowHealthOverlay(float dt) {
+        if (lowHealthOverlay == null) {
+            return;
+        }
+
+        try {
+            boolean showLayer =
+                gameStarted &&
+                stat != null && stat.canFail &&
+                !GameHelper.isAutoplay() &&
+                !GameHelper.isAutopilot() &&
+                !replaying &&
+                !Multiplayer.isMultiplayer;
+
+            float target = 0f;
+
+            if (showLayer) {
+                target = Math.max(
+                    0f,
+                    Math.min(
+                        LOW_HEALTH_MAX_ALPHA *
+                            (1f - stat.getHp() / LOW_HEALTH_THRESHOLD),
+                        LOW_HEALTH_MAX_ALPHA
+                    )
+                );
+            }
+
+            // Exponential approach to the target alpha, frame-rate independent.
+            float t = 1f - (float) Math.exp(-dt * LOW_HEALTH_LERP_SPEED);
+            lowHealthAlpha += (target - lowHealthAlpha) * t;
+
+            if (lowHealthAlpha < 0.002f) {
+                lowHealthAlpha = 0f;
+            }
+
+            boolean visible = lowHealthAlpha > 0f;
+
+            lowHealthOverlay.setVisible(visible);
+
+            if (visible) {
+                lowHealthOverlay.setAlpha(lowHealthAlpha);
+            }
+        } catch (Exception e) {
+            android.util.Log.e(
+                "GameScene",
+                "Error updating low health overlay: " + e.getMessage()
             );
         }
     }

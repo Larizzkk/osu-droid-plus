@@ -60,6 +60,10 @@ public class GameEffect extends GameObject {
                      final UniversalModifier... entityModifiers) {
         if (hit instanceof UIAnimatedSprite animatedHit) {
             animatedHit.reset();
+        } else {
+            // Re-pull the texture on every (re)use: pooled effects capture the
+            // TextureRegion in the constructor, which goes stale on a skin hot-swap.
+            hit.setTextureRegion(ResourceManager.getInstance().getTexture(texname));
         }
         hit.setPosition(pos.x, pos.y);
         hit.setOrigin(Anchor.Center);

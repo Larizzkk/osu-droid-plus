@@ -27,6 +27,13 @@ public class QualityAssetBitmapSource extends BaseTextureAtlasSource implements
 
     private Bitmap bitmap = null;
 
+    /**
+     * Decoded-once copy for GL-side reloads after a skin hot-swap (see the same
+     * field on QualityFileBitmapSource): prevents synchronous re-decoding of every
+     * asset texture on the GL thread inside a single frame.
+     */
+    private Bitmap reloadBitmap = null;
+
     // ===========================================================
     // Constructors
     // ===========================================================
@@ -99,6 +106,10 @@ public class QualityAssetBitmapSource extends BaseTextureAtlasSource implements
 
     public boolean preload() {
         bitmap = onLoadBitmap(Bitmap.Config.ARGB_8888);
+        // Keep a duplicate for the GL-thread reload pass after skin hot-swaps.
+        if (bitmap != null) {
+            reloadBitmap = bitmap.copy(bitmap.getConfig(), false);
+        }
         return bitmap != null;
     }
 
@@ -107,6 +118,12 @@ public class QualityAssetBitmapSource extends BaseTextureAtlasSource implements
         if (bitmap != null) {
             final Bitmap bmp = bitmap;
             bitmap = null;
+            return bmp;
+        }
+        // Reload pass: hand out the cached copy once, then release it.
+        if (reloadBitmap != null && !reloadBitmap.isRecycled()) {
+            final Bitmap bmp = reloadBitmap;
+            reloadBitmap = null;
             return bmp;
         }
         InputStream in = null;

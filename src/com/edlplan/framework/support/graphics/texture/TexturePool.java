@@ -28,6 +28,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
@@ -49,6 +51,21 @@ public class TexturePool {
     private int marginX = 2, marginY = 2;
     private int maxW, maxH;
 
+    /**
+     * Lowercased relative path -> actual relative path, indexed once per pool.
+     * Storyboards are authored on Windows, so references frequently carry
+     * backslashes or a different folder case than what is on disk.
+     */
+    private HashMap<String, String> filePaths;
+
+    /** Shared 1x1 transparent region used when an image cannot be decoded. */
+    private TextureRegion fallbackRegion;
+
+    /** Number of resolved image regions (loaded or transparent placeholders). */
+    public int getLoadedCount() {
+        return textures.size();
+    }
+
     public TexturePool(File dir) {
         this.dir = dir;
         glMaxWidth = GLHelper.GlMaxTextureWidth;
@@ -67,6 +84,9 @@ public class TexturePool {
             GlobalManager.getInstance().getEngine().getTextureManager().unloadTexture(texture);
         }
         createdTextures.clear();
+        // Its GL texture lives in createdTextures and was just unloaded, so the
+        // region must not survive the clear.
+        fallbackRegion = null;
         currentPack = 0;
         currentX = currentY = lineMaxY = 0;
     }
@@ -74,10 +94,20 @@ public class TexturePool {
     public void add(String name) {
         TextureInfo info = loadInfo(name);
         Bitmap bmp = loadBitmap(info);
-        info.texture = TextureHelper.createRegion(bmp);
-        createdTextures.add(info.texture.getTexture());
-        directPut(info.name, info.texture);
+        TextureRegion region = TextureHelper.createRegion(bmp);
         bmp.recycle();
+        if (region == null) {
+            // createRegion() returns null for undecodable sources; fall back to a
+            // transparent pixel so the caller never sees null (get() would recurse).
+            region = fallbackRegion();
+        }
+        info.texture = region;
+        if (region != null) {
+            createdTextures.add(region.getTexture());
+        }
+        if (info.texture != null) {
+            directPut(info.name, info.texture);
+        }
     }
 
     public void packAll(Iterator<String> collection, Consumer<Bitmap> onPackDrawDone) {
@@ -212,19 +242,35 @@ public class TexturePool {
     }
 
     private Bitmap loadBitmap(TextureInfo info) {
-        Bitmap bmp;
-        if (info.err) {
-            bmp = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-            bmp.setPixel(0, 0, Color.argb(255, 255, 0, 0));
-        } else {
+        if (!info.err && info.file != null) {
             try {
-                bmp = BitmapFactory.decodeFile(info.file, options);
+                Bitmap bmp = BitmapFactory.decodeFile(info.file, options);
+                if (bmp != null) {
+                    return bmp;
+                }
             } catch (Exception e) {
-                bmp = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
-                bmp.setPixel(0, 0, Color.argb(255, 255, 0, 0));
+                // fall through to the transparent placeholder
             }
         }
+        // Missing/unreadable images become a transparent pixel: the element simply
+        // stays invisible (danser skips such sprites entirely) instead of flashing
+        // a red dot on screen.
+        return transparentBitmap();
+    }
+
+    private static Bitmap transparentBitmap() {
+        Bitmap bmp = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+        bmp.eraseColor(Color.TRANSPARENT);
         return bmp;
+    }
+
+    private TextureRegion fallbackRegion() {
+        if (fallbackRegion == null) {
+            Bitmap bmp = transparentBitmap();
+            fallbackRegion = TextureHelper.createRegion(bmp);
+            bmp.recycle();
+        }
+        return fallbackRegion;
     }
 
     protected void directPut(String name, TextureRegion region) {
@@ -233,26 +279,127 @@ public class TexturePool {
 
     private TextureInfo loadInfo(String name) {
         TextureInfo info = new TextureInfo();
-        try {
-            info.name = name;
-            info.file = new File(dir, name).getAbsolutePath();
-            Vec2Int size = BitmapUtil.parseBitmapSize(new File(info.file));
-            info.pos = new Vec2Int(0, 0);
-            info.size = size;
-        } catch (Exception e) {
-            e.printStackTrace();
+        info.name = name;
+        info.pos = new Vec2Int(0, 0);
+        info.size = new Vec2Int(1, 1);
+
+        File file = resolveFile(name);
+        if (file == null) {
             info.err = true;
-            info.pos = new Vec2Int(0, 0);
-            info.size = new Vec2Int(1, 1);
+            return info;
+        }
+
+        info.file = file.getAbsolutePath();
+        try {
+            Vec2Int size = BitmapUtil.parseBitmapSize(file);
+            if (size == null || size.x <= 0 || size.y <= 0) {
+                info.err = true;
+            } else {
+                info.size = size;
+            }
+        } catch (Exception e) {
+            info.err = true;
         }
         return info;
     }
 
+    /**
+     * Indexes the beatmap folder once (danser-go FileMap behaviour): lookups are
+     * case-insensitive and separator-agnostic, so "sb\\image.png", "SB/Image.png"
+     * and "sb/image.png" all resolve to the same file.
+     */
+    private void ensureFileMap() {
+        if (filePaths != null) {
+            return;
+        }
+        filePaths = new HashMap<>();
+        indexDirectory(dir, "", 0);
+    }
+
+    private void indexDirectory(File folder, String prefix, int depth) {
+        File[] children = folder == null ? null : folder.listFiles();
+        if (children == null || depth > 8) {
+            return;
+        }
+        for (File child : children) {
+            String relative = prefix + child.getName();
+            if (child.isDirectory()) {
+                indexDirectory(child, relative + "/", depth + 1);
+            } else {
+                filePaths.put(relative.toLowerCase(Locale.ROOT), relative);
+            }
+        }
+    }
+
+    private static String normalizePath(String name) {
+        String path = name.replace('\\', '/').trim();
+        while (path.startsWith("./")) {
+            path = path.substring(2);
+        }
+        while (path.startsWith("/")) {
+            path = path.substring(1);
+        }
+        return path;
+    }
+
+    private File resolveFile(String name) {
+        if (dir == null || name == null) {
+            return null;
+        }
+
+        String path = normalizePath(name);
+        if (path.isEmpty()) {
+            return null;
+        }
+
+        ensureFileMap();
+
+        String pathLower = path.toLowerCase(Locale.ROOT);
+
+        // 1. Exact normalized path match
+        String actual = filePaths.get(pathLower);
+        if (actual != null) {
+            return new File(dir, actual);
+        }
+
+        // 2. Direct file check
+        File direct = new File(dir, path);
+        if (direct.isFile()) {
+            return direct;
+        }
+
+        // 3. Suffix match
+        for (Map.Entry<String, String> entry : filePaths.entrySet()) {
+            String key = entry.getKey();
+            if (key.equals(pathLower) || key.endsWith("/" + pathLower)) {
+                return new File(dir, entry.getValue());
+            }
+        }
+
+        // 4. Filename fallback (without failing on ambiguity)
+        String fileName = pathLower.substring(pathLower.lastIndexOf('/') + 1);
+        for (Map.Entry<String, String> entry : filePaths.entrySet()) {
+            String key = entry.getKey();
+            if (key.equals(fileName) || key.endsWith("/" + fileName)) {
+                return new File(dir, entry.getValue());
+            }
+        }
+
+        return null;
+    }
+
     public TextureRegion get(String name) {
-        TextureRegion region;
-        if ((region = textures.get(name)) == null) {
+        TextureRegion region = textures.get(name);
+        if (region == null) {
             add(name);
-            region = get(name);
+            region = textures.get(name);
+            if (region == null) {
+                // Never recurse forever: cache whatever we could produce.
+                region = fallbackRegion();
+                if (region != null) {
+                    directPut(name, region);
+                }
+            }
         }
         return region;
     }

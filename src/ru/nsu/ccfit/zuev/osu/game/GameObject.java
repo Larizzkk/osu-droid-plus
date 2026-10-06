@@ -54,7 +54,16 @@ public abstract class GameObject {
         return startHit;
     }
 
+    public void playLoopingSamples() {}
+
     public void stopLoopingSamples() {}
+
+    /**
+     * Called when this {@link GameObject} must be forcibly removed from gameplay, e.g. when seeking backwards
+     * or past its lifetime. Must detach all visuals from the scene, stop any looping samples, release pooled
+     * resources and return this object to its pool.
+     */
+    public void onExpire() {}
 
     /**
      * Obtains the {@link CursorEvent} that hits this {@link GameObject}, if any.

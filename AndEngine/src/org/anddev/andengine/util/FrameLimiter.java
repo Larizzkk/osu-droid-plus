@@ -4,20 +4,33 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 
 /**
- * High-precision frame limiter matching osu!stable's four modes.
+ * High-precision frame limiter matching osu!stable's frame limiter modes.
  *
- * Two-phase wait: coarse sleep (Thread.sleep) + fine parkNanos.
+ * Three-phase wait on an absolute deadline:
+ *   1. coarse Thread.sleep in ~1ms chunks (abortable by touch input),
+ *   2. fine LockSupport.parkNanos in ~200us windows,
+ *   3. busy-spin for the final ~150us.
+ *
+ * Thread.sleep and parkNanos both oversleep by ~50-200us on Android; the spin
+ * tail removes that jitter, keeping frame times tight at high refresh rates
+ * (osu!stable/lazer use the same sleep+spin approach).
+ *
  * touchInterrupted is an AtomicBoolean to avoid race conditions
  * when signal arrives between checks.
  */
 public final class FrameLimiter {
 
     public static final int MODE_UNLIMITED = 0;
-    public static final int MODE_POWER_SAVE = 1;
     public static final int MODE_VSYNC = 2;
     public static final int MODE_OPTIMAL = 3;
 
     private static final long NS_PER_S = 1_000_000_000L;
+
+    /**
+     * The last wait phase busy-spins once the remaining time is below this
+     * threshold; below ~150us a parkNanos round-trip costs more than spinning.
+     */
+    private static final long SPIN_THRESHOLD_NS = 150_000L;
 
     private volatile int mode = MODE_UNLIMITED;
     private volatile int customFps = 0;
@@ -26,7 +39,7 @@ public final class FrameLimiter {
     private volatile long targetFrameNs = 0;
 
     /**
-     * Atomic flag to abort limitFrame() early on touch input.
+     * Atomic flag to abort the current wait early on touch input.
      * Uses getAndSet(false) to avoid losing signals between reads.
      */
     private final AtomicBoolean touchInterrupted = new AtomicBoolean(false);
@@ -70,7 +83,7 @@ public final class FrameLimiter {
 
     /**
      * Called from the UI thread on touch input.
-     * Uses getAndSet to ensure no signal is lost even if limitFrame()
+     * Uses getAndSet to ensure no signal is lost even if a wait loop
      * is between check-and-reset.
      */
     public void signalTouchInterrupt() {
@@ -79,7 +92,7 @@ public final class FrameLimiter {
 
     /**
      * Returns true if the swap interval needs re-application.
-     * Caller should call markSwapIntervalApplied() after applying.
+     * Caller should re-apply eglSwapInterval afterwards.
      */
     public boolean isSwapIntervalDirty() {
         boolean dirty = this.swapIntervalDirty;
@@ -87,25 +100,27 @@ public final class FrameLimiter {
         return dirty;
     }
 
-    public void markSwapIntervalApplied() {
-        this.swapIntervalDirty = false;
-    }
-
     private void recomputeTarget() {
         int fps;
         switch (mode) {
-            case MODE_POWER_SAVE:
-                fps = 30;
-                break;
             case MODE_VSYNC:
-                fps = (int) displayRefreshRate;
+                // Pure display vsync (upstream osu!droid behavior): NO software
+                // limiter on top of eglSwapInterval(1). A software sleep racing the
+                // vsync deadline only adds jitter — a frame that misses the swap
+                // deadline blocks for a FULL extra display period. The GL swap
+                // paces both render and (via yieldDraw) the update thread.
+                // targetFps=0 also keeps UIEngine's fallback limiter disabled.
+                fps = 0;
                 break;
             case MODE_OPTIMAL:
-                fps = Math.min((int) (displayRefreshRate * 4), 480);
+                // Decoupled updates at 4x display refresh, no hard cap (a 480 cap
+                // throttled 144/165/240Hz devices). Every update tick drains the
+                // SPSC input queue, so higher update rate = lower input latency.
+                fps = (int) (displayRefreshRate * 4);
                 break;
             case MODE_UNLIMITED:
             default:
-                fps = customFps > 0 ? customFps : 0;
+                fps = customFps > 0 ? Math.max(10, customFps) : 0;
                 break;
         }
         this.targetFrameNs = fps > 0 ? NS_PER_S / fps : 0;
@@ -113,8 +128,6 @@ public final class FrameLimiter {
 
     /**
      * Blocks the calling thread until the next frame is due.
-     * Two phases: coarse Thread.sleep + fine parkNanos.
-     * Aborted early if touchInterrupted is set.
      *
      * @param startNs System.nanoTime() at frame start.
      * @return Actual elapsed nanoseconds.
@@ -125,56 +138,71 @@ public final class FrameLimiter {
             return System.nanoTime() - startNs;
         }
 
-        // Clear any leftover interrupt from previous frame.
-        touchInterrupted.set(false);
-
-        // Phase 1: coarse sleep in chunks (checkable for touch interrupts).
-        long remaining = targetNs - (System.nanoTime() - startNs);
-        if (remaining > 5_000_000L) {
-            try {
-                long sleepNs = remaining - 4_000_000L;
-                while (sleepNs > 1_000_000L && !touchInterrupted.get()) {
-                    long chunk = Math.min(sleepNs, 2_000_000L);
-                    Thread.sleep(chunk / 1_000_000L);
-                    sleepNs -= chunk;
-                    remaining = targetNs - (System.nanoTime() - startNs);
-                    if (remaining <= 5_000_000L) break;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return System.nanoTime() - startNs;
-            }
-        }
-
-        // Abort on touch interrupt.
-        if (touchInterrupted.getAndSet(false)) {
-            return System.nanoTime() - startNs;
-        }
-
-        // Phase 2: parkNanos for the fine tail.
-        remaining = targetNs - (System.nanoTime() - startNs);
-        if (remaining > 100_000L) {
-            // Park in small windows so touch interrupts can still abort.
-            while (remaining > 100_000L) {
-                if (touchInterrupted.getAndSet(false)) {
-                    return System.nanoTime() - startNs;
-                }
-                LockSupport.parkNanos(Math.min(remaining, 500_000L));
-                remaining = targetNs - (System.nanoTime() - startNs);
-            }
-        }
-
+        waitUntil(startNs + targetNs);
         return System.nanoTime() - startNs;
+    }
+
+    /**
+     * Blocks the calling thread until the given absolute deadline
+     * (System.nanoTime() basis). Returns early if touch input arrives.
+     *
+     * @return the remaining time at return (usually ~0, negative if aborted).
+     */
+    public long waitUntil(final long deadlineNs) {
+        long remaining = deadlineNs - System.nanoTime();
+        if (remaining <= 0) {
+            return remaining;
+        }
+
+        // Abort immediately if a touch arrived between frames.
+        if (touchInterrupted.getAndSet(false)) {
+            return deadlineNs - System.nanoTime();
+        }
+
+        // Phase 1: coarse sleep in ~1ms chunks (abortable by touch interrupts).
+        // Leaves a 2ms margin for the precise phases: Thread.sleep on Android
+        // commonly oversleeps by 1-2ms, so sleeping right up to the deadline
+        // would jitter. The nanos argument avoids sleep(0) for sub-ms chunks.
+        while (remaining > 3_000_000L) {
+            try {
+                // 1ms chunks: with the 2ms margin above, every chunk is a full
+                // millisecond, so sleep(0) truncation cannot occur here.
+                Thread.sleep(1);
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return deadlineNs - System.nanoTime();
+            }
+            if (touchInterrupted.getAndSet(false)) {
+                return deadlineNs - System.nanoTime();
+            }
+            remaining = deadlineNs - System.nanoTime();
+        }
+
+        // Phase 2: parkNanos in ~200us windows down to the spin threshold.
+        while (remaining > SPIN_THRESHOLD_NS) {
+            LockSupport.parkNanos(Math.min(remaining - SPIN_THRESHOLD_NS, 200_000L));
+            if (touchInterrupted.getAndSet(false)) {
+                return deadlineNs - System.nanoTime();
+            }
+            remaining = deadlineNs - System.nanoTime();
+        }
+
+        // Phase 3: busy-spin the final <=150us. A parkNanos wake-up is typically
+        // 50-150us late, which would be visible as frame-time noise at high
+        // refresh rates; spinning costs negligible CPU for that brief window.
+        while ((remaining = deadlineNs - System.nanoTime()) > 0) {
+            if (touchInterrupted.get()) {
+                touchInterrupted.set(false);
+                return remaining;
+            }
+        }
+
+        return 0;
     }
 
     /** Returns the target FPS for the current mode. */
     public int getTargetFps() {
         return targetFrameNs > 0 ? (int) (NS_PER_S / targetFrameNs) : 0;
-    }
-
-    /** Returns the target frame time in nanoseconds. */
-    public long getTargetFrameNs() {
-        return targetFrameNs;
     }
 
     public int getMode() {

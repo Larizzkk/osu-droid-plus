@@ -24,7 +24,6 @@ import android.os.IBinder;
 import android.os.StatFs;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Choreographer;
 import android.view.Display;
 import android.view.KeyEvent;
 import android.view.Surface;
@@ -126,10 +125,6 @@ public class MainActivity
     // Direct input surface (low-latency touch handling)
     private DirectInputSurfaceView directInputSurface;
 
-    // Choreographer-driven vsync timestamp (nanoseconds, 0 = not available)
-    private final java.util.concurrent.atomic.AtomicLong lastVsyncFrameTimeNanos =
-        new java.util.concurrent.atomic.AtomicLong(0);
-
     // Multiplayer
     private Uri roomInviteLink;
 
@@ -139,8 +134,8 @@ public class MainActivity
             return null;
         }
         analytics = FirebaseAnalytics.getInstance(this);
-        crashlytics = FirebaseCrashlytics.getInstance();
-        Config.loadConfig(this);
+        crashlytics = FirebaseCrashlytics.getInstance();         Config.loadConfig(this);
+
         initialGameDirectory();
         //Debug.setDebugLevel(Debug.DebugLevel.NONE);
         StringTable.setContext(this);
@@ -204,6 +199,11 @@ public class MainActivity
         opt.setWakeLockOptions(WakeLockOptions.SCREEN_ON);
         opt.getRenderOptions().disableExtensionVertexBufferObjects();
         opt.getTouchOptions().enableRunOnUpdateThread();
+        // The update thread processes touch samples every tick and drives gameplay
+        // timing — display priority (-4) lets it win the scheduler over default-
+        // priority threads under load, cutting input-to-update latency. The GL
+        // thread keeps its default priority so rendering is not starved.
+        opt.setUpdateThreadPriority(android.os.Process.THREAD_PRIORITY_DISPLAY);
         UIEngine engine = new UIEngine(this, opt);
 
         if (!MultiTouch.isSupported(this)) {
@@ -216,7 +216,7 @@ public class MainActivity
         }
         engine.setTouchController(new MultiTouchController());
 
-        // Configure the GL-level FrameLimiter (hybrid sleep+yield+spin)
+        // Configure the GL-level FrameLimiter (hybrid sleep+park+spin)
         FrameLimiter.getInstance().configure(
             Config.getFrameLimiterMode(),
             Config.getCustomFrameRate(),
@@ -530,21 +530,21 @@ public class MainActivity
                 scheduledExecutor.scheduleAtFixedRate(
                     () -> {
                         if (Config.isForceMaxRefreshRate()) {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                float refreshRate = getRefreshRate();
-                                if (refreshRate < maxRefreshRate) {
-                                    mRenderSurfaceView
-                                        .getHolder()
-                                        .getSurface()
-                                        .setFrameRate(
-                                            maxRefreshRate,
-                                            Surface.FRAME_RATE_COMPATIBILITY_DEFAULT
-                                        );
-                                }
+                            // Re-assert the surface hint every tick: several ROMs (MIUI,
+                            // ColorOS) silently drop the frame-rate hint when the surface
+                            // is recreated or when their own power scheduler kicks in.
+                            // setVideoFrameRate with an unchanged value is a cheap no-op
+                            // for the platform.
+                            float refreshRate = getRefreshRate();
+                            if (refreshRate < maxRefreshRate) {
+                                applySurfaceFrameRateHint();
                             }
-                            // Also enforce engine frame rate if it dropped
+                            // Also enforce engine frame rate if it dropped.
+                            // Skip in VSync mode (targetFps == 0): the swap interval
+                            // paces the loop — a software frame rate here would add a
+                            // sleep on top of vsync and reintroduce frame-time jitter.
                             int targetFps = FrameLimiter.getInstance().getTargetFps();
-                            if (targetFps < (int) maxRefreshRate && maxRefreshRate > 0) {
+                            if (targetFps > 0 && targetFps < (int) maxRefreshRate && maxRefreshRate > 0) {
                                 GlobalManager.getInstance().getEngine()
                                     .setFrameRate((int) maxRefreshRate);
                             }
@@ -932,6 +932,12 @@ public class MainActivity
         super.onResume();
         activityVisible = true;
 
+        // ROMs drop the display-mode pin / frame-rate hint while backgrounded; re-apply
+        // on every resume so gameplay never comes back at a downgraded rate.
+        if (Config.isForceMaxRefreshRate()) {
+            forceMaxRefreshRate();
+        }
+
         logFlushFuture = scheduledExecutor.scheduleAtFixedRate(
             Multiplayer::flushLog,
             0,
@@ -975,10 +981,10 @@ public class MainActivity
         if (gameScene != null && mEngine.getScene() == gameScene.getScene()) {
             if (Multiplayer.isMultiplayer) {
                 ToastLogger.showText("You've left the match.", true);
-                Execution.updateThread(gameScene::quit);
+                Execution.async(() -> Execution.updateThread(gameScene::quit));
                 Multiplayer.log("Player left the match.");
             } else {
-                Execution.updateThread(gameScene::pause);
+                Execution.async(() -> Execution.updateThread(gameScene::pause));
             }
         }
 
@@ -1020,6 +1026,13 @@ public class MainActivity
             return;
         }
 
+        // Re-assert the max refresh rate once the window actually has focus: several
+        // ROMs apply their own rate override during the focus transition, after
+        // onCreate/onResume already ran.
+        if (hasFocus && Config.isForceMaxRefreshRate()) {
+            forceMaxRefreshRate();
+        }
+
         if (getEngine() != null && !hasFocus) {
             var gameScene = GlobalManager.getInstance().getGameScene();
 
@@ -1029,7 +1042,7 @@ public class MainActivity
                 !gameScene.isPaused() &&
                 !Multiplayer.isMultiplayer
             ) {
-                Execution.updateThread(gameScene::pause);
+                Execution.async(() -> Execution.updateThread(gameScene::pause));
             }
 
             if (
@@ -1291,102 +1304,91 @@ public class MainActivity
 
     /**
      * Forces the display to run at its maximum supported refresh rate.
-     * Uses {@link Window#setFrameRate(float, int)} on Android 11+ for per-window control,
-     * and falls back to {@link android.view.WindowManager.LayoutParams#FLAG_HARDWARE_ACCELERATED}
-     * for broader compatibility.
+     *
+     * Three mechanisms, most-reliable first — many Chinese ROMs (MIUI, ColorOS, HyperOS...)
+     * silently IGNORE Window.setFrameRate with FRAME_RATE_COMPATIBILITY_DEFAULT, so the
+     * display mode switch is the primary lever:
+     *
+     * 1. preferredDisplayModeId (API 23+): pins the window to the highest-rate display
+     *    mode outright. This is the only mechanism that reliably works on Chinese phones.
+     *    Modes with the same resolution as the current one are preferred so switching
+     *    never changes the rendering resolution.
+     * 2. Surface.setFrameRate + FRAME_RATE_COMPATIBILITY_FIXED_SOURCE (API 30+): explicit
+     *    hint for AOSP-style schedulers. FIXED_SOURCE (not DEFAULT) is required — DEFAULT
+     *    lets the system downgrade the rate freely.
+     * 3. WindowManager changeFrameRateMode (API 30+ vendor extension when present).
+     *
+     * maxRefreshRate is kept in sync for the periodic re-enforcement task below.
      */
     @SuppressLint("NewApi")
     private void forceMaxRefreshRate() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Window window = getWindow();
-            if (window != null) {
-                Display display = getDisplay();
-                if (display != null) {
-                    float maxRate = display.getRefreshRate();
-                    for (Display.Mode mode : display.getSupportedModes()) {
-                        if (mode.getRefreshRate() > maxRate) {
-                            maxRate = mode.getRefreshRate();
-                        }
-                    }
-                    maxRefreshRate = maxRate;
+        Display display = getDisplay();
+        if (display == null) {
+            display = getWindowManager().getDefaultDisplay();
+        }
+        if (display == null) {
+            return;
+        }
+
+        float maxRate = display.getRefreshRate();
+        Display.Mode currentMode = display.getMode();
+        Display.Mode bestMode = currentMode;
+        for (Display.Mode mode : display.getSupportedModes()) {
+            if (mode.getRefreshRate() > maxRate) {
+                maxRate = mode.getRefreshRate();
+                bestMode = mode;
+            }
+        }
+        maxRefreshRate = maxRate;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Window w = getWindow();
+            if (w != null && bestMode != null) {
+                var attrs = w.getAttributes();
+                // Only pin when the mode differs; some ROMs reset the window attrs
+                // (and flash) if the same mode is re-applied.
+                if (attrs.preferredDisplayModeId != bestMode.getModeId()) {
+                    attrs.preferredDisplayModeId = bestMode.getModeId();
+                    w.setAttributes(attrs);
                 }
             }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Window w = getWindow();
             if (w != null) {
-                w.setFlags(
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-                );
+                try {
+                    w.getAttributes().preferMinimalPostProcessing = true;
+                } catch (Exception ignored) {
+                }
             }
         }
+
+        applySurfaceFrameRateHint();
     }
 
     /**
-     * Starts continuous Choreographer-driven frame callbacks for vsync-aligned
-     * input sampling and precise frame timing.
-     *
-     * On each vsync, this callback:
-     * 1. Records the vsync timestamp for precise game timing
-     * 2. If a DirectInputSurfaceView is active, reads the latest touch scan rate
-     * 3. Calls the onFrame Runnable (if provided) for game-specific processing
-     *
-     * Unlike the Engine's update thread which is locked to the render cycle,
-     * the Choreographer fires on EVERY vsync (60-144Hz), allowing input to be
-     * sampled at the display's native refresh rate independently of frame rendering.
+     * Surface-level frame rate hint (API 30+). FIXED_SOURCE tells the platform the app
+     * cannot tolerate a lower rate, which several vendor schedulers honor while
+     * FRAME_RATE_COMPATIBILITY_DEFAULT is ignored. Called both at startup and from the
+     * periodic enforcement task because some ROMs drop the hint when the surface is
+     * recreated (e.g. after returning from a task switch).
      */
-    public void startHighPrecisionInput(final Runnable onFrame) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN) return;
-
-        final Choreographer.FrameCallback callback =
-            new Choreographer.FrameCallback() {
-                @Override
-                public void doFrame(long frameTimeNanos) {
-                    // Record the vsync timestamp for precise timing
-                    lastVsyncFrameTimeNanos.set(frameTimeNanos);
-
-                    // Log touch scan rate info once
-                    if (directInputSurface != null && frameTimeNanos > 0) {
-                        float scanRate =
-                            directInputSurface.getTouchScanRateHz();
-                        // Scan rate is available for debugging
-                    }
-
-                    // Call the game's frame callback (reads raw pointers, updates cursors)
-                    if (onFrame != null) {
-                        try {
-                            onFrame.run();
-                        } catch (Exception e) {
-                            Debug.e("HighPrecisionInput callback error", e);
-                        }
-                    }
-
-                    // Re-register for the next vsync
-                    Choreographer.getInstance().postFrameCallback(this);
+    private void applySurfaceFrameRateHint() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && mRenderSurfaceView != null) {
+            try {
+                Surface surface = mRenderSurfaceView.getHolder().getSurface();
+                if (surface != null && surface.isValid()) {
+                    surface.setFrameRate(
+                        maxRefreshRate,
+                        Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
+                    );
                 }
-            };
-
-        // Start the callback chain immediately (no delay)
-        runOnUiThread(() ->
-            Choreographer.getInstance().postFrameCallback(callback)
-        );
-    }
-
-    /**
-     * Stops the Choreographer-driven frame callbacks by posting a no-op that
-     * breaks the callback chain.
-     */
-    public void stopHighPrecisionInput() {
-        lastVsyncFrameTimeNanos.set(0);
-    }
-
-    /**
-     * Returns the last vsync frame time from Choreographer, in nanoseconds.
-     * Returns 0 if Choreographer is not active.
-     */
-    public long getLastVsyncFrameTimeNanos() {
-        return lastVsyncFrameTimeNanos.get();
+            } catch (Exception ignored) {
+                // Some vendor surfaces throw on unsupported rates; the display-mode pin
+                // above is the primary mechanism anyway.
+            }
+        }
     }
 
     /**

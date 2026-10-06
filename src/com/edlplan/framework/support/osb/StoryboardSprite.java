@@ -198,8 +198,11 @@ public class StoryboardSprite extends SupportSprite {
             backgroundQuad.anchor = Anchor.Center;
             backgroundQuad.setTextureAndSize(context.texturePool.get(storyboard.backgroundFile));
             backgroundQuad.position.set(canvas.getWidth() / 2, canvas.getHeight() / 2);
+            // Cover (fill, crop the overflow) like osu! does with storyboard
+            // backgrounds — "contain" left unscaled strips at the edges that
+            // exposed the differently scaled background behind the storyboard.
             backgroundQuad.enableScale().scale.set(
-                    Math.min(
+                    Math.max(
                             canvas.getWidth() / backgroundQuad.size.x,
                             canvas.getHeight() / backgroundQuad.size.y));
             TextureQuadBatch.getDefaultBatch().add(backgroundQuad);
@@ -292,14 +295,21 @@ public class StoryboardSprite extends SupportSprite {
     }
 
     public void loadStoryboard(String osuFile) {
-        System.out.println(this + " load storyboard from " + osuFile);
         if (osuFile.equals(loadedOsu)) {
-            System.out.println("load storyboard from cache");
             loadFromCache();
             return;
         }
-        loadedOsu = osuFile;
 
+        try {
+            loadStoryboardInternal(osuFile);
+        } catch (Throwable t) {
+            // A broken storyboard must never take the gameplay scene down with it.
+            t.printStackTrace();
+            releaseStoryboard();
+        }
+    }
+
+    private void loadStoryboardInternal(String osuFile) {
         releaseStoryboard();
 
         loadedOsu = osuFile;
@@ -356,6 +366,18 @@ public class StoryboardSprite extends SupportSprite {
             osbPlayer.loadStoryboard(storyboard);
         }).then(System.out::println);
 
+        int elementCount = 0;
+        for (OsuStoryboardLayer layer : storyboard.layers) {
+            if (layer != null && layer.elements != null) {
+                for (IStoryboardElement ignored : layer.elements) {
+                    elementCount++;
+                }
+            }
+        }
+        System.out.println(
+            "[Storyboard] " + osuFile + " elements=" + elementCount +
+            " textures=" + pool.getLoadedCount()
+        );
     }
 
     public void releaseStoryboard() {

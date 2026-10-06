@@ -74,7 +74,7 @@ open class UITextureText(val characters: MutableMap<Char, TextureRegion>) : UIBu
     }
 
 
-    private fun onUpdateText() {
+    protected fun onUpdateText() {
 
         var contentWidth = 0f
         var contentHeight = 0f

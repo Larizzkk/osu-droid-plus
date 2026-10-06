@@ -188,12 +188,8 @@ public class GameplayModernSpinner extends GameplaySpinner {
             dFill = 5 * 4 * dt;
             degree = (rotations + dFill / 4f) * 360;
             top.setRotation(degree);
-            //auto时，FL光圈绕中心旋转
-            if (GameHelper.isAutopilot() || GameHelper.isAutoplay()) {
-                float pX = position.x + 50 * (float) Math.sin(degree);
-                float pY = position.y + 50 * (float) Math.cos(degree);
-                listener.updateAutoBasedPos(pX, pY);
-            }
+            // NOTE: the cursor is NOT repositioned here — AutoCursor owns it during
+            // autoplay/autopilot (see GameplaySpinner).
             // bottom.setRotation(-degree);
         }
 
@@ -265,6 +261,12 @@ public class GameplayModernSpinner extends GameplaySpinner {
     }
 
     public void removeFromScene() {
+        // Pool exactly once per lifetime (same contract as GameplayHitCircle.isPooled).
+        if (isPooled) {
+            return;
+        }
+        isPooled = true;
+
         middle.clearEntityModifiers();
         scene.detachChild(middle);
 

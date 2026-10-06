@@ -72,20 +72,6 @@ object EnhancedAnimations {
     val menuAnimations: Boolean
         get() = enabled && Config.getBoolean("menuAnimations", true)
 
-    /**
-     * Affect storyboard element animations.
-     * When OFF, storyboard uses original timing.
-     */
-    val storyboardAnimations: Boolean
-        get() = enabled && Config.getBoolean("storyboardAnimations", true)
-
-    /**
-     * Affect particle effects (kiai, hit effects, combo bursts).
-     * When OFF, particles use vanilla timing.
-     */
-    val particleAnimations: Boolean
-        get() = enabled && Config.getBoolean("particleAnimations", true)
-
     // ── Helper methods (UI-only) ───────────────────────────
 
     /**
@@ -100,14 +86,6 @@ object EnhancedAnimations {
     }
 
     /**
-     * Scale a duration only for a specific category.
-     * Returns baseSec unchanged if the category is disabled.
-     */
-    fun duration(baseSec: Float, category: AnimationCategory): Float {
-        return if (isCategoryEnabled(category)) baseSec * speedMultiplier else baseSec
-    }
-
-    /**
      * Get the effective easing for a modifier.
      * If the modifier already has an easing (not Easing.None), keep it.
      * Otherwise, apply the enhanced default easing.
@@ -116,22 +94,5 @@ object EnhancedAnimations {
     fun effectiveEasing(baseEasing: Easing): Easing {
         if (!enabled) return baseEasing
         return if (baseEasing == Easing.None) easing else baseEasing
-    }
-
-    /**
-     * Check if a specific animation category is enabled.
-     */
-    fun isCategoryEnabled(category: AnimationCategory): Boolean {
-        return when (category) {
-            AnimationCategory.MENU -> menuAnimations
-            AnimationCategory.STORYBOARD -> storyboardAnimations
-            AnimationCategory.PARTICLES -> particleAnimations
-        }
-    }
-
-    enum class AnimationCategory {
-        MENU,
-        STORYBOARD,
-        PARTICLES
     }
 }

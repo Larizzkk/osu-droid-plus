@@ -599,12 +599,23 @@ public class Engine
                 final long nanos = this.getNanosecondsElapsed();
 
                 this.onUpdate(nanos);
+
+                // Consume the touch interrupt flag so it does not leak into a
+                // subsequent coupled-mode session; the FrameLimiter handles the
+                // actual sleep interruption for the next tick.
+                this.mTouchInterrupt = false;
+
                 this.yieldDraw();
                 limiter.limitFrame(startNs);
             } else {
                 // Normal: coupled update+render via yieldDraw().
-                // Process touch events in adaptive bursts.
-                final float frameBudgetSec = 1f / 60f;
+                // Process touch events in adaptive bursts. Each burst iteration
+                // consumes the remaining frame time; touch interrupts trigger an
+                // immediate extra update so input latency stays at 1 update tick.
+                // The budget derives from the ACTUAL display refresh rate — a fixed
+                // 60Hz budget on a 120Hz display allowed bursts to eat 2 vsync
+                // periods, dropping the render to half rate whenever a burst ran.
+                final float frameBudgetSec = displayRate > 0f ? 1f / displayRate : 1f / 60f;
                 float elapsedThisFrame = 0;
                 int burstCount = 0;
                 do {
@@ -619,7 +630,7 @@ public class Engine
 
                 } while (
                     this.mTouchInterrupt &&
-                    burstCount < 2 &&
+                    burstCount < 4 &&
                     elapsedThisFrame < frameBudgetSec
                 );
 

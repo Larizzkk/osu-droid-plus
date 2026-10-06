@@ -27,10 +27,9 @@ public class Config {
 
     private static String corePath, defaultCorePath, beatmapPath, cachePath, skinPath, skinTopPath, scorePath, onlineUsername, onlinePassword, onlineDeviceID;
 
-    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, showBreakCountdown, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, enableExtension, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideInGameUI, receiveAnnouncements, parallaxEnabled;
+    private static boolean DELETE_OSZ, SCAN_DOWNLOAD, deleteUnimportedBeatmaps, showFirstApproachCircle, comboburst, enableStoryboard, safeBeatmapBg, useNightcoreOnMultiplayer, videoEnabled, deleteUnsupportedVideos, submitScoreOnMultiplayer, preferModAcronymInMultiplayer, keepBackgroundAspectRatio, noChangeDimInBreaks, showBreakCountdown, dimHitObjects, forceMaxRefreshRate, shiftPitchInRateChange, useCustomSkins, useCustomSounds, corovans, showFPS, animateFollowCircle, animateComboText, snakingInSliders, snakingOutSliders, playMusicPreview, showCursor, trailDelayEnabled, loadAvatar, stayOnline, burstEffects, hitLighting, useParticles, useCustomComboColors, forceRomanized, fixFrameOffset, removeSliderLock, displayScoreStatistics, hideReplayMarquee, hideReplaySettingsPanel, hideInGameUI, receiveAnnouncements, parallaxEnabled;
 
     public static final int FRAME_LIMITER_UNLIMITED = 0;
-    public static final int FRAME_LIMITER_POWER_SAVE = 1;
     public static final int FRAME_LIMITER_VSYNC = 2;
     public static final int FRAME_LIMITER_OPTIMAL = 3;
 
@@ -93,9 +92,15 @@ corovans = prefs.getBoolean("images", false);
         forceMaxRefreshRate = prefs.getBoolean("forceMaxRefreshRate", false);
 
         try {
-            frameLimiterMode = Integer.parseInt(prefs.getString("frameLimiterMode", "0"));
+            frameLimiterMode = Integer.parseInt(prefs.getString("frameLimiterMode", "3"));
         } catch (ClassCastException e) {
             frameLimiterMode = prefs.getInt("frameLimiterMode", 0);
+            prefs.edit().putString("frameLimiterMode", String.valueOf(frameLimiterMode)).apply();
+        }
+        // Power Save mode (1) was removed; migrate to VSync (2) — the closest
+        // battery-friendly pacing (paced by the display swap interval).
+        if (frameLimiterMode == 1) {
+            frameLimiterMode = FRAME_LIMITER_VSYNC;
             prefs.edit().putString("frameLimiterMode", String.valueOf(frameLimiterMode)).apply();
         }
         customFrameRate = prefs.getInt("customFrameRate", 0);
@@ -162,7 +167,6 @@ corovans = prefs.getBoolean("images", false);
             skinTopPath += "/";
         }
 
-        enableExtension = false; // prefs.getBoolean("enableExtension", false);
         cachePath = context.getCacheDir().getPath();
         burstEffects = prefs.getBoolean("bursts", burstEffects);
         hitLighting = prefs.getBoolean("hitlighting", hitLighting);
@@ -212,6 +216,7 @@ corovans = prefs.getBoolean("images", false);
             false
         );
         hideReplayMarquee = prefs.getBoolean("hideReplayMarquee", false);
+        hideReplaySettingsPanel = prefs.getBoolean("hideReplaySettingsPanel", false);
         hideInGameUI = prefs.getBoolean("hideInGameUI", false);
         receiveAnnouncements = prefs.getBoolean("receiveAnnouncements", true);
         safeBeatmapBg = prefs.getBoolean("safebeatmapbg", false);
@@ -337,14 +342,6 @@ corovans = prefs.getBoolean("images", false);
             case "3" -> DifficultyAlgorithm.rxpp;
             default -> DifficultyAlgorithm.droid;
         };
-    }
-
-    public static boolean isEnableExtension() {
-        return enableExtension;
-    }
-
-    public static void setEnableExtension(boolean enableExtension) {
-        Config.enableExtension = enableExtension;
     }
 
     public static boolean isShowFPS() {
@@ -728,6 +725,14 @@ corovans = prefs.getBoolean("images", false);
         Config.hideReplayMarquee = hideReplayMarquee;
     }
 
+    public static boolean isHideReplaySettingsPanel() {
+        return hideReplaySettingsPanel;
+    }
+
+    public static void setHideReplaySettingsPanel(boolean hideReplaySettingsPanel) {
+        Config.hideReplaySettingsPanel = hideReplaySettingsPanel;
+    }
+
     public static boolean isHideInGameUI() {
         return hideInGameUI;
     }
@@ -841,6 +846,11 @@ corovans = prefs.getBoolean("images", false);
         return parallaxEnabled;
     }
 
+    public static void setParallaxEnabled(boolean enabled) {
+        parallaxEnabled = enabled;
+        setBoolean("parallaxEnabled", enabled);
+    }
+
     public static boolean isForceMaxRefreshRate() {
         return forceMaxRefreshRate;
     }
@@ -855,10 +865,12 @@ corovans = prefs.getBoolean("images", false);
 
     public static int getEffectiveFrameRate(float displayRefreshRate) {
         return switch (frameLimiterMode) {
-            case FRAME_LIMITER_POWER_SAVE -> 30;
-            case FRAME_LIMITER_VSYNC -> (int) displayRefreshRate;
-            case FRAME_LIMITER_OPTIMAL -> Math.min((int) (displayRefreshRate * 4), 480);
-            default -> customFrameRate > 0 ? customFrameRate : 0;
+            // VSync: display swap interval is the only pacer — no software frame rate
+            // (upstream osu!droid behavior, avoids sleep-vs-vsync jitter).
+            case FRAME_LIMITER_VSYNC -> 0;
+            // Optimal: decoupled updates at 4x display refresh, no hard cap.
+            case FRAME_LIMITER_OPTIMAL -> (int) (displayRefreshRate * 4);
+            default -> customFrameRate > 0 ? Math.max(10, customFrameRate) : 0;
         };
     }
 
@@ -890,16 +902,32 @@ corovans = prefs.getBoolean("images", false);
     // It's preferred to use these methods to access shared preferences instead of adding new fields to this class.
     // If the option is expected to be accessed frequently consider storing it locally as a field where it's needed.
 
-    public static boolean getBoolean(String key, boolean defaultValue) {
-        return sharedPreferences.getBoolean(key, defaultValue);
-    }
-
     public static void setBoolean(String key, boolean value) {
         sharedPreferences.edit().putBoolean(key, value).commit();
     }
 
     public static int getInt(String key, int defaultValue) {
         return sharedPreferences.getInt(key, defaultValue);
+    }
+
+    /**
+     * Returns the raw stored value for a key regardless of its type,
+     * or null if the key is absent. Used by MoverSettings to tolerate
+     * legacy Float values for keys now managed by SeekBarPreference (Int).
+     */
+    public static Object getRaw(String key) {
+        return sharedPreferences.getAll().get(key);
+    }
+
+    public static boolean getBoolean(String key, boolean defaultValue) {
+        try {
+            return sharedPreferences.getBoolean(key, defaultValue);
+        } catch (ClassCastException e) {
+            Object v = sharedPreferences.getAll().get(key);
+            if (v instanceof String) return "1".equals(v) || "true".equals(v);
+            if (v instanceof Number) return ((Number) v).intValue() != 0;
+        }
+        return defaultValue;
     }
 
     public static void setInt(String key, int value) {
@@ -930,221 +958,12 @@ corovans = prefs.getBoolean("images", false);
         sharedPreferences.edit().putFloat(key, value).commit();
     }
 
-    // Slider Movement Settings
-    public static boolean isBezierSliderMovementEnabled() {
-        return getBoolean("bezier_enable_slider_movement", true);
-    }
-
-    public static float getBezierSliderAngleOffset() {
-        return (
-            (getInt("bezier_slider_angle_offset", 22) * (float) Math.PI) / 180f
-        );
-    }
-
-    public static float getBezierSliderDistanceMultiplier() {
-        return getInt("bezier_slider_distance_mult", 80) / 100f;
-    }
-
-    public static boolean isFlowerSliderMovementEnabled() {
-        return getBoolean("flower_enable_slider_movement", true);
-    }
-
-    public static float getFlowerSliderAngleOffset() {
-        return (
-            (getInt("flower_slider_angle_offset", 45) * (float) Math.PI) / 180f
-        );
-    }
-
-    public static float getFlowerSliderDistanceMultiplier() {
-        return getInt("flower_slider_distance_mult", 140) / 100f;
-    }
-
-    public static boolean isPippiSliderMovementEnabled() {
-        return getBoolean("pippi_enable_slider_movement", true);
-    }
-
-    public static float getPippiSliderAngleOffset() {
-        return (
-            (getInt("pippi_slider_angle_offset", 15) * (float) Math.PI) / 180f
-        );
-    }
-
-    public static float getPippiSliderDistanceMultiplier() {
-        return getInt("pippi_slider_distance_mult", 60) / 100f;
-    }
-
-    public static boolean isSplineSliderMovementEnabled() {
-        return getBoolean("spline_enable_slider_movement", true);
-    }
-
-    public static float getSplineSliderAngleOffset() {
-        return (
-            (getInt("spline_slider_angle_offset", 36) * (float) Math.PI) / 180f
-        );
-    }
-
-    public static float getSplineSliderDistanceMultiplier() {
-        return getInt("spline_slider_distance_mult", 80) / 100f;
-    }
-
-    public static boolean isMomentumSliderMovementEnabled() {
-        return getBoolean("momentum_enable_slider_movement", true);
-    }
-
-    public static float getMomentumSliderAngleOffset() {
-        return (
-            (getInt("momentum_slider_angle_offset", 30) * (float) Math.PI) /
-            180f
-        );
-    }
-
-    public static float getMomentumSliderDistanceMultiplier() {
-        return getInt("momentum_slider_distance_mult", 110) / 100f;
-    }
-
-    public static float getMomentumSliderMaxAngleChange() {
-        return (
-            (getInt("momentum_slider_max_angle_change", 60) * (float) Math.PI) /
-            180f
-        );
-    }
-
-    public static boolean isExGonSliderMovementEnabled() {
-        return getBoolean("exgon_enable_slider_movement", true);
-    }
-
-    public static float getExGonSliderAngleOffsetRange() {
-        return (
-            (getInt("exgon_slider_angle_offset_range", 45) * (float) Math.PI) /
-            180f
-        );
-    }
-
-    public static float getExGonSliderDistanceMultiplier() {
-        return getInt("exgon_slider_distance_mult", 70) / 100f;
-    }
-
-    public static boolean isEnhancedCursorSliderMovementEnabled() {
-        return getBoolean("enhanced_cursor_enable_slider_movement", true);
-    }
-
-    public static float getEnhancedCursorSliderAngleOffset() {
-        return (
-            (getInt("enhanced_cursor_slider_angle_offset", 45) *
-                (float) Math.PI) /
-            180f
-        );
-    }
-
-    public static float getEnhancedCursorSliderDistanceMultiplier() {
-        return getInt("enhanced_cursor_slider_distance_mult", 120) / 100f;
-    }
-
-    public static int getEnhancedCursorSliderSegments() {
-        return getInt("enhanced_cursor_slider_segments", 8);
-    }
-
-    public static boolean isHalfCircleSliderMovementEnabled() {
-        return getBoolean("half_circle_enable_slider_movement", true);
-    }
-
-    public static float getHalfCircleSliderAngleOffset() {
-        return (
-            (getInt("half_circle_slider_angle_offset", 60) * (float) Math.PI) /
-            180f
-        );
-    }
-
-    public static float getHalfCircleSliderDistanceMultiplier() {
-        return getInt("half_circle_slider_distance_mult", 140) / 100f;
-    }
-
-    public static boolean isAxisSliderMovementEnabled() {
-        return getBoolean("axis_enable_slider_movement", true);
-    }
-
-    public static float getAxisSliderProbeOffset() {
-        return getInt("axis_slider_probe_offset", 40) / 100f;
-    }
-
-    public static boolean isAggressiveSliderMovementEnabled() {
-        return getBoolean("aggressive_enable_slider_movement", true);
-    }
-
-    public static float getAggressiveSliderAngleOffset() {
-        return (
-            (getInt("aggressive_slider_angle_offset", 60) * (float) Math.PI) /
-            180f
-        );
-    }
-
-    public static float getAggressiveSliderDistanceMultiplier() {
-        return getInt("aggressive_slider_distance_mult", 120) / 100f;
-    }
-
     public static float getTrailLength() {
         return getInt("trailLength", 200) / 100f;
     }
 
     public static void setTrailLength(float trailLength) {
         setInt("trailLength", (int) (trailLength * 100));
-    }
-
-    // Glow Settings
-    public static boolean isCursorGlowEnabled() {
-        return false; // Disabled
-    }
-
-    public static void setCursorGlowEnabled(boolean enabled) {
-        setBoolean("cursorGlowEnabled", false); // Always false
-    }
-
-    public static boolean isTrailGlowEnabled() {
-        return false; // Disabled
-    }
-
-    public static void setTrailGlowEnabled(boolean enabled) {
-        setBoolean("trailGlowEnabled", false); // Always false
-    }
-
-    public static boolean isObjectGlowEnabled() {
-        return false; // Disabled
-    }
-
-    public static void setObjectGlowEnabled(boolean enabled) {
-        setBoolean("objectGlowEnabled", false); // Always false
-    }
-
-    public static float getGlowEndScale() {
-        return getInt("glowEndScale", 40) / 100f;
-    }
-
-    public static void setGlowEndScale(float scale) {
-        setInt("glowEndScale", (int) (scale * 100));
-    }
-
-    public static float getInnerLengthMult() {
-        return getInt("innerLengthMult", 90) / 100f;
-    }
-
-    public static void setInnerLengthMult(float mult) {
-        setInt("innerLengthMult", (int) (mult * 100));
-    }
-
-    public static boolean isAdditiveBlendingEnabled() {
-        return getBoolean("additiveBlendingEnabled", true);
-    }
-
-    public static void setAdditiveBlendingEnabled(boolean enabled) {
-        setBoolean("additiveBlendingEnabled", enabled);
-    }
-
-    public static float getGlowIntensity() {
-        return getInt("glowIntensity", 80) / 100f;
-    }
-
-    public static void setGlowIntensity(float intensity) {
-        setInt("glowIntensity", (int) (intensity * 100));
     }
 
     // Trail Size and Width Settings
@@ -1162,6 +981,34 @@ corovans = prefs.getBoolean("images", false);
 
     public static void setTrailWidth(float width) {
         setInt("trailWidth", (int) (width * 100));
+    }
+
+    /**
+     * Long trail removal mode. When ON (default), trail points age out with
+     * danser-go's count-proportional formula — the whole trail fades in about
+     * 360ms * lengthScale regardless of its length ("fast removal"). When OFF,
+     * every point lives exactly {@link #getTrailFadeTime()} seconds of gameplay
+     * time regardless of the point count, so the trail keeps its full length
+     * during medium-speed movements instead of shrinking.
+     */
+    public static boolean isTrailFastRemoval() {
+        return getBoolean("trailFastRemoval", true);
+    }
+
+    public static void setTrailFastRemoval(boolean enabled) {
+        setBoolean("trailFastRemoval", enabled);
+    }
+
+    /**
+     * Fixed fade time for the long trail in seconds (stored in 0.01s units like
+     * trailLength; default 200 = 2.0s). Only used when fast removal is disabled.
+     */
+    public static float getTrailFadeTime() {
+        return getInt("trailFadeTime", 200) / 100f;
+    }
+
+    public static void setTrailFadeTime(float seconds) {
+        setInt("trailFadeTime", (int) (seconds * 100));
     }
 
     public static boolean isEnhancedAnimations() {
@@ -1182,14 +1029,6 @@ corovans = prefs.getBoolean("images", false);
 
     public static boolean isMenuAnimations() {
         return getBoolean("menuAnimations", true);
-    }
-
-    public static boolean isStoryboardAnimations() {
-        return getBoolean("storyboardAnimations", true);
-    }
-
-    public static boolean isParticleAnimations() {
-        return getBoolean("particleAnimations", true);
     }
 
     public static boolean isRotateCursorTrail() {

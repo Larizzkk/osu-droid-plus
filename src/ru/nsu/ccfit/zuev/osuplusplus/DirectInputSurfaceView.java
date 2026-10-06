@@ -2,15 +2,12 @@ package ru.nsu.ccfit.zuev.osuplusplus;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
-import android.view.View;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import org.anddev.andengine.engine.Engine;
 import org.anddev.andengine.input.touch.controller.ITouchController;
 import org.anddev.andengine.opengl.view.RenderSurfaceView;
-import org.anddev.andengine.util.Debug;
 
 /**
  * Custom RenderSurfaceView that uses Android's InputEventReceiver at the lowest possible level.
@@ -19,14 +16,12 @@ import org.anddev.andengine.util.Debug;
  * Engine's OnTouchListener. The raw pointer data is updated immediately on the UI thread,
  * bypassing any queuing or synchronization delays in the Engine.
  *
- * Combined with the Choreographer-driven frame callbacks, this provides near-zero
- * input latency by decoupling touch sampling from the game's update-render cycle.
- *
  * How it works:
  *   1. Touch happens → Android dispatches MotionEvent to dispatchTouchEvent()
  *   2. We IMMEDIATELY update the raw pointer arrays (thread-safe atomic versioning)
- *   3. We pass the event to the Engine's normal processing (for game logic events)
- *   4. The Choreographer callback samples the latest touch data on each vsync
+ *      and queue every historical + current sample into per-pointer SPSC ring buffers
+ *   3. We pass the event to the Engine's normal processing (for game logic events);
+ *      the game's update thread drains the sample queues every tick
  *
  * This eliminates the 1-frame queue latency entirely for cursor tracking.
  * On supported devices, InputDevice.getMotionRanges() provides the hardware scan rate,
@@ -69,15 +64,33 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
      */
     private final long[] mPointerEventTime = new long[MAX_POINTERS];
 
+    // ─── Per-pointer sample ring buffers (SPSC: UI thread writes, update thread drains) ───
+    // Historical samples from batched MotionEvents are queued here in chronological order so
+    // the game's update thread can consume the COMPLETE movement path instead of only the
+    // latest position — a latest-sample-wins array loses 5-10 intermediate positions per
+    // batch and precision during fast flicks.
+    private static final int SAMPLE_POINTER_SLOTS = 10;    // Android pointer IDs are small sequential ints
+    private static final int SAMPLE_BUFFER_CAPACITY = 512;
+
+    private final float[] mSampleX = new float[SAMPLE_POINTER_SLOTS * SAMPLE_BUFFER_CAPACITY];
+    private final float[] mSampleY = new float[SAMPLE_POINTER_SLOTS * SAMPLE_BUFFER_CAPACITY];
+    private final long[] mSampleTime = new long[SAMPLE_POINTER_SLOTS * SAMPLE_BUFFER_CAPACITY];
+    /** 1 = finger/pointer down at this sample, 0 = up. Lets the update thread derive
+     *  DOWN/MOVE/UP transitions from the stream instead of from the live pointer state
+     *  (otherwise a stale UP sample is re-consumed on the next tap as a phantom DOWN). */
+    private final boolean[] mSampleDown = new boolean[SAMPLE_POINTER_SLOTS * SAMPLE_BUFFER_CAPACITY];
     /**
-     * The touch scan rate of the device's touch controller in Hz.
-     * Higher is better (1000Hz = 1ms intervals).
+     * Encoded Android action (ACTION_DOWN/MOVE/UP) PER SLOT, written by the producer
+     * right before the write index advances. The consumer (GameScene drain) classifies
+     * each sample from this field instead of inferring the state from previous cursor
+     * events.
      */
-    private float touchScanRateHz = 0;
+    private final int[] mSampleAction = new int[SAMPLE_POINTER_SLOTS * SAMPLE_BUFFER_CAPACITY];
+    private final AtomicIntegerArray mSampleWriteIndex = new AtomicIntegerArray(SAMPLE_POINTER_SLOTS);
+    private final AtomicIntegerArray mSampleReadIndex = new AtomicIntegerArray(SAMPLE_POINTER_SLOTS);
 
     public DirectInputSurfaceView(final Context context) {
         super(context);
-        detectTouchScanRate();
     }
 
     public DirectInputSurfaceView(
@@ -85,47 +98,18 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
         final AttributeSet attrs
     ) {
         super(context, attrs);
-        detectTouchScanRate();
-    }
-
-    /**
-     * Detects the touch controller's hardware scan rate via display refresh rate.
-     * Modern touch panels typically match or exceed the display's refresh rate.
-     */
-    private void detectTouchScanRate() {
-        // Use the display's refresh rate as a baseline for touch scan rate
-        // Most modern touch panels scan at 120Hz+ on high-refresh displays
-        try {
-            android.view.Display display = (
-                (android.view.WindowManager) getContext().getSystemService(
-                    Context.WINDOW_SERVICE
-                )
-            ).getDefaultDisplay();
-            float rate = display.getRefreshRate();
-            if (rate >= 60) {
-                touchScanRateHz = Math.max(rate, 120); // Touch usually >= display Hz
-            }
-        } catch (Exception ignored) {}
-
-        if (touchScanRateHz <= 0) {
-            touchScanRateHz = 120;
-        }
-        Debug.i(
-            "Touch scan rate: " + (int) touchScanRateHz + " Hz (estimated)"
-        );
-    }
-
-    /**
-     * Returns the detected touch scan rate in Hz.
-     */
-    public float getTouchScanRateHz() {
-        return touchScanRateHz;
     }
 
     @Override
     public void setRenderer(final Engine pEngine) {
         super.setRenderer(pEngine);
         this.attachedEngine = pEngine;
+
+        // requestUnbufferedDispatch is deliberately NOT used: it disables the kernel's
+        // batching buffer, delivering every touch sample as its own syscall on the UI
+        // thread — under load that adds jitter to both input and rendering.
+        // updateRawPointersFromEvent already consumes all historical samples of each
+        // batch, which preserves the full movement path without unbuffering.
     }
 
     /**
@@ -147,11 +131,19 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
         // to the game engine, bypassing the 1-frame queue latency.
         updateRawPointersFromEvent(event);
 
-        // Step 2: Signal the engine's UpdateThread to wake up and process touch NOW
-        // This breaks the update-render lockstep, allowing input to be handled
-        // at the speed of the touch controller (up to 1000Hz) instead of the
-        // display refresh rate (60-144Hz).
-        attachedEngine.signalTouchInterrupt();
+        // Step 2: Signal the engine's UpdateThread to wake up for tap-critical events.
+        // ONLY DOWN/UP/CANCEL signal here. Signaling on every MOVE (120+ Hz) triggered
+        // up to 4 extra full update cycles per frame in coupled mode (each recomputing
+        // dt) — that made frame times jitter and input WORSE. MOVE positions reach the
+        // game through the SPSC sample queue drained every update tick anyway.
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN
+            || action == MotionEvent.ACTION_POINTER_DOWN
+            || action == MotionEvent.ACTION_UP
+            || action == MotionEvent.ACTION_POINTER_UP
+            || action == MotionEvent.ACTION_CANCEL) {
+            attachedEngine.signalTouchInterrupt();
+        }
 
         // Step 3: Let the Engine process the event normally through the queue
         // This handles the normal touch event flow for game logic
@@ -195,6 +187,21 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
                     mPointerDown[pointerId] = isDown;
                     mPointerEventTime[pointerId] = histTime;
                     mPointerVersions.incrementAndGet(pointerId);
+
+                    // Queue the sample for ordered consumption by the update thread.
+                    // Encode the per-sample action: historical entries of a MOVE batch
+                    // are MOVEs; DOWN/UP actions only land on the affected pointer via
+                    // the current-sample pass below. A pointer that already lifted must
+                    // NOT be resurrected by historical MOVE entries — classify strictly.
+                    int histAction;
+                    if (action == MotionEvent.ACTION_MOVE) {
+                        histAction = mPointerDown[pointerId] || isDownAction(action, i, event.getActionIndex())
+                            ? MotionEvent.ACTION_MOVE
+                            : MotionEvent.ACTION_UP;
+                    } else {
+                        histAction = isDown ? MotionEvent.ACTION_MOVE : MotionEvent.ACTION_UP;
+                    }
+                    pushPointerSample(pointerId, x, y, histTime, isDown, histAction);
                 }
             }
 
@@ -222,6 +229,19 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
                 mPointerDown[pointerId] = isDown;
                 mPointerEventTime[pointerId] = eventTime;
                 mPointerVersions.incrementAndGet(pointerId);
+
+                // Queue the sample for ordered consumption by the update thread.
+                // encodedAction carries the exact Android action (DOWN/MOVE/UP) so the
+                // consumer classifies each sample without guessing from the previous
+                // cursor state — a MOVE batch must never re-classify a lifted pointer
+                // as pressed (that synthesized phantom DOWN events mid-stream: streams
+                // hit "easier" than upstream).
+                int curAction = isDown
+                    ? (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN)
+                        ? MotionEvent.ACTION_DOWN
+                        : MotionEvent.ACTION_MOVE
+                    : MotionEvent.ACTION_UP;
+                pushPointerSample(pointerId, x, y, eventTime, isDown, curAction);
             }
         } catch (Exception ignored) {
             // Never crash in the input path
@@ -250,58 +270,96 @@ public class DirectInputSurfaceView extends RenderSurfaceView {
         }
     }
 
-    /**
-     * Reads a consistent snapshot of a pointer's position.
-     *
-     * @param pointerId The pointer ID to read.
-     * @param outCoords Array of length 2+ to receive [x, y, isDown(0/1)].
-     * @return true if a consistent snapshot was read, false if the pointer is unstable.
-     */
-    public boolean readPointerSnapshot(int pointerId, float[] outCoords) {
-        for (int attempt = 0; attempt < 3; attempt++) {
-            int verBefore = mPointerVersions.get(pointerId);
-            // Odd version = being written on UI thread, retry
-            if ((verBefore & 1) != 0) continue;
+    private void pushPointerSample(int pointerId, float x, float y, long eventTime, boolean down, int encodedAction) {
+        if (pointerId < 0 || pointerId >= SAMPLE_POINTER_SLOTS) return;
 
-            float x = mPointerX[pointerId];
-            float y = mPointerY[pointerId];
-            boolean down = mPointerDown[pointerId];
-            int verAfter = mPointerVersions.get(pointerId);
+        int slot = pointerId * SAMPLE_BUFFER_CAPACITY;
+        int writeIndex = mSampleWriteIndex.get(pointerId);
+        int nextWrite = (writeIndex + 1) % SAMPLE_BUFFER_CAPACITY;
 
-            if (verBefore == verAfter && (verAfter & 1) == 0) {
-                outCoords[0] = x;
-                outCoords[1] = y;
-                outCoords[2] = down ? 1f : 0f;
-                return true;
-            }
+        // Full buffer: drop the OLDEST sample by advancing the read cursor.
+        if (nextWrite == mSampleReadIndex.get(pointerId)) {
+            mSampleReadIndex.incrementAndGet(pointerId);
         }
-        return false;
+
+        mSampleX[slot + writeIndex] = x;
+        mSampleY[slot + writeIndex] = y;
+        mSampleTime[slot + writeIndex] = eventTime;
+        mSampleDown[slot + writeIndex] = down;
+        mSampleAction[slot + writeIndex] = encodedAction;
+        mSampleWriteIndex.set(pointerId, nextWrite);
     }
 
     /**
-     * Returns the raw pointer state arrays for direct reading by the game engine.
+     * Pops the oldest queued touch sample of the given pointer.
+     * Runs on the game's update thread.
+     *
+     * NOTE: the timestamp MUST be delivered as a long — SystemClock.uptimeMillis
+     * values (> 2^24 ms) lose all sub-~32ms precision through a float, which breaks
+     * the consumer's timestamp dedup and the sub-frame offset computation.
+     *
+     * @param pointerId The pointer ID to read from.
+     * @param outCoords Array of length 4+ receiving [x, y, unused, down(1/0)].
+     * @param outTime   Array of length 1+ receiving the sample time (uptime millis).
+     * @return true if a sample was available, false if the queue is empty.
      */
-    public AtomicIntegerArray getPointerVersions() {
-        return mPointerVersions;
+    public boolean popPointerSample(int pointerId, float[] outCoords, long[] outTime) {
+        return popPointerSample(pointerId, outCoords, outTime, null);
     }
 
-    public float[] getPointerX() {
-        return mPointerX;
+    /**
+     * Pops the oldest queued touch sample, additionally reporting the encoded Android
+     * action (ACTION_DOWN/MOVE/UP) captured at queue time through {@code outAction[0]}
+     * when the array is non-null. Consumers classify from the recorded action instead
+     * of guessing from previous cursor state.
+     */
+    public boolean popPointerSample(int pointerId, float[] outCoords, long[] outTime, int[] outAction) {
+        if (pointerId < 0 || pointerId >= SAMPLE_POINTER_SLOTS || outTime == null) return false;
+
+        int readIndex = mSampleReadIndex.get(pointerId);
+        if (readIndex == mSampleWriteIndex.get(pointerId)) {
+            return false; // Empty.
+        }
+
+        int slot = pointerId * SAMPLE_BUFFER_CAPACITY;
+        outCoords[0] = mSampleX[slot + readIndex];
+        outCoords[1] = mSampleY[slot + readIndex];
+        outTime[0] = mSampleTime[slot + readIndex];
+        outCoords[3] = mSampleDown[slot + readIndex] ? 1f : 0f;
+        if (outAction != null) {
+            outAction[0] = mSampleAction[slot + readIndex];
+        }
+        mSampleReadIndex.set(pointerId, (readIndex + 1) % SAMPLE_BUFFER_CAPACITY);
+        return true;
     }
 
-    public float[] getPointerY() {
-        return mPointerY;
+    /**
+     * Number of sample queue slots (mirrors the raw pointer capacity used by callers).
+     */
+    public int getMaxSampleSlots() {
+        return SAMPLE_POINTER_SLOTS;
     }
 
-    public boolean[] getPointerDown() {
-        return mPointerDown;
+    /**
+     * Number of queued samples for diagnostics.
+     */
+    public int getQueuedSampleCount(int pointerId) {
+        if (pointerId < 0 || pointerId >= SAMPLE_POINTER_SLOTS) return 0;
+        int writeIndex = mSampleWriteIndex.get(pointerId);
+        int readIndex = mSampleReadIndex.get(pointerId);
+        return (writeIndex - readIndex + SAMPLE_BUFFER_CAPACITY) % SAMPLE_BUFFER_CAPACITY;
     }
 
-    public long[] getPointerEventTime() {
-        return mPointerEventTime;
+    /**
+     * Clears the sample queues (call when raw pointers reset).
+     * Drains EVERY slot: skipping pointers that look "not down" leaves their last
+     * UP sample queued, and re-consuming it on the next tap synthesizes a phantom
+     * DOWN at a stale position (ghost press far from the finger).
+     */
+    public void clearPointerSamples() {
+        for (int i = 0; i < SAMPLE_POINTER_SLOTS; i++) {
+            mSampleReadIndex.set(i, mSampleWriteIndex.get(i));
+        }
     }
 
-    public int getMaxPointers() {
-        return MAX_POINTERS;
-    }
 }

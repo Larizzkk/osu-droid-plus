@@ -136,6 +136,29 @@ open class UIAnimatedSprite(frames: Array<TextureRegion?>) : UISprite() {
         isPlaying = true
     }
 
+    /**
+     * Reloads the frame list from the texture name after a skin switch. Mirrors the
+     * [constructor(textureName, withHyphen, framePerSecond)] frame discovery, keeping
+     * the current frame rate.
+     */
+    fun setFrames(textureName: String, withHyphen: Boolean) {
+        val newFrames = mutableListOf<TextureRegion?>()
+        val frameCount = ResourceManager.getInstance().getFrameCount(textureName)
+
+        for (i in 0 until frameCount) {
+            val frameName = textureName + (if (withHyphen) "-" else "") + i
+            if (ResourceManager.getInstance().isTextureLoaded(frameName)) {
+                newFrames.add(ResourceManager.getInstance().getTexture(frameName))
+            }
+        }
+
+        if (newFrames.isEmpty()) {
+            newFrames.add(ResourceManager.getInstance().getTexture(textureName))
+        }
+
+        frames = newFrames.toTypedArray()
+    }
+
     fun pause() {
         isPlaying = false
     }

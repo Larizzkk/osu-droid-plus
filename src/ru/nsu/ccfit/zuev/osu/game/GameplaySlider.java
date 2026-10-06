@@ -88,6 +88,17 @@ public class GameplaySlider extends GameObject {
     private boolean kiai;
     private Color4 bodyColor = new Color4();
     private Color4 circleColor = new Color4();
+    /**
+     * The combo color passed to init(). Stored so a mid-game skin hot-swap can
+     * re-resolve it against the new palette (refreshSkinTextures).
+     */
+    private Color4 comboColor = new Color4();
+    /**
+     * Slider border color passed to init(). Stored so a mid-game skin hot-swap can
+     * re-apply the current palette (the border may come from the beatmap, custom
+     * colors, or the skin's forceOverride value).
+     */
+    private Color4 borderColor = new Color4();
 
     //for replay
     private int firstHitAccuracy;
@@ -146,6 +157,20 @@ public class GameplaySlider extends GameObject {
      */
     private boolean isInRadius;
 
+    /**
+     * Guards against double pooling (same contract as GameplayHitCircle.isPooled): both
+     * removeFromScene() (via poolObject(), possibly deferred) and onExpire() (immediate, during
+     * seek/update expiry) can run for the same instance, but the slider must be returned to the
+     * {@link GameObjectPool} exactly once per lifetime.
+     */
+    private boolean isPooled;
+
+    /**
+     * True while inside onExpire(); poolObject() may be triggered re-entrantly through deferred
+     * animation callbacks and must not pool on top of onExpire().
+     */
+    private boolean expiring;
+
 
     public GameplaySlider() {
 
@@ -193,6 +218,12 @@ public class GameplaySlider extends GameObject {
         this.stat = stat;
         this.beatmapSlider = beatmapSlider;
         this.controlPoints = controlPoints;
+        this.comboColor = comboColor;
+        this.borderColor = borderColor;
+
+        // Reset pooling guards for the new lifetime (see isPooled doc).
+        isPooled = false;
+        expiring = false;
 
         var stackedPosition = beatmapSlider.getScreenSpaceGameplayStackedPosition();
         position.set(stackedPosition.x, stackedPosition.y);
@@ -234,6 +265,13 @@ public class GameplaySlider extends GameObject {
         circleColor = comboColor;
         currentNestedObjectIndex = 0;
 
+        // Refresh skin-driven sprites on every init: this object is pooled, so a
+        // mid-replay skin switch must re-pull textures/approach/arrow frames here.
+        approachCircle.setTextureRegion(ResourceManager.getInstance().getTexture("approachcircle"));
+        startArrow.setTextureRegion(ResourceManager.getInstance().getTexture("reversearrow"));
+        endArrow.setTextureRegion(ResourceManager.getInstance().getTexture("reversearrow"));
+        ball.setFrames("sliderb", false);
+
         boolean applyIncreasedVisibilityToCirclePiece = !GameHelper.isTraceable() ||
                 (Config.isShowFirstApproachCircle() && GameHelper.getTraceable().getFirstObject() == beatmapSlider);
 
@@ -242,6 +280,8 @@ public class GameplaySlider extends GameObject {
         headCirclePiece.setOverlayTextureRegion(sliderStartCircleOverlayTexture);
         headCirclePiece.showNumber();
         headCirclePiece.setScale(scale);
+        // Reset the beat pulse from a previous lifetime (pooled object).
+        headCirclePiece.setPulseScale(1f);
         headCirclePiece.setCircleColor(comboColor);
         headCirclePiece.setAlpha(0);
         headCirclePiece.setPosition(this.position.x, this.position.y);
@@ -268,6 +308,7 @@ public class GameplaySlider extends GameObject {
             comboColor;
 
         tailCirclePiece.setScale(scale);
+        tailCirclePiece.setPulseScale(1f);
         tailCirclePiece.setCircleColor(initialTailColor);
         tailCirclePiece.setAlpha(0);
         tailCirclePiece.setVisible(applyIncreasedVisibilityToCirclePiece);
@@ -663,7 +704,71 @@ public class GameplaySlider extends GameObject {
         sliderBody.clearEntityModifiers();
         tickContainer.clearEntityModifiers();
 
-        GameObjectPool.getInstance().putSlider(this);
+        // Pool exactly once per lifetime (see isPooled doc).
+        if (!isPooled) {
+            isPooled = true;
+            GameObjectPool.getInstance().putSlider(this);
+        }
+    }
+
+    @Override
+    public void onExpire() {
+        if (expiring) {
+            return;
+        }
+
+        expiring = true;
+
+        headCirclePiece.clearEntityModifiers();
+        tailCirclePiece.clearEntityModifiers();
+        startArrow.clearEntityModifiers();
+        endArrow.clearEntityModifiers();
+        approachCircle.clearEntityModifiers();
+        followCircle.clearEntityModifiers();
+        ball.clearEntityModifiers();
+        sliderBody.clearEntityModifiers();
+        tickContainer.clearEntityModifiers();
+
+        headCirclePiece.detachSelf();
+        tailCirclePiece.detachSelf();
+        startArrow.detachSelf();
+        endArrow.detachSelf();
+        approachCircle.detachSelf();
+        followCircle.detachSelf();
+        ball.detachSelf();
+        sliderBody.detachSelf();
+        tickContainer.detachSelf();
+
+        sliderHeadLateMissFadeModifier = null;
+
+        // removeFromScene() stops looping sounds and releases hit samples, but during a seek, onExpire() fires without
+        // removeFromScene(). This causes looping sounds to continuously play after a seek, and nested hit samples
+        // remain populated, so when the pool reuses this slider, reloadHitSounds() appends to them instead of an empty
+        // list, resulting in doubled hitsounds at every tick/repeat.
+        stopSlidingSamples();
+
+        for (int i = 0, iSize = nestedHitSamples.size(); i < iSize; ++i) {
+            var hitSamples = nestedHitSamples.get(i);
+
+            for (int j = hitSamples.size() - 1; j >= 0; --j) {
+                var sample = hitSamples.get(j);
+                sample.reset();
+                GameplayHitSampleInfo.pool.free(sample);
+            }
+
+            hitSamples.clear();
+        }
+
+        scene = null;
+
+        // Pool exactly once per lifetime (see isPooled doc).
+        if (!isPooled) {
+            isPooled = true;
+            GameObjectPool.getInstance().putSlider(this);
+        }
+
+        // Safe to receive multiple times; must not run re-entrantly during GameScene's iteration.
+        listener.removeObject(this);
     }
 
     private void onSpanFinish() {
@@ -933,6 +1038,46 @@ public class GameplaySlider extends GameObject {
     }
 
 
+    /**
+     * Re-pulls slider textures from the (possibly hot-swapped) skin. Live in-scene
+     * sliders keep their old TextureRegion after a mid-game skin switch until this
+     * runs. Called for every active object by GameScene.onReplaySkinChanged().
+     */
+    public void refreshSkinTextures() {
+        approachCircle.setTextureRegion(ResourceManager.getInstance().getTexture("approachcircle"));
+        startArrow.setTextureRegion(ResourceManager.getInstance().getTexture("reversearrow"));
+        endArrow.setTextureRegion(ResourceManager.getInstance().getTexture("reversearrow"));
+        ball.setFrames("sliderb", false);
+        if (ResourceManager.getInstance().isTextureLoaded("sliderfollowcircle-0")) {
+            if (followCircle instanceof com.reco1l.andengine.sprite.UIAnimatedSprite animatedFollow) {
+                animatedFollow.setFrames("sliderfollowcircle", true);
+            } else {
+                followCircle.setTextureRegion(ResourceManager.getInstance().getTexture("sliderfollowcircle"));
+            }
+        } else {
+            followCircle.setTextureRegion(ResourceManager.getInstance().getTexture("sliderfollowcircle"));
+        }
+        headCirclePiece.setCircleTextureRegion(sliderStartCircleTexture);
+        headCirclePiece.setOverlayTextureRegion(sliderStartCircleOverlayTexture);
+        headCirclePiece.refreshNumberSkin();
+        tailCirclePiece.setCircleTextureRegion(sliderEndCircleTexture);
+        tailCirclePiece.setOverlayTextureRegion(sliderEndCircleOverlayTexture);
+
+        // The combo palette may have changed with the skin (forceOverride colors).
+        // Re-resolve colors and re-apply skin-driven body settings.
+        comboColor = listener.getComboColor(beatmapSlider);
+        bodyColor = comboColor;
+        if (!OsuSkin.get().isSliderFollowComboColor()) {
+            bodyColor = OsuSkin.get().getSliderBodyColor();
+        }
+        circleColor = comboColor;
+        headCirclePiece.setCircleColor(comboColor);
+        tailCirclePiece.setCircleColor(comboColor);
+        approachCircle.setColor(comboColor);
+        sliderBody.setBorderColor(borderColor);
+        sliderBody.setBackgroundColor(bodyColor, OsuSkin.get().getSliderBodyBaseAlpha());
+    }
+
     @Override
     public void update(final float dt) {
 
@@ -973,14 +1118,26 @@ public class GameplaySlider extends GameObject {
 
         if (headCirclePiece.isVisible()) {
             if (GameHelper.isKiai()) {
-                var kiaiModifier = (float) Math.max(0, 1 - GameHelper.getCurrentBeatTime() / GameHelper.getBeatLength()) * 0.5f;
+                double beatLen = GameHelper.getBeatLength();
+                // Same clamp as GameplayHitCircle: pulse stays visible on slow BPMs
+                // instead of decaying to exactly rest scale for most of the beat.
+                float kiaiModifier = beatLen > 0
+                    ? FMath.clamp((float) Math.max(0, 1 - GameHelper.getCurrentBeatTime() / beatLen) * 0.5f, 0.125f, 0.5f)
+                    : 0.25f;
                 var r = Math.min(1, circleColor.getRed() + (1 - circleColor.getRed()) * kiaiModifier);
                 var g = Math.min(1, circleColor.getGreen() + (1 - circleColor.getGreen()) * kiaiModifier);
                 var b = Math.min(1, circleColor.getBlue() + (1 - circleColor.getBlue()) * kiaiModifier);
                 kiai = true;
                 headCirclePiece.setCircleColor(r, g, b);
+                // Same beat-synced pulse as hit circles (danser-go parity: +20% at beat peak).
+                if (ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("hitCirclePulse", true)) {
+                    headCirclePiece.setPulseScale(1f + kiaiModifier * 0.4f);
+                }
             } else if (kiai) {
                 headCirclePiece.setCircleColor(circleColor);
+                if (ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("hitCirclePulse", true)) {
+                    headCirclePiece.setPulseScale(1f);
+                }
                 kiai = false;
             }
         }
@@ -1429,6 +1586,13 @@ public class GameplaySlider extends GameObject {
 
     private void playCurrentNestedObjectHitSound() {
         listener.playHitSamples(nestedHitSamples.get(currentNestedObjectIndex));
+    }
+
+    @Override
+    public void playLoopingSamples() {
+        if (isInRadius) {
+            playSlidingSamples();
+        }
     }
 
     @Override

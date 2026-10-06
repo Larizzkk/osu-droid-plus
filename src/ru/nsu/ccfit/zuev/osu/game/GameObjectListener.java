@@ -4,6 +4,7 @@ import android.graphics.PointF;
 
 import com.osudroid.game.Cursor;
 import com.reco1l.framework.Color4;
+import com.rian.osu.beatmap.hitobject.HitObject;
 import com.rian.osu.gameplay.GameplayHitSampleInfo;
 
 import java.util.BitSet;
@@ -45,4 +46,12 @@ public interface GameObjectListener {
     void onUpdatedAutoCursor(float pX, float pY);
 
     void playHitSamples(List<GameplayHitSampleInfo> samples);
+
+    /**
+     * Resolves the combo color of the given object against the CURRENT combo palette
+     * (custom colors, beatmap colors, or the skin's forceOverride palette). Used by
+     * live objects after a mid-game skin hot-swap, where the palette captured at
+     * init() may no longer match the freshly loaded skin.
+     */
+    Color4 getComboColor(HitObject hitObject);
 }

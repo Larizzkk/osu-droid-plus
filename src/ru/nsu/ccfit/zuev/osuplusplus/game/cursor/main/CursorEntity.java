@@ -3,38 +3,41 @@ package ru.nsu.ccfit.zuev.osuplusplus.game.cursor.main;
 import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.particle.emitter.PointParticleEmitter;
 import org.anddev.andengine.entity.scene.Scene;
-import org.anddev.andengine.entity.sprite.Sprite;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
-import javax.microedition.khronos.opengles.GL10;
 
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorSprite;
 import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail.CursorTrail;
 import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail.CursorTrailOptimized;
-import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail.CursorTrailAdvanced;
 import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 
 public class CursorEntity extends Entity {
-    protected final CursorSprite cursorSprite;
-    protected Object trail = null; // Can be CursorTrail, CursorTrailOptimized, or CursorTrailAdvanced
+    protected CursorSprite cursorSprite;
+    protected Object trail = null; // CursorTrail (legacy) or CursorTrailOptimized (long)
     private PointParticleEmitter emitter = null;
     private boolean isShowing = false;
     private float particleOffsetX, particleOffsetY;
-    protected int trailImplementation = 1; // Default to optimized trail
+    protected int trailImplementation = 1; // Default to long (optimized) trail
 
     // Trail delay: only show trail when cursor is held >1s
     private float showTimer = 0f;
     private boolean trailEnabled = false;
-
-    // Glow effect sprites
-    private Sprite[] glowSprites = null;
-    private Entity glowContainer = null;
-    private boolean glowEnabled = false;
+    // Flag to prevent double trail update in AutoCursor mode
+    private boolean trailUpdatedThisFrame = false;
+    // When true, trail is enabled immediately regardless of delay (for replay playback)
+    private boolean forceTrailEnabled = false;
 
     public CursorEntity() {
         TextureRegion cursorTex = ResourceManager.getInstance().getTexture("cursor");
-        cursorSprite = new CursorSprite(-cursorTex.getWidth() / 2f, -cursorTex.getWidth() / 2f, cursorTex);
+        // Center the cursor sprite on the entity position (negative half extents).
+        // Both halves MUST come from their own dimension — using width for Y offset the
+        // cursor vertically on non-square cursor textures.
+        cursorSprite = new CursorSprite(
+            -cursorTex.getWidth() / 2f,
+            -cursorTex.getHeight() / 2f,
+            cursorTex
+        );
 
         // Load trail implementation from config
         loadTrailImplementation();
@@ -50,78 +53,10 @@ public class CursorEntity extends Entity {
         }
 
         attachChild(cursorSprite);
-
-        // Glow effects disabled for cursor
-        // initializeGlow();
-
         setVisible(false);
 
         // Not necessary to update by itself since it's done by GameScene.
         setIgnoreUpdate(true);
-    }
-
-    /**
-     * Initialize glow effect sprites
-     */
-    private void initializeGlow() {
-        glowEnabled = Config.isCursorGlowEnabled();
-
-        // Debug logging
-        android.util.Log.d("CursorEntity", "Initializing glow - enabled: " + glowEnabled);
-
-        if (glowEnabled) {
-            try {
-                TextureRegion cursorTex = ResourceManager.getInstance().getTexture("cursor");
-                float intensity = Config.getGlowIntensity();
-
-                android.util.Log.d("CursorEntity", "Glow intensity: " + intensity);
-                android.util.Log.d("CursorEntity", "Cursor texture: " + (cursorTex != null ? "found" : "null"));
-
-                // Create glow container
-                glowContainer = new Entity();
-
-                // Create multiple glow layers for better effect
-                glowSprites = new Sprite[3];
-                float[] glowScales = {2.0f, 3.0f, 4.0f}; // Increased scales for visibility
-                float[] glowAlphas = {0.4f, 0.2f, 0.1f}; // Increased alphas for visibility
-
-                for (int i = 0; i < glowSprites.length; i++) {
-                    glowSprites[i] = new Sprite(0, 0, cursorTex);
-                    float cursorScale = cursorSprite != null ? cursorSprite.getScaleX() : 1.0f;
-                    glowSprites[i].setScale(cursorScale * glowScales[i]);
-                    glowSprites[i].setAlpha(glowAlphas[i] * intensity);
-                    glowSprites[i].setVisible(true); // Ensure visible
-
-                    // Set additive blending for glow effect
-                    if (Config.isAdditiveBlendingEnabled()) {
-                        glowSprites[i].setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE);
-                        android.util.Log.d("CursorEntity", "Glow sprite " + i + " using additive blending");
-                    } else {
-                        glowSprites[i].setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
-                        android.util.Log.d("CursorEntity", "Glow sprite " + i + " using normal blending");
-                    }
-
-                    glowContainer.attachChild(glowSprites[i]);
-                    android.util.Log.d("CursorEntity", "Attached glow sprite " + i + " with scale: " + (cursorScale * glowScales[i]) + ", alpha: " + (glowAlphas[i] * intensity));
-                }
-
-                // Attach glow container behind cursor
-                glowContainer.attachChild(cursorSprite);
-                if (cursorSprite != null) {
-                    detachChild(cursorSprite);
-                }
-                attachChild(glowContainer);
-
-                android.util.Log.d("CursorEntity", "Glow initialization completed successfully");
-
-            } catch (Exception e) {
-                // Fail silently if glow can't be initialized
-                android.util.Log.e("CursorEntity", "Failed to initialize glow", e);
-                glowEnabled = false;
-                glowSprites = null;
-                glowContainer = null;
-            }
-        }
     }
 
     private void loadTrailImplementation() {
@@ -130,45 +65,48 @@ public class CursorEntity extends Entity {
         } catch (Exception e) {
             trailImplementation = 1;
         }
+        // Clamp to valid range: 0=legacy, 1=long (optimized)
+        trailImplementation = Math.max(0, Math.min(1, trailImplementation));
     }
 
     private void createTrail(TextureRegion trailTex) {
         switch (trailImplementation) {
-            case 0: // Legacy particle system
+            case 0: // Legacy particle system (exact upstream osu-droid behavior)
                 int spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 2);
                 emitter = new PointParticleEmitter(particleOffsetX, particleOffsetY);
                 trail = new CursorTrail(emitter, spawnRate, trailTex, cursorSprite);
                 ((CursorTrail) trail).setParticlesSpawnEnabled(false);
                 break;
 
-            case 1: // Optimized trail
-                trail = new CursorTrailOptimized(trailTex, cursorSprite);
-                break;
-
-            case 2: // Advanced trail
-                trail = new CursorTrailAdvanced(trailTex, cursorSprite);
-                break;
-
+            case 1: // Long trail (optimized)
             default:
-                // Fallback to optimized trail
                 trail = new CursorTrailOptimized(trailTex, cursorSprite);
                 break;
         }
     }
 
     /**
-     * Set trail implementation (0=legacy, 1=optimized, 2=advanced)
+     * Set trail implementation (0=legacy, 1=long/optimized)
      * Note: This requires recreating the trail
      */
     public void setTrailImplementation(int implementation) {
+        implementation = Math.max(0, Math.min(1, implementation));
         if (trailImplementation != implementation) {
-            trailImplementation = Math.max(0, Math.min(2, implementation));
+            trailImplementation = implementation;
             Config.setString("trailImplementation", String.valueOf(trailImplementation));
 
             // Recreate trail if particles are enabled
             if (Config.isUseParticles()) {
                 TextureRegion trailTex = ResourceManager.getInstance().getTexture("cursortrail");
+                if (trail instanceof Entity) {
+                    ((Entity) trail).detachSelf();
+                }
                 createTrail(trailTex);
+                if (getParent() != null && trail instanceof Entity) {
+                    Scene parent = (Scene) getParent();
+                    parent.attachChild((Entity) trail);
+                    parent.attachChild(this);
+                }
             }
         }
     }
@@ -181,25 +119,29 @@ public class CursorEntity extends Entity {
     }
 
     /**
-     * Get trail statistics for debugging
+     * When true, trail bypasses the delay timer and enables immediately.
+     * Used during replay playback where frequent UP/DOWN transitions would
+     * otherwise reset the delay timer and prevent the trail from ever showing.
      */
-    public String getTrailStats() {
-        if (trail == null) {
-            return "No trail active";
+    public void setForceTrailEnabled(boolean force) {
+        forceTrailEnabled = force;
+        if (force && isShowing && !trailEnabled && trail != null) {
+            trailEnabled = true;
+            if (trailImplementation == 0) {
+                ((CursorTrail) trail).setParticlesSpawnEnabled(true);
+            }
         }
+    }
 
-        switch (trailImplementation) {
-            case 0:
-                return "Legacy particle trail active";
-            case 1:
-                CursorTrailOptimized optTrail = (CursorTrailOptimized) trail;
-                return String.format("Optimized trail: %d points, length=%.2fs",
-                    optTrail.getActivePointCount(), optTrail.getTrailLength());
-            case 2:
-                CursorTrailAdvanced advTrail = (CursorTrailAdvanced) trail;
-                return advTrail.getStats().toString();
-            default:
-                return "Unknown trail implementation";
+    /**
+     * Reset trail state. Used during replay to clear old position data.
+     */
+    public void resetTrail() {
+        if (trail != null) {
+            switch (trailImplementation) {
+                case 0: ((CursorTrail) trail).reset(); break;
+                case 1: ((CursorTrailOptimized) trail).reset(); break;
+            }
         }
     }
 
@@ -215,20 +157,45 @@ public class CursorEntity extends Entity {
                         ((CursorTrail) trail).setParticlesSpawnEnabled(false);
                         break;
                     case 1:
-                        ((CursorTrailOptimized) trail).reset();
-                        break;
-                    case 2:
-                        ((CursorTrailAdvanced) trail).reset();
+                        // Do NOT erase the ribbon: mark the input discontinuity so the next
+                        // position update starts a fresh ribbon instead of interpolating from
+                        // the lift point, and let the remaining points age out naturally via
+                        // updateRemovalOnly() while hidden (danser-go behavior).
+                        ((CursorTrailOptimized) trail).markDiscontinuity();
                         break;
                 }
             }
         } else if (!isShowing) {
-            // Only reset timer on transition from hidden to shown
-            trailEnabled = false;
+            // Cursor re-appearing (new tap somewhere else)
             showTimer = 0f;
+            if (trailImplementation == 0) {
+                // Legacy particles spawn immediately upon cursor show (no trail delay).
+                trailEnabled = true;
+                if (trail != null) {
+                    ((CursorTrail) trail).setParticlesSpawnEnabled(true);
+                }
+            } else {
+                if (!forceTrailEnabled) {
+                    trailEnabled = false;
+                }
+                if (trail != null) {
+                    ((CursorTrailOptimized) trail).markDiscontinuity();
+                }
+            }
         }
         isShowing = showing;
         setVisible(showing);
+    }
+
+    /**
+     * Called by the input paths on every fresh ACTION_DOWN. Guarantees the trail never
+     * interpolates across a re-press even if no hidden frame was rendered between the
+     * lift and the new press (thread timing), and regardless of tap distance.
+     */
+    public void onCursorPress() {
+        if (trail != null && trailImplementation == 1) {
+            ((CursorTrailOptimized) trail).markDiscontinuity();
+        }
     }
 
     public void click() {
@@ -241,83 +208,79 @@ public class CursorEntity extends Entity {
 
             // Track how long cursor has been showing
             showTimer += pSecondsElapsed;
-            // Read live so the Trail Delay toggle takes effect immediately
-            // (the cached Config.isTrailDelayEnabled() is only refreshed on loadConfig()).
-            if (Config.getBoolean("trailDelayEnabled", true)) {
-                if (showTimer > 1.0f && !trailEnabled) {
-                    trailEnabled = true;
-                    if (trail != null) {
-                        switch (trailImplementation) {
-                            case 0:
-                                ((CursorTrail) trail).setParticlesSpawnEnabled(true);
-                                break;
-                            case 1:
-                                ((CursorTrailOptimized) trail).reset();
-                                break;
-                            case 2:
-                                ((CursorTrailAdvanced) trail).reset();
-                                break;
-                        }
-                    }
+
+            if (trailImplementation == 0) {
+                trailEnabled = true;
+                if (trail != null) {
+                    ((CursorTrail) trail).setParticlesSpawnEnabled(true);
+                    ((CursorTrail) trail).update();
                 }
-            } else {
+            } else if (forceTrailEnabled || !Config.getBoolean("trailDelayEnabled", true)) {
                 if (!trailEnabled) {
                     trailEnabled = true;
                     if (trail != null) {
-                        switch (trailImplementation) {
-                            case 0:
-                                ((CursorTrail) trail).setParticlesSpawnEnabled(true);
-                                break;
-                            case 1:
-                                ((CursorTrailOptimized) trail).reset();
-                                break;
-                            case 2:
-                                ((CursorTrailAdvanced) trail).reset();
-                                break;
-                        }
+                        ((CursorTrailOptimized) trail).reset();
                     }
                 }
-            }
-
-            // Update glow settings
-            updateGlowSettings();
-
-            // Update glow sprites position
-            if (glowEnabled && glowSprites != null) {
-                float cursorX = getX();
-                float cursorY = getY();
-                for (Sprite glowSprite : glowSprites) {
-                    glowSprite.setPosition(cursorX, cursorY);
+            } else if (showTimer > 1.0f && !trailEnabled) {
+                // Trail delay elapsed: enable the long trail for real gameplay.
+                trailEnabled = true;
+                if (trail != null) {
+                    ((CursorTrailOptimized) trail).reset();
                 }
             }
         } else {
             showTimer = 0f;
         }
 
-        // Update trail position when enabled
-            if (trailEnabled && trail != null) {
-                switch (trailImplementation) {
-                    case 1: // Optimized trail
-                        float x1 = getX();
-                        float y1 = getY();
-                        ((CursorTrailOptimized) trail).updatePosition(x1, y1, pSecondsElapsed);
-                        break;
-                    case 2: // Advanced trail
-                        float x2 = getX();
-                        float y2 = getY();
-                        ((CursorTrailAdvanced) trail).updatePosition(x2, y2, pSecondsElapsed);
-                        break;
-                }
+        // Update trail position if not already updated by updateTrailFromMovement().
+        // Skip while hidden: in replay mode (forceTrailEnabled) the trail stays "enabled"
+        // through ACTION_UP, and feeding it the stale cursor position would keep drawing
+        // segments from the lift point.
+        if (!trailUpdatedThisFrame && isShowing && trailEnabled && trail != null) {
+            float tx = getX();
+            float ty = getY();
+            switch (trailImplementation) {
+                case 0:
+                    // Legacy particles spawn through the emitter; the ParticleSystem
+                    // updates itself as a child of the scene.
+                    break;
+                case 1: ((CursorTrailOptimized) trail).updatePosition(tx, ty, pSecondsElapsed); break;
             }
+        } else if (!isShowing && trailImplementation == 1 && trail != null) {
+            // Hidden cursor: keep aging the remaining points out (danser-go removal runs
+            // every frame from the point count), so the trail disappears after the finger
+            // is lifted even though no positions are being fed.
+            ((CursorTrailOptimized) trail).updateRemovalOnly(pSecondsElapsed);
+        }
+        trailUpdatedThisFrame = false;
 
         super.onManagedUpdate(pSecondsElapsed);
     }
 
     public void attachToScene(Scene fgScene) {
+        // Attach order = render order: the trail goes first, the cursor sprite on
+        // top of it, so the ribbon never covers the cursor itself.
         if (trail != null) {
+            if (trail instanceof Entity && ((Entity) trail).hasParent()) {
+                ((Entity) trail).detachSelf();
+            }
             fgScene.attachChild((Entity) trail);
         }
+        if (hasParent()) {
+            detachSelf();
+        }
         fgScene.attachChild(this);
+
+        // One-shot trail/parent diagnostics: proves at runtime whether the trail and the
+        // cursor share the same parent space (menus draw on the engine overlay HUD).
+        android.util.Log.d(
+            "CursorCoord",
+            "attachToScene: scene=" + fgScene.getClass().getSimpleName() +
+            " trailParent=" + (trail instanceof Entity && ((Entity) trail).getParent() != null
+                ? ((Entity) trail).getParent().getClass().getSimpleName()
+                : "none")
+        );
     }
 
     @Override
@@ -330,63 +293,151 @@ public class CursorEntity extends Entity {
     }
 
     /**
-     * Update trail length from configuration
+     * Update trail with current cursor position.
+     * Called AFTER setPosition() in updateMovement() so the trail always
+     * reads the CURRENT frame's position, not the previous frame's.
+     * This eliminates the 1-frame lag that caused trail detachment.
      */
+    public void updateTrailFromMovement(float deltaTimeSeconds) {
+        if (!trailEnabled || trail == null) return;
+        float x = getX();
+        float y = getY();
+        switch (trailImplementation) {
+            case 1:
+                ((CursorTrailOptimized) trail).updatePosition(x, y, deltaTimeSeconds);
+                break;
+        }
+        trailUpdatedThisFrame = true;
+    }
+
     public void updateTrailLength() {
         if (trail != null) {
             switch (trailImplementation) {
-                case 1: // Optimized trail
-                    ((CursorTrailOptimized) trail).updateTrailLength();
+                case 0:
+                    // Legacy trail is fixed-length (upstream behavior); nothing to update.
                     break;
-                case 2: // Advanced trail
-                    ((CursorTrailAdvanced) trail).updateTrailLength();
+                case 1: // Long trail
+                    ((CursorTrailOptimized) trail).updateTrailLength();
                     break;
             }
         }
     }
 
     /**
-     * Update glow settings from configuration
+     * Clean up trail resources. Must be called when the cursor entity is removed.
      */
-    public void updateGlowSettings() {
-        boolean newGlowEnabled = Config.isCursorGlowEnabled();
-        float newIntensity = Config.getGlowIntensity();
+    /**
+     * Re-pulls skin textures after a mid-game skin switch (replay visual panel).
+     * AndEngine Sprite has no texture setter, so the cursor sprite is rebuilt in
+     * place: transform state (position/scale/visibility) is preserved manually.
+     */
+    public void refreshSkinTextures() {
+        TextureRegion cursorTex = ResourceManager.getInstance().getTexture("cursor");
+        if (cursorTex == null) {
+            return;
+        }
 
-        // Recreate glow if enabled/disabled changed
-        if (newGlowEnabled != glowEnabled) {
-            if (glowContainer != null) {
-                detachChild(glowContainer);
-                glowContainer = null;
-                glowSprites = null;
-            }
-            glowEnabled = newGlowEnabled;
+        float x = getX(), y = getY();
+        boolean visible = isVisible();
+        float scale = cursorSprite.getScaleX();
 
-            if (glowEnabled) {
-                initializeGlow();
-            }
-        } else if (glowEnabled && glowSprites != null) {
-            // Update intensity and blending mode
-            for (int i = 0; i < glowSprites.length; i++) {
-                float[] glowAlphas = {0.3f, 0.15f, 0.05f};
-                glowSprites[i].setAlpha(glowAlphas[i] * newIntensity);
+        detachChild(cursorSprite);
+        cursorSprite.onDetached();
 
-                // Update blending mode
-                if (Config.isAdditiveBlendingEnabled()) {
-                    glowSprites[i].setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE);
+        cursorSprite = new CursorSprite(
+            -cursorTex.getWidth() / 2f,
+            -cursorTex.getHeight() / 2f,
+            cursorTex
+        );
+        attachChild(cursorSprite);
+
+        setPosition(x, y);
+        cursorSprite.setScale(scale);
+        setVisible(visible);
+
+        if (trail != null) {
+            TextureRegion newTrailTex = ResourceManager.getInstance().getTexture("cursortrail");
+            if (newTrailTex != null) {
+                if (trail instanceof CursorTrailOptimized) {
+                    ((CursorTrailOptimized) trail).refreshTexture(newTrailTex, cursorSprite);
+                    ((CursorTrailOptimized) trail).markDiscontinuity();
+                    ((CursorTrailOptimized) trail).syncToPosition(x, y);
                 } else {
-                    glowSprites[i].setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
+                    recreateTrail(newTrailTex);
                 }
             }
         }
     }
 
     /**
-     * Get advanced trail instance for configuration (only works with advanced trail)
+     * Fully recreates the trail after a skin hot-swap: CursorTrailOptimized bakes UVs
+     * and blend state from the region at construction and legacy CursorTrail keeps
+     * live particles bound to the old region, so a plain rebind can show the previous
+     * skin's texture. Trail state (enabled/delay, force flag for replays) is preserved;
+     * point history is not — the ribbon restarts from the cursor's current position.
      */
-    public CursorTrailAdvanced getAdvancedTrail() {
-        if (trailImplementation == 2 && trail != null) {
-            return (CursorTrailAdvanced) trail;
+    private void recreateTrail(TextureRegion newTrailTex) {
+        if (newTrailTex == null) {
+            return;
         }
-        return null;
+
+        // Preserve trail runtime state.
+        boolean wasTrailEnabled = trailEnabled;
+        boolean wasForceEnabled = forceTrailEnabled;
+
+        // Detach the old trail entity from the scene if it was attached there.
+        if (trail instanceof Entity) {
+            ((Entity) trail).detachSelf();
+        }
+
+        // Recreate from the freshly loaded region (same path as the constructor).
+        createTrail(newTrailTex);
+
+        // Restore spawn state for the legacy particle trail and re-anchor it: a fresh
+        // emitter starts at (0,0) with the OLD texture's offsets, so a skin switch would
+        // streak the trail from the screen origin (and with a shifted half-size) until the
+        // next setPosition().
+        if (trailImplementation == 0 && trail != null) {
+            particleOffsetX = -newTrailTex.getWidth() / 2f;
+            particleOffsetY = -newTrailTex.getHeight() / 2f;
+
+            if (emitter != null) {
+                emitter.setCenter(getX() + particleOffsetX, getY() + particleOffsetY);
+            }
+            ((CursorTrail) trail).setParticlesSpawnEnabled(wasTrailEnabled);
+        }
+
+        // Re-attach to the scene so the new trail renders BEHIND the cursor sprite.
+        if (getParent() != null && trail != null) {
+            Scene parent = (Scene) getParent();
+            detachSelf();
+            parent.attachChild((Entity) trail);
+            parent.attachChild(this);
+        }
+
+        // The new trail entity starts empty: mark the discontinuity so the next
+        // updateTrailFromMovement seeds it at the current cursor position instead of
+        // interpolating from the constructor default (0,0).
+        if (trailImplementation == 1 && trail != null) {
+            ((CursorTrailOptimized) trail).markDiscontinuity();
+            ((CursorTrailOptimized) trail).syncToPosition(getX(), getY());
+        }
+
+        trailEnabled = wasTrailEnabled && trail != null;
+        forceTrailEnabled = wasForceEnabled;
+    }
+
+    public void cleanupTrail() {
+        if (trail != null) {
+            switch (trailImplementation) {
+                case 1:
+                    ((CursorTrailOptimized) trail).cleanup();
+                    break;
+                case 0:
+                    ((CursorTrail) trail).reset();
+                    break;
+            }
+            trail = null;
+        }
     }
 }

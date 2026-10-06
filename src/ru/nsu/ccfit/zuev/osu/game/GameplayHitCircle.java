@@ -38,6 +38,20 @@ public class GameplayHitCircle extends GameObject {
     private final ArrayList<GameplayHitSampleInfo> hitSamples = new ArrayList<>(5);
 
     /**
+     * Guards against double pooling: this circle must be returned to the {@link GameObjectPool}
+     * exactly once per lifetime. removeFromScene() (normal death) pools via a deferred modifier
+     * callback, while onExpire() (seek/update expiry) pools immediately - both paths can fire
+     * for the same object (e.g. expiry queued, then a seek force-expires it).
+     */
+    private boolean isPooled = false;
+
+    /**
+     * True while inside onExpire(); removeFromScene() may be triggered re-entrantly through
+     * listener callbacks, and must not pool or schedule pooling on top of onExpire().
+     */
+    private boolean expiring = false;
+
+    /**
      * The circle piece that represents the circle body and overlay.
      */
     private final NumberedCirclePiece circlePiece;
@@ -55,6 +69,10 @@ public class GameplayHitCircle extends GameObject {
         // Storing parameters into fields
         this.beatmapCircle = beatmapCircle;
         replayObjectData = null;
+
+        // Reset pooling guards for the new lifetime.
+        isPooled = false;
+        expiring = false;
 
         var stackedPosition = beatmapCircle.getScreenSpaceGameplayStackedPosition();
         position.set(stackedPosition.x, stackedPosition.y);
@@ -76,8 +94,16 @@ public class GameplayHitCircle extends GameObject {
         float fadeInDuration = (float) beatmapCircle.timeFadeIn / 1000f;
 
         // Initializing sprites
+        // Refresh skin textures on every init: pooled objects capture textures in the
+        // constructor, so a mid-replay skin switch would otherwise never reach them.
+        circlePiece.setCircleTextureRegion("hitcircle");
+        circlePiece.setOverlayTextureRegion("hitcircleoverlay");
+        approachCircle.setTextureRegion(ResourceManager.getInstance().getTexture("approachcircle"));
         circlePiece.setCircleColor(comboColor);
         circlePiece.setScale(scale);
+        // Reset the beat pulse from a previous lifetime (pooled object): a leftover pulse
+        // scale would make the circle render stretched/compressed until the next kiai beat.
+        circlePiece.setPulseScale(1f);
         circlePiece.setAlpha(0);
         circlePiece.setPosition(this.position.x, this.position.y);
 
@@ -195,6 +221,8 @@ public class GameplayHitCircle extends GameObject {
             return;
         }
 
+        scene = null;
+
         for (int i = hitSamples.size() - 1; i >= 0; --i) {
             var sample = hitSamples.get(i);
 
@@ -208,23 +236,64 @@ public class GameplayHitCircle extends GameObject {
         approachCircle.clearEntityModifiers();
         approachCircle.detachSelf();
 
-        if (successfulHit || !circlePiece.isVisible() || circlePiece.getAlpha() == 0) {
-            circlePiece.detachSelf();
+        // Pool exactly once per lifetime (see isPooled doc).
+        if (!isPooled) {
+            isPooled = true;
 
-            Execution.updateThread(() -> GameObjectPool.getInstance().putCircle(this));
-        } else {
-            circlePiece.registerEntityModifier(Modifiers.alpha(0.1f, circlePiece.getAlpha(), 0, e -> Execution.updateThread(() -> {
+            if (successfulHit || !circlePiece.isVisible() || circlePiece.getAlpha() == 0) {
                 circlePiece.detachSelf();
-                GameObjectPool.getInstance().putCircle(this);
-            })));
+
+                Execution.updateThread(() -> GameObjectPool.getInstance().putCircle(this));
+            } else {
+                circlePiece.registerEntityModifier(Modifiers.alpha(0.1f, circlePiece.getAlpha(), 0, e -> Execution.updateThread(() -> {
+                    circlePiece.detachSelf();
+                    GameObjectPool.getInstance().putCircle(this);
+                })));
+            }
         }
 
         listener.removeObject(this);
-        scene = null;
     }
 
     private void playHitSamples() {
         listener.playHitSamples(hitSamples);
+    }
+
+    @Override
+    public void onExpire() {
+        if (expiring) {
+            return;
+        }
+
+        expiring = true;
+
+        circlePiece.clearEntityModifiers();
+        approachCircle.clearEntityModifiers();
+
+        circlePiece.detachSelf();
+        approachCircle.detachSelf();
+
+        for (int i = hitSamples.size() - 1; i >= 0; --i) {
+            var sample = hitSamples.get(i);
+
+            sample.reset();
+            GameplayHitSampleInfo.pool.free(sample);
+        }
+
+        hitSamples.clear();
+
+        scene = null;
+
+        // Pool exactly once per lifetime (see isPooled doc).
+        if (!isPooled) {
+            isPooled = true;
+            GameObjectPool.getInstance().putCircle(this);
+        }
+
+        // removeObject() only queues the object into GameScene's expiredObjects list, which is
+        // safe to receive multiple times. It must NOT be called re-entrantly while GameScene is
+        // iterating that list, so it goes last - after all re-entrancy sources are done.
+        listener.removeObject(this);
     }
 
     @Override
@@ -278,21 +347,28 @@ public class GameplayHitCircle extends GameObject {
 
         if (circlePiece.isVisible()) {
             if (GameHelper.isKiai()) {
-                var kiaiModifier = (float) Math.max(0, 1 - GameHelper.getCurrentBeatTime() / GameHelper.getBeatLength()) * 0.5f;
+                double beatLen = GameHelper.getBeatLength();
+                // danser-go keeps the pulse breathing for the whole kiai, so the decay
+                // is clamped at 0.125 instead of reaching 0 late in each beat.
+                float kiaiModifier = beatLen > 0
+                    ? FMath.clamp((float) Math.max(0, 1 - GameHelper.getCurrentBeatTime() / beatLen) * 0.5f, 0.125f, 0.5f)
+                    : 0.25f;
                 var r = Math.min(1, comboColor.getRed() + (1 - comboColor.getRed()) * kiaiModifier);
                 var g = Math.min(1, comboColor.getGreen() + (1 - comboColor.getGreen()) * kiaiModifier);
                 var b = Math.min(1, comboColor.getBlue() + (1 - comboColor.getBlue()) * kiaiModifier);
                 kiai = true;
                 circlePiece.setCircleColor(r, g, b);
-                // Beat-synced scale pulse on hit circle during kiai
+                // Applied to the inner sprites (anchor Center) so it works with any
+                // skin texture size and doesn't clash with the beatmap scale.
                 if (ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("hitCirclePulse", true)) {
-                    float pulseScale = circleBaseScale * (1f + kiaiModifier * 0.15f);
-                    circlePiece.setScale(pulseScale);
+                    // Amplitude parity with danser-go: Scl = 1 + Beat*(BeatScale-1),
+                    // BeatScale default 1.2 -> +20% at the beat peak (kiaiModifier peaks at 0.5).
+                    circlePiece.setPulseScale(1f + kiaiModifier * 0.4f);
                 }
             } else if (kiai) {
                 circlePiece.setCircleColor(comboColor);
                 if (ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("hitCirclePulse", true)) {
-                    circlePiece.setScale(circleBaseScale);
+                    circlePiece.setPulseScale(1f);
                 }
                 kiai = false;
             }
@@ -333,5 +409,24 @@ public class GameplayHitCircle extends GameObject {
                 listener.onCircleHit(id, 10, position, false, forcedScore, comboColor);
             }
         }
+    }
+
+    /**
+     * Re-pulls hit circle / approach circle textures from the (possibly hot-swapped)
+     * skin. Live in-scene circles keep their old TextureRegion after a mid-game skin
+     * switch until this runs. Called for every active object by GameScene.onReplaySkinChanged().
+     */
+    public void refreshSkinTextures() {
+        circlePiece.setCircleTextureRegion("hitcircle");
+        circlePiece.setOverlayTextureRegion("hitcircleoverlay");
+        circlePiece.refreshNumberSkin();
+        approachCircle.setTextureRegion(ResourceManager.getInstance().getTexture("approachcircle"));
+
+        // The combo palette may have changed with the skin (forceOverride colors).
+        // Re-resolve this object's color; the kiai branch of update() re-applies the
+        // brightened variant on the next frame if needed.
+        comboColor = listener.getComboColor(beatmapCircle);
+        circlePiece.setCircleColor(comboColor);
+        approachCircle.setColor(comboColor);
     }
 }

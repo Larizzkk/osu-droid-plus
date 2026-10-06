@@ -28,7 +28,11 @@ import com.rian.osu.beatmap.timings.EffectControlPoint;
 import com.rian.osu.beatmap.timings.TimingControlPoint;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.Set;
 import java.util.TimerTask;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -100,6 +104,13 @@ public class MainScene implements IUpdateHandler {
     // Side flash effects
     private Rectangle leftFlash, rightFlash;
     private boolean leftFlashActive = false;
+    // osu! PC (lazer) MenuSideFlashes behavior constants
+    private static final float AMPLITUDE_DEAD_ZONE = 0.25f;
+    private static final float ALPHA_MULTIPLIER =
+        (1 - AMPLITUDE_DEAD_ZONE) / 0.55f;
+    private static final float KIAI_MULTIPLIER =
+        (1 - AMPLITUDE_DEAD_ZONE * 0.95f) / 0.8f;
+    private static final float BOX_FADE_IN_TIME = 65f / 1000f;
     private final Rectangle[] spectrum = new Rectangle[120];
     private final float[] frequencyAmplitudes = new float[120];
     private int spectrumIndexOffset = 0;
@@ -137,6 +148,8 @@ public class MainScene implements IUpdateHandler {
 
     private double bpmLength = 1000;
     private double beatPassTime = 0;
+    // Beat counter since the current timing point, for side flash alternation
+    private long beatIndex = 0;
     private boolean doChange = false;
     private boolean doStop = false;
     private long lastHit = 0;
@@ -194,6 +207,15 @@ public class MainScene implements IUpdateHandler {
 
         scene = new Scene();
         scene.setOnAreaTouchTraversalFrontToBack();
+
+        // Any touch the engine sees (menu, dialogs, HUD, child scenes) counts as
+        // interaction for the idle auto-hide.
+        var uiEngine = GlobalManager.getInstance().getEngine();
+        if (uiEngine != null) {
+            uiEngine.setOnAnyTouch(
+                () -> lastTouchTime = System.currentTimeMillis()
+            );
+        }
 
         final TextureRegion tex = ResourceManager.getInstance().getTexture(
             "menu-background"
@@ -986,6 +1008,12 @@ public class MainScene implements IUpdateHandler {
         );
         progressBar.setProgressRectColor(new Color4(0.9f, 0.9f, 0.9f));
         progressBar.setProgressRectAlpha(0.8f);
+        progressBar.setSeekListener(time -> {
+            var songService = GlobalManager.getInstance().getSongService();
+            if (songService != null) {
+                songService.seekTo((int) time);
+            }
+        });
 
         // Initialize kiai flash overlay
         kiaiFlashOverlay = new Rectangle(
@@ -1190,6 +1218,7 @@ public class MainScene implements IUpdateHandler {
                             if (currentTimingPoint != null) {
                                 bpmLength = currentTimingPoint.msPerBeat;
                                 beatPassTime = 0;
+                                beatIndex = 0;
                             }
                         }
                         if (
@@ -1222,6 +1251,7 @@ public class MainScene implements IUpdateHandler {
                         GlobalManager.getInstance().getSongService().pause();
                         bpmLength = 1000;
                         beatPassTime = 0;
+                        beatIndex = 0;
                     }
                 }
                 break;
@@ -1238,6 +1268,7 @@ public class MainScene implements IUpdateHandler {
                         GlobalManager.getInstance().getSongService().stop();
                         bpmLength = 1000;
                         beatPassTime = 0;
+                        beatIndex = 0;
                     }
                 }
                 break;
@@ -1450,8 +1481,30 @@ public class MainScene implements IUpdateHandler {
                     hitsound.play(hbVol);
                 }
 
-                // Trigger side flash animation
-                triggerSideFlash();
+                // Side flashes: alternate left/right every beat during kiai,
+                // flash both together on the downbeat otherwise (osu! PC behavior)
+                if (currentTimingPoint != null) {
+                    boolean kiai =
+                        (currentEffectPoint != null &&
+                            currentEffectPoint.isKiai) ||
+                        isContinuousKiai;
+
+                    if (kiai) {
+                        if (beatIndex % 2 == 0) {
+                            flashSide(leftFlash, bpmLength, true);
+                        } else {
+                            flashSide(rightFlash, bpmLength, true);
+                        }
+                    } else if (
+                        beatIndex % currentTimingPoint.timeSignature == 0
+                    ) {
+                        flashSide(leftFlash, bpmLength, false);
+                        flashSide(rightFlash, bpmLength, false);
+                    }
+                    beatIndex++;
+                } else {
+                    triggerSideFlash();
+                }
             }
         }
 
@@ -1463,6 +1516,7 @@ public class MainScene implements IUpdateHandler {
 
                 bpmLength = currentTimingPoint.msPerBeat;
                 beatPassTime = 0;
+                beatIndex = 0;
                 progressBar.setStartTime(0);
                 GlobalManager.getInstance().getSongService().play();
                 GlobalManager.getInstance()
@@ -1500,6 +1554,7 @@ public class MainScene implements IUpdateHandler {
                     bpmLength = currentTimingPoint.msPerBeat;
                     beatPassTime =
                         (position - currentTimingPoint.time) % bpmLength;
+                    beatIndex = 0;
                 }
 
                 // Re-sync timing points when repeat loops the song back to start
@@ -1569,6 +1624,20 @@ public class MainScene implements IUpdateHandler {
                 }
 
                 // === osu! PC-style visualizer behavior ===
+                if (
+                    !ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean(
+                        "visualizerEnabled",
+                        true
+                    )
+                ) {
+                    for (Rectangle specRectangle : spectrum) {
+                        specRectangle.setWidth(250f);
+                        specRectangle.setAlpha(0f);
+                    }
+                    updateKiaiFlash(pSecondsElapsed);
+                    return;
+                }
+
                 float[] fft = GlobalManager.getInstance()
                     .getSongService()
                     .getSpectrum();
@@ -1583,8 +1652,22 @@ public class MainScene implements IUpdateHandler {
                 }
                 float normFactor = maxAmp > 0.001f ? 1f / maxAmp : 1f;
 
-                // Update amplitudes every 50ms (like osu! PC)
-                if (nowMs - lastSpectrumUpdate >= SPECTRUM_UPDATE_INTERVAL) {
+                // User-configurable behavior (osu!droid+ settings, 100 = default)
+                float visualizerIntensity =
+                    ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
+                        "visualizerIntensity",
+                        100
+                    ) /
+                    100f;
+
+                // Update amplitudes every N ms (like osu! PC)
+                if (
+                    nowMs - lastSpectrumUpdate >=
+                    ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
+                        "visualizerUpdateRate",
+                        (int) SPECTRUM_UPDATE_INTERVAL
+                    )
+                ) {
                     lastSpectrumUpdate = nowMs;
 
                     // Get kiai multiplier (osu! PC: 0.5x when not kiai)
@@ -1592,7 +1675,12 @@ public class MainScene implements IUpdateHandler {
                         (currentEffectPoint != null &&
                             currentEffectPoint.isKiai) ||
                         isContinuousKiai;
-                    float kiaiMultiplier = isKiaiTime ? 1f : 0.5f;
+                    boolean kiaiDim =
+                        ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean(
+                            "visualizerKiaiDim",
+                            true
+                        );
+                    float kiaiMultiplier = (isKiaiTime || !kiaiDim) ? 1f : 0.5f;
 
                     int windowSize = 240;
                     for (int i = 0, leftBound = 0; i < 120; i++) {
@@ -1607,19 +1695,32 @@ public class MainScene implements IUpdateHandler {
                             float val = fft[1 + leftBound] * normFactor;
                             if (val > peak) peak = val;
                         }
-                        float targetAmplitude = peak * kiaiMultiplier;
+                        float targetAmplitude =
+                            peak * kiaiMultiplier * visualizerIntensity;
                         int idx = (i + spectrumIndexOffset) % 120;
                         if (
                             targetAmplitude > frequencyAmplitudes[idx]
                         ) frequencyAmplitudes[idx] = targetAmplitude;
                     }
+                    int rotationSpeed =
+                        ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
+                            "visualizerRotationSpeed",
+                            SPECTRUM_INDEX_CHANGE
+                        );
                     spectrumIndexOffset =
-                        (spectrumIndexOffset + SPECTRUM_INDEX_CHANGE) % 120;
+                        (spectrumIndexOffset + rotationSpeed) % 120;
                 }
 
                 // Decay each frame (osu! PC: 0.0024f * (value + 0.03f) per ms)
                 float decayFactor =
-                    pSecondsElapsed * 1000f * SPECTRUM_DECAY_PER_MS;
+                    pSecondsElapsed *
+                    1000f *
+                    SPECTRUM_DECAY_PER_MS *
+                    (ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
+                        "visualizerDecaySpeed",
+                        100
+                    ) /
+                        100f);
                 for (int i = 0; i < 120; i++) {
                     frequencyAmplitudes[i] -=
                         decayFactor * (frequencyAmplitudes[i] + 0.03f);
@@ -1801,7 +1902,52 @@ public class MainScene implements IUpdateHandler {
                     0
                 );
             }
+
+            animateNowPlaying();
         }
+    }
+
+    /**
+     * NOW PLAYING transition: the label and the track title slide in from the
+     * right while fading up, so a track change reads as one smooth move.
+     */
+    private void animateNowPlaying() {
+        if (musicInfoText == null || music_nowplay == null) {
+            return;
+        }
+
+        float slide = 40f;
+        float textX = musicInfoText.getX();
+        float labelX = music_nowplay.getX();
+
+        musicInfoText.clearEntityModifiers();
+        music_nowplay.clearEntityModifiers();
+
+        musicInfoText.setAlpha(0f);
+        music_nowplay.setAlpha(0f);
+        musicInfoText.setPosition(textX + slide, musicInfoText.getY());
+        music_nowplay.setPosition(labelX + slide, music_nowplay.getY());
+
+        musicInfoText.registerEntityModifier(
+            new ParallelEntityModifier(
+                new org.anddev.andengine.entity.modifier.AlphaModifier(
+                    0.35f,
+                    0f,
+                    1f
+                ),
+                new MoveXModifier(0.35f, textX + slide, textX)
+            )
+        );
+        music_nowplay.registerEntityModifier(
+            new ParallelEntityModifier(
+                new org.anddev.andengine.entity.modifier.AlphaModifier(
+                    0.35f,
+                    0f,
+                    1f
+                ),
+                new MoveXModifier(0.35f, labelX + slide, labelX)
+            )
+        );
     }
 
     public void loadTimingPoints(boolean reloadMusic) {
@@ -2128,6 +2274,45 @@ public class MainScene implements IUpdateHandler {
         );
         rightFlash.setColor(1f, 1f, 1f, 0f); // White color with no alpha
         scene.attachChild(rightFlash, 0); // Behind everything
+    }
+
+    /**
+     * Flashes one side box like osu! PC (lazer) MenuSideFlashes: fade in over
+     * 65ms to a peak derived from the channel's live audio level (left channel
+     * for the left box, right channel for the right one), then fade out over a
+     * beat with quadratic easing.
+     */
+    private void flashSide(Rectangle flash, double beatLength, boolean kiai) {
+        if (flash == null) return;
+
+        float[] levels = GlobalManager.getInstance()
+            .getSongService()
+            .getChannelLevel();
+        float channelLevel =
+            levels != null ? (flash == leftFlash ? levels[0] : levels[1]) : 0f;
+
+        float multiplier = kiai ? KIAI_MULTIPLIER : ALPHA_MULTIPLIER;
+        float targetAlpha =
+            0.1f + (channelLevel - AMPLITUDE_DEAD_ZONE) / multiplier;
+        if (targetAlpha < 0.1f) targetAlpha = 0.1f;
+        if (targetAlpha > 1f) targetAlpha = 1f;
+
+        flash.clearEntityModifiers();
+        flash.registerEntityModifier(
+            new SequenceEntityModifier(
+                new org.anddev.andengine.entity.modifier.AlphaModifier(
+                    BOX_FADE_IN_TIME,
+                    0f,
+                    targetAlpha
+                ),
+                new org.anddev.andengine.entity.modifier.AlphaModifier(
+                    (float) (beatLength / 1000),
+                    targetAlpha,
+                    0f,
+                    org.anddev.andengine.util.modifier.ease.EaseQuadIn.getInstance()
+                )
+            )
+        );
     }
 
     private void triggerSideFlash() {

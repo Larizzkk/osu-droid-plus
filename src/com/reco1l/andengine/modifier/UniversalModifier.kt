@@ -305,6 +305,44 @@ class UniversalModifier @JvmOverloads constructor(private val pool: Pool<Univers
     }
 
     /**
+     * Forces this modifier to its final state, invoking the [onFinished] callback once.
+     * The caller is responsible for unregistering the modifier from the entity afterwards.
+     *
+     * @param target The entity whose value the final values should be applied to and passed to
+     * the [onFinished] callback. Defaults to the modifier's `parent` when it resolves to an
+     * [IEntity].
+     */
+    fun finishNow(target: IEntity? = null) {
+        if (type.isCompoundModifier) {
+            // Finish all nested modifiers so their values are fully applied.
+            modifiers?.fastForEach { it.finishNow(target) }
+        }
+
+        // Modifiers registered through Entity.registerEntityModifier (Java path) never get
+        // `parent` assigned, so `parentEntity` is null in that case and the caller has to
+        // provide the target explicitly (see UIComponent.finishModifiers).
+        val entity = target ?: parent as? IEntity
+
+        if (elapsedSec < duration && type != Delay && initialValues != null && finalValues != null) {
+            // Apply final values to the entity.
+            entity?.let { type.setValues(it, initialValues!!, finalValues!!, 1f) }
+        }
+
+        elapsedSec = duration
+
+        // `this` is NOT an IEntity (UniversalModifier implements IEntityModifier and
+        // IModifierChain only), so it cannot serve as a fallback argument here.
+        val callbackEntity = entity ?: parentEntity as? IEntity
+
+        if (callbackEntity == null) {
+            Log.w("UniversalModifier", "finishNow() invoked without a resolvable entity, skipping onFinished callback.")
+            return
+        }
+
+        onFinished?.invoke(callbackEntity)
+    }
+
+    /**
      * Sets the duration of the modifier.
      *
      * If the modifier is a [Sequence] or [Parallel] modifier, this method will do nothing.

@@ -968,6 +968,45 @@ abstract class UIComponent : Entity(0f, 0f), ITouchArea, IModifierChain, IThemea
         return modifier
     }
 
+    /**
+     * Finishes all registered [UniversalModifier]s immediately, applying their final values and invoking their
+     * [UniversalModifier.onFinished] callbacks.
+     *
+     * Used on seek/hard-detach paths where pooled entities must run their completion callbacks (e.g. returning
+     * themselves to a pool) rather than being silently discarded.
+     *
+     * @param propagateChildren Whether to also finish [UniversalModifier]s of children. Defaults to `false`.
+     */
+    @JvmOverloads
+    fun finishModifiers(propagateChildren: Boolean = false) {
+        if (mEntityModifiers != null) {
+            // Iterate backwards since onFinished may register new modifiers.
+            for (i in mEntityModifiers.size - 1 downTo 0) {
+                val modifier = mEntityModifiers[i]
+
+                if (modifier is UniversalModifier) {
+                    // Pass `this` explicitly: modifiers registered through the Java
+                    // Entity.registerEntityModifier path have no `parent` set, so
+                    // finishNow() would otherwise have no entity to apply values to.
+                    modifier.finishNow(this)
+                } else {
+                    modifier.onUnregister()
+                }
+
+                mEntityModifiers.removeAt(i)
+            }
+        }
+
+        if (propagateChildren) {
+            mChildren?.let { children ->
+                // onFinished callbacks may detach children mid-iteration.
+                for (i in children.size - 1 downTo 0) {
+                    (children[i] as? UIComponent)?.finishModifiers(true)
+                }
+            }
+        }
+    }
+
     //endregion
 
     //region Input

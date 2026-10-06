@@ -24,6 +24,15 @@ public class QualityFileBitmapSource extends BaseTextureAtlasSource implements
     private int mHeight;
     private Bitmap bitmap = null;
 
+    /**
+     * Decoded-once copy for GL-side reloads. preload() decodes on the calling (IO)
+     * thread and that bitmap is consumed when the GL thread first uploads the texture.
+     * After a skin hot-swap the GL thread calls onLoadBitmap() again — this cached
+     * copy lets the reload pass re-upload without synchronously re-decoding on the
+     * GL thread; it is released after the second upload.
+     */
+    private Bitmap reloadBitmap = null;
+
     private InputFactory fileBitmapInput;
 
     private int inSampleSize = 1;
@@ -114,6 +123,12 @@ public class QualityFileBitmapSource extends BaseTextureAtlasSource implements
 
     public boolean preload() {
         bitmap = onLoadBitmap(Bitmap.Config.ARGB_8888);
+        // Keep a duplicate for the GL-thread reload pass (see reloadBitmap doc).
+        // The first upload consumes `bitmap`; when this source is asked to decode
+        // again it returns the copy instead of hitting disk on the GL thread.
+        if (bitmap != null) {
+            reloadBitmap = bitmap.copy(bitmap.getConfig(), false);
+        }
         return bitmap != null;
     }
 
@@ -122,6 +137,12 @@ public class QualityFileBitmapSource extends BaseTextureAtlasSource implements
         if (bitmap != null) {
             final Bitmap bmp = bitmap;
             bitmap = null;
+            return bmp;
+        }
+        // Reload pass: hand out the cached copy once, then release it.
+        if (reloadBitmap != null && !reloadBitmap.isRecycled()) {
+            final Bitmap bmp = reloadBitmap;
+            reloadBitmap = null;
             return bmp;
         }
         final BitmapFactory.Options decodeOptions = new BitmapFactory.Options();

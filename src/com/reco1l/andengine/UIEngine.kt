@@ -1,4 +1,5 @@
 package com.reco1l.andengine
+import ru.nsu.ccfit.zuev.osuplusplus.MenuCursor
 import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import android.app.Activity
@@ -72,10 +73,22 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
         preferredFrameLengthNanoseconds = if (fps > 0) NANOSECONDSPERSECOND / fps else 0L
     }
 
+    private val menuCursor = MenuCursor(this)
+
     @Throws(InterruptedException::class)
     override fun onUpdate(pNanosecondsElapsed: Long) {
-        // In decoupled mode (target > 120 AND scene loaded), the Engine.onTickUpdate()
-        // handles timing. Skip UIEngine limiter to avoid double-sleep.
+        onUpdateInternal(pNanosecondsElapsed)
+        // Update the global menu cursor after the scene graph tick, on the same
+        // (update) thread — it reads the input sample queues and mutates its own
+        // entity only.
+        menuCursor.update(pNanosecondsElapsed / 1_000_000_000f)
+    }
+
+    @Throws(InterruptedException::class)
+    private fun onUpdateInternal(pNanosecondsElapsed: Long) {
+        // In decoupled mode (target > display refresh AND scene loaded), the
+        // Engine.onTickUpdate() handles timing via FrameLimiter.limitFrame().
+        // Skip our limiter to avoid double-sleep.
         // During loading (scene not ready), always use normal coupled mode.
         if (isSceneReady && FrameLimiter.getInstance().targetFps > FrameLimiter.getInstance().displayRefreshRate) {
             super.onUpdate(pNanosecondsElapsed)
@@ -86,8 +99,16 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
         if (frameLength > 0) {
             val delta = frameLength - pNanosecondsElapsed
             if (delta > 0) {
-                Thread.sleep(delta / NANOSECONDSPERMILLISECOND)
-                super.onUpdate(pNanosecondsElapsed + delta)
+                // Hybrid two-phase wait (sleep -> park -> spin) instead of a single
+                // coarse Thread.sleep: sub-millisecond precision keeps frame times
+                // even, and touch inputs abort the wait immediately so DOWN/UP
+                // events are processed without waiting out the remaining budget.
+                // The dt is inflated by the ACTUAL time waited, so the game clock
+                // stays honest even when the wait is aborted early.
+                val startNs = System.nanoTime()
+                FrameLimiter.getInstance().waitUntil(startNs + delta)
+                val waited = System.nanoTime() - startNs
+                super.onUpdate(pNanosecondsElapsed + waited)
                 return
             }
         }
@@ -126,14 +147,6 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
         }
 
         super.onDrawScene(pGL)
-
-        // osu!droid: Video export frame capture hook.
-        // Feed frames to the video encoder if exporting.
-        // The auto-export trigger is in GameScene.onManagedDraw() — only fires during gameplay.
-        val exportManager = com.osudroid.game.replay.video.VideoExportManager.getInstance()
-        if (exportManager.isExporting) {
-            exportManager.onGameFrame(pGL, System.nanoTime())
-        }
     }
 
 
@@ -235,6 +248,18 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options) 
         mScene?.onDetached()
         super.setScene(scene)
         scene?.onAttached()
+    }
+
+    /**
+     * Invoked for every touch event the engine receives, before it is dispatched
+     * to the HUD or to the active scene. MainScene uses it to notice any kind of
+     * interaction (idle auto-hide of the menu UI).
+     */
+    var onAnyTouch: Runnable? = null
+
+    override fun onTouchEvent(pSurfaceTouchEvent: TouchEvent): Boolean {
+        onAnyTouch?.run()
+        return super.onTouchEvent(pSurfaceTouchEvent)
     }
 
     /**

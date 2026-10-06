@@ -1,6 +1,7 @@
 package ru.nsu.ccfit.zuev.osu.game;
 
 import com.osudroid.ui.v2.hud.GameplayHUD;
+import com.osudroid.ui.v2.SpriteFont;
 import com.reco1l.andengine.sprite.UISprite;
 import com.reco1l.andengine.Anchor;
 import com.osudroid.multiplayer.Multiplayer;
@@ -8,8 +9,6 @@ import org.anddev.andengine.entity.modifier.*;
 import org.anddev.andengine.entity.primitive.Rectangle;
 import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.entity.sprite.Sprite;
-import org.anddev.andengine.entity.text.ChangeableText;
-import org.anddev.andengine.opengl.font.Font;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
 import ru.nsu.ccfit.zuev.osu.Config;
@@ -32,8 +31,9 @@ public class BreakAnimator extends GameObject {
     private boolean isbreak = false;
     private boolean over = false;
 
-    // Countdown timer — prominent, centered above pass/fail
-    private ChangeableText countdownText;
+    // Countdown timer rendered with skin score digits (SpriteFont), not painter/canvas.
+    private SpriteFont countdownText;
+    private float initialTime = 0;
 
     public BreakAnimator(final Scene scene, final StatisticV2 stat, GameplayHUD hud) {
         length = 0;
@@ -69,6 +69,12 @@ public class BreakAnimator extends GameObject {
         this.dimRectangle = dimRectangle;
     }
 
+    private float dimBrightness = Config.getBackgroundBrightness();
+
+    public void setDimBrightness(float brightness) {
+        this.dimBrightness = brightness;
+    }
+
     public boolean isBreak() {
         return isbreak;
     }
@@ -79,14 +85,48 @@ public class BreakAnimator extends GameObject {
         return isover;
     }
 
+    public void reset() {
+        isbreak = false;
+        over = false;
+        length = 0;
+        time = 0;
+        initialTime = 0;
+
+        if (mark != null) {
+            mark.detachSelf();
+            mark = null;
+        }
+
+        if (passfail != null) {
+            passfail.detachSelf();
+            passfail = null;
+        }
+
+        if (countdownText != null) {
+            countdownText.detachSelf();
+            countdownText = null;
+        }
+
+        for (final Sprite sp : arrows) {
+            sp.detachSelf();
+        }
+
+        resumeBgFade();
+    }
+
     public void init(final float length) {
+        init(length, 0);
+    }
+
+    public void init(final float length, final float initialTime) {
         if (this.length > 0 && time < this.length) {
             return;
         }
         isbreak = true;
         over = false;
         this.length = length;
-        time = 0;
+        this.initialTime = initialTime;
+        time = initialTime;
         ending = stat.getHp() > 0.5f ? "pass" : "fail";
 
         passfail = new UISprite();
@@ -98,8 +138,11 @@ public class BreakAnimator extends GameObject {
         passfail.setVisible(false);
 
         for (int i = 0; i < 4; i++) {
-            arrows[i].setVisible(false);
-            arrows[i].setIgnoreUpdate(true);
+            // If we are seeking into a break that is already within 1 second of ending,
+            // the warning arrows should be visible immediately.
+            boolean arrowsVisible = length - initialTime <= 1;
+            arrows[i].setVisible(arrowsVisible);
+            arrows[i].setIgnoreUpdate(!arrowsVisible);
             scene.attachChild(arrows[i], 0);
         }
 
@@ -111,27 +154,49 @@ public class BreakAnimator extends GameObject {
         mark.setScale(1.2f);
         hud.attachChild(mark, 0);
 
-        // Countdown timer — large, centered above pass/fail text
+        // Apply the background brightness that matches the current position within the break.
+        // The update() loop only uses crossing-event checks to set this, so we must prime it
+        // here for seek cases where time starts past those thresholds.
+        if (length > 1) {
+            if (initialTime < 0.5f) {
+                setBgFade(initialTime * 2);
+            } else if (length - initialTime < 0.5f) {
+                setBgFade((length - initialTime) * 2);
+            } else {
+                setBgFade(1);
+            }
+        }
+
+        // Countdown timer rendered with skin score digits (SpriteFont), not painter/canvas.
         if (Config.isShowBreakCountdown()) {
-            Font countdownFont = ResourceManager.getInstance().getFont("bigFont");
-            countdownText = new ChangeableText(0, 0, countdownFont, String.format(java.util.Locale.US, "%.0f", length), 32);
-            countdownText.setColor(1f, 1f, 1f, 0.95f);
+            countdownText = new SpriteFont(OsuSkin.get().getScorePrefix());
+            countdownText.setSpacing(-OsuSkin.get().getScoreOverlap());
+            countdownText.setText(String.format(java.util.Locale.US, "%.0f", length - initialTime));
+
+            // Render digits at a fixed on-screen height (~70 osupixels, about the size
+            // of the combo counter). Scaling from the raw texture height alone gives
+            // scales of 0.02-0.05 — a couple of pixels tall.
+            float digitScale = Utils.toRes(70f) / Math.max(1f, zeroRect.getHeight());
+            countdownText.setTextureScale(digitScale);
+            countdownText.setAlpha(0.95f);
+
             float cx = Config.getRES_WIDTH() / 2f;
             float cy = Config.getRES_HEIGHT() / 2f;
-            countdownText.setPosition(cx - countdownText.getWidth() / 2f, cy - 100);
+            countdownText.setOrigin(Anchor.Center);
+            countdownText.setPosition(cx, cy - Utils.toRes(100));
             hud.attachChild(countdownText, 0);
         }
     }
 
     private void setBgFade(float percent) {
         if (dimRectangle != null && !Config.isNoChangeDimInBreaks()) {
-            dimRectangle.setAlpha((1 - Config.getBackgroundBrightness()) * (1 - percent));
+            dimRectangle.setAlpha((1 - dimBrightness) * (1 - percent));
         }
     }
 
     private void resumeBgFade() {
         if (dimRectangle != null && !Config.isNoChangeDimInBreaks()) {
-            dimRectangle.setAlpha(1 - Config.getBackgroundBrightness());
+            dimRectangle.setAlpha(1 - dimBrightness);
         }
     }
 
@@ -182,10 +247,7 @@ public class BreakAnimator extends GameObject {
         // Update countdown
         if (countdownText != null) {
             float remaining = Math.max(0, length - time);
-            String cdStr = String.format(java.util.Locale.US, "%.0f", remaining);
-            countdownText.setText(cdStr);
-            float cx = Config.getRES_WIDTH() / 2f;
-            countdownText.setPosition(cx - countdownText.getWidth() / 2f, countdownText.getY());
+            countdownText.setText(String.format(java.util.Locale.US, "%.0f", remaining));
         }
 
         if (time >= length) {
