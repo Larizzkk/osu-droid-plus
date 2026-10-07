@@ -245,6 +245,22 @@ public class MainScene implements IUpdateHandler {
             ResourceManager.getInstance().getTexture("emptyavatar")
         );
 
+        // Stable main menu dim bars (decompiled MainMenu `zvV45`/`zel30`): black
+        // quads of (screenWidth, 54 design units) with scale ×1.6 → 86.4 units tall,
+        // alpha 0.4 — one flush to the top edge, one flush to the bottom edge.
+        float dimBarHeight = 86.4f * Config.getRES_HEIGHT() / 768f;
+        Rectangle topDimBar = new Rectangle(0, 0, Config.getRES_WIDTH(), dimBarHeight);
+        topDimBar.setColor(0f, 0f, 0f, 0.4f);
+        Rectangle bottomDimBar = new Rectangle(
+            0,
+            Config.getRES_HEIGHT() - dimBarHeight,
+            Config.getRES_WIDTH(),
+            dimBarHeight
+        );
+        bottomDimBar.setColor(0f, 0f, 0f, 0.4f);
+        scene.attachChild(topDimBar);
+        scene.attachChild(bottomDimBar);
+
         // Show snowfall if enabled in settings
         if (Config.getBoolean("snowfallEnabled", false)) {
             addSnowfall(scene, context);
