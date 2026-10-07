@@ -968,10 +968,16 @@ public class SongMenu
         // bar restored (favorites-only heart, folder, text) has to be applied again once
         // its views exist — otherwise the menu shows every map while the heart is on.
         final SearchBarFragment bar = searchBar;
-        bar.setOnStateRestored(() -> scene.postRunnable(() -> {
-            if (searchBar != bar) return;
-            loadFilter(bar);
-        }));
+        // Kotlin's `(() -> Unit)?` property compiles to a Function0<Unit> setter, so the
+        // Java lambda must RETURN Unit.INSTANCE — a void-returning expression body here
+        // fails javac with "void cannot be converted to Unit".
+        bar.setOnStateRestored(() -> {
+            scene.postRunnable(() -> {
+                if (searchBar != bar) return;
+                loadFilter(bar);
+            });
+            return kotlin.Unit.INSTANCE;
+        });
 
         searchBar.loadConfig(context);
     }

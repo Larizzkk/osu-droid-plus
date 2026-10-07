@@ -1,7 +1,6 @@
 package ru.nsu.ccfit.zuev.osuplusplus.game.cursor.main;
 
 import org.anddev.andengine.entity.Entity;
-import org.anddev.andengine.entity.particle.emitter.PointParticleEmitter;
 import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
@@ -10,14 +9,11 @@ import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorSprite;
 import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail.CursorTrail;
 import ru.nsu.ccfit.zuev.osuplusplus.game.cursor.trail.CursorTrailOptimized;
-import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
 
 public class CursorEntity extends Entity {
     protected CursorSprite cursorSprite;
     protected Object trail = null; // CursorTrail (legacy) or CursorTrailOptimized (long)
-    private PointParticleEmitter emitter = null;
     private boolean isShowing = false;
-    private float particleOffsetX, particleOffsetY;
     protected int trailImplementation = 1; // Default to long (optimized) trail
 
     // Trail delay: only show trail when cursor is held >1s
@@ -45,9 +41,6 @@ public class CursorEntity extends Entity {
         if (Config.isUseParticles()) {
             TextureRegion trailTex = ResourceManager.getInstance().getTexture("cursortrail");
 
-            particleOffsetX = -trailTex.getWidth() / 2f;
-            particleOffsetY = -trailTex.getHeight() / 2f;
-
             // Create trail based on implementation
             createTrail(trailTex);
         }
@@ -71,10 +64,8 @@ public class CursorEntity extends Entity {
 
     private void createTrail(TextureRegion trailTex) {
         switch (trailImplementation) {
-            case 0: // Legacy particle system (exact upstream osu-droid behavior)
-                int spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 2);
-                emitter = new PointParticleEmitter(particleOffsetX, particleOffsetY);
-                trail = new CursorTrail(emitter, spawnRate, trailTex, cursorSprite);
+            case 0: // Legacy trail — stable's standard time-gated points (torn look)
+                trail = new CursorTrail(trailTex, cursorSprite);
                 ((CursorTrail) trail).setParticlesSpawnEnabled(false);
                 break;
 
@@ -153,7 +144,10 @@ public class CursorEntity extends Entity {
             if (trail != null) {
                 switch (trailImplementation) {
                     case 0:
-                        ((CursorTrail) trail).reset();
+                        // Original osu! behavior: existing points are NOT erased when the
+                        // cursor hides — spawning stops and the remaining points age out on
+                        // their own (stable just returns early, no wipe). The spawn gate
+                        // timestamp persists, so resuming continues after ≤16.67ms.
                         ((CursorTrail) trail).setParticlesSpawnEnabled(false);
                         break;
                     case 1:
@@ -188,9 +182,11 @@ public class CursorEntity extends Entity {
     }
 
     /**
-     * Called by the input paths on every fresh ACTION_DOWN. Guarantees the trail never
-     * interpolates across a re-press even if no hidden frame was rendered between the
-     * lift and the new press (thread timing), and regardless of tap distance.
+     * Called by the input paths on every fresh ACTION_DOWN. Guarantees the long
+     * trail never interpolates across a re-press even if no hidden frame was
+     * rendered between the lift and the new press (thread timing), and regardless
+     * of tap distance. The legacy trail needs no discontinuity marker: its stable
+     * spawn is time-gated at the CURRENT position and never interpolates.
      */
     public void onCursorPress() {
         if (trail != null && trailImplementation == 1) {
@@ -213,7 +209,10 @@ public class CursorEntity extends Entity {
                 trailEnabled = true;
                 if (trail != null) {
                     ((CursorTrail) trail).setParticlesSpawnEnabled(true);
-                    ((CursorTrail) trail).update();
+                    // Stable standard branch: feed the cursor position once per frame;
+                    // the trail emits a point every ~16.67ms at the current position
+                    // (no segment interpolation → visibly torn at speed).
+                    ((CursorTrail) trail).feedPosition(getX(), getY());
                 }
             } else if (forceTrailEnabled || !Config.getBoolean("trailDelayEnabled", true)) {
                 if (!trailEnabled) {
@@ -242,8 +241,7 @@ public class CursorEntity extends Entity {
             float ty = getY();
             switch (trailImplementation) {
                 case 0:
-                    // Legacy particles spawn through the emitter; the ParticleSystem
-                    // updates itself as a child of the scene.
+                    // Legacy trail is fed from the block above (feedPosition).
                     break;
                 case 1: ((CursorTrailOptimized) trail).updatePosition(tx, ty, pSecondsElapsed); break;
             }
@@ -281,15 +279,6 @@ public class CursorEntity extends Entity {
                 ? ((Entity) trail).getParent().getClass().getSimpleName()
                 : "none")
         );
-    }
-
-    @Override
-    public void setPosition(float pX, float pY) {
-        if (emitter != null && trailImplementation == 0) {
-            emitter.setCenter(pX + particleOffsetX, pY + particleOffsetY);
-        }
-
-        super.setPosition(pX, pY);
     }
 
     /**
@@ -363,68 +352,13 @@ public class CursorEntity extends Entity {
                     ((CursorTrailOptimized) trail).markDiscontinuity();
                     ((CursorTrailOptimized) trail).syncToPosition(x, y);
                 } else {
-                    recreateTrail(newTrailTex);
+                    // Legacy trail rebinds in place too: live points keep fading with
+                    // the new texture instead of being wiped by a full recreate, and the
+                    // rebuilt cursor sprite reference is handed over.
+                    ((CursorTrail) trail).refreshTexture(newTrailTex, cursorSprite);
                 }
             }
         }
-    }
-
-    /**
-     * Fully recreates the trail after a skin hot-swap: CursorTrailOptimized bakes UVs
-     * and blend state from the region at construction and legacy CursorTrail keeps
-     * live particles bound to the old region, so a plain rebind can show the previous
-     * skin's texture. Trail state (enabled/delay, force flag for replays) is preserved;
-     * point history is not — the ribbon restarts from the cursor's current position.
-     */
-    private void recreateTrail(TextureRegion newTrailTex) {
-        if (newTrailTex == null) {
-            return;
-        }
-
-        // Preserve trail runtime state.
-        boolean wasTrailEnabled = trailEnabled;
-        boolean wasForceEnabled = forceTrailEnabled;
-
-        // Detach the old trail entity from the scene if it was attached there.
-        if (trail instanceof Entity) {
-            ((Entity) trail).detachSelf();
-        }
-
-        // Recreate from the freshly loaded region (same path as the constructor).
-        createTrail(newTrailTex);
-
-        // Restore spawn state for the legacy particle trail and re-anchor it: a fresh
-        // emitter starts at (0,0) with the OLD texture's offsets, so a skin switch would
-        // streak the trail from the screen origin (and with a shifted half-size) until the
-        // next setPosition().
-        if (trailImplementation == 0 && trail != null) {
-            particleOffsetX = -newTrailTex.getWidth() / 2f;
-            particleOffsetY = -newTrailTex.getHeight() / 2f;
-
-            if (emitter != null) {
-                emitter.setCenter(getX() + particleOffsetX, getY() + particleOffsetY);
-            }
-            ((CursorTrail) trail).setParticlesSpawnEnabled(wasTrailEnabled);
-        }
-
-        // Re-attach to the scene so the new trail renders BEHIND the cursor sprite.
-        if (getParent() != null && trail != null) {
-            Scene parent = (Scene) getParent();
-            detachSelf();
-            parent.attachChild((Entity) trail);
-            parent.attachChild(this);
-        }
-
-        // The new trail entity starts empty: mark the discontinuity so the next
-        // updateTrailFromMovement seeds it at the current cursor position instead of
-        // interpolating from the constructor default (0,0).
-        if (trailImplementation == 1 && trail != null) {
-            ((CursorTrailOptimized) trail).markDiscontinuity();
-            ((CursorTrailOptimized) trail).syncToPosition(getX(), getY());
-        }
-
-        trailEnabled = wasTrailEnabled && trail != null;
-        forceTrailEnabled = wasForceEnabled;
     }
 
     public void cleanupTrail() {
