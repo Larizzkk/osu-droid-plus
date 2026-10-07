@@ -255,6 +255,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     // FailingLayer from osu!(lazer): fullscreen red overlay shown while health is low.
     private Rectangle lowHealthOverlay;
     private float lowHealthAlpha = 0f;
+
+    // Stable letterbox-in-breaks bars (black strips flush to the top/bottom edge).
+    private Rectangle letterboxTop;
+    private Rectangle letterboxBottom;
     private ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground triangleBg;
     private UISprite unrankedSprite;
     private final ArrayList<IModApplicableToTrackRate> rateAdjustingMods =
@@ -1587,6 +1591,26 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         lowHealthAlpha = 0f;
         lowHealthOverlay.setAlpha(0f);
 
+        // Stable letterbox-in-breaks bars: same geometry as the main menu dim bars
+        // (86.4 design units tall at 768-height), transparent until a break runs.
+        float letterboxBarHeight = 86.4f * Config.getRES_HEIGHT() / 768f;
+        letterboxTop = new Rectangle(
+            0,
+            0,
+            Config.getRES_WIDTH(),
+            letterboxBarHeight
+        );
+        letterboxTop.setColor(0f, 0f, 0f, 0f);
+        fgScene.attachChild(letterboxTop);
+        letterboxBottom = new Rectangle(
+            0,
+            Config.getRES_HEIGHT() - letterboxBarHeight,
+            Config.getRES_WIDTH(),
+            letterboxBarHeight
+        );
+        letterboxBottom.setColor(0f, 0f, 0f, 0f);
+        fgScene.attachChild(letterboxBottom);
+
         // Triangle background
         triangleBg =
             new ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground();
@@ -2347,6 +2371,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         ) {
             flashlightSprite.onBreak(true);
         }
+
+        updateLetterbox(elapsedTime);
 
         if (gameStarted) {
             double rate = 0.375;
@@ -6242,6 +6268,47 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 "Error updating kiai effects: " + e.getMessage()
             );
         }
+    }
+
+    /**
+     * Updates the stable letterbox-in-breaks bars: black strips shown while the
+     * current break runs, only when the map's {@code LetterboxInBreaks} is set.
+     *
+     * <p>Alpha follows the opsu reference (Game.java:543): fade in over the first
+     * 500ms of the break and out over its last 500ms, up to 0.4, and only for
+     * breaks of at least 4 seconds. Driven by elapsed time so pause, seek and
+     * break-end stay correct without extra events.
+     */
+    private void updateLetterbox(float elapsedTime) {
+        if (letterboxTop == null || letterboxBottom == null) {
+            return;
+        }
+
+        float alpha = 0f;
+        boolean tracked =
+            playableBeatmap != null &&
+            playableBeatmap.getGeneral().letterboxInBreaks &&
+            breakPeriods != null &&
+            breakPeriodIndex > 0 &&
+            breakPeriodIndex <= breakPeriods.length;
+
+        if (tracked) {
+            var period = breakPeriods[breakPeriodIndex - 1];
+            float timeMs = elapsedTime * 1000f;
+
+            if (
+                period.getDuration() >= 4000f &&
+                timeMs >= period.startTime &&
+                timeMs <= period.endTime
+            ) {
+                float fadeIn = Math.min(500f, timeMs - period.startTime);
+                float fadeOut = Math.min(500f, period.endTime - timeMs);
+                alpha = 0.4f * Math.min(fadeIn, fadeOut) / 500f;
+            }
+        }
+
+        letterboxTop.setAlpha(alpha);
+        letterboxBottom.setAlpha(alpha);
     }
 
     private void updateKiaiFlash(float dt) {
