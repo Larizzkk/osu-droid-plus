@@ -536,6 +536,16 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
         private final int scoreID;
 
         private final boolean showOnline;
+
+        // osu!stable leaderboard glow the row background
+        // colour loops black -> (100,100,100) — 150ms rise (ease-out), 900ms fall
+        // (ease-in), 50ms gap → period 1100ms, offset (rank-1)*50ms down the list.
+        private float glowBaseR;
+        private float glowBaseG;
+        private float glowBaseB;
+        private float glowOffset;
+        private float glowTime;
+        private static final float GLOW_LIFT = 100f / 255f;
         
 
         private ScoreItem(
@@ -589,15 +599,23 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
             camY = -146;
 
             if (rank == 1) {
-                setColor(0.98f, 0.78f, 0.18f);
+                glowBaseR = 0.98f;
+                glowBaseG = 0.78f;
+                glowBaseB = 0.18f;
             } else if (rank == 2) {
-                setColor(0.75f, 0.75f, 0.78f);
+                glowBaseR = 0.75f;
+                glowBaseG = 0.75f;
+                glowBaseB = 0.78f;
             } else if (rank == 3) {
-                setColor(0.80f, 0.45f, 0.10f);
-            } else {
-                setColor(0, 0, 0);
+                glowBaseR = 0.80f;
+                glowBaseG = 0.45f;
+                glowBaseB = 0.10f;
             }
+            setColor(glowBaseR, glowBaseG, glowBaseB);
             setAlpha(rank <= 3 ? 0.35f : 0.5f);
+
+            // Stable staggers the flash wave by 50ms per rank down the list.
+            glowOffset = Math.max(0, rank - 1) * 0.05f;
 
             float finalBaseY = baseY;
             avatarTask = shouldLoadAvatar ? new Runnable() {
@@ -655,6 +673,27 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
         protected void onManagedUpdate(float pSecondsElapsed)
         {
             super.onManagedUpdate(pSecondsElapsed);
+
+            // Stable glow flash: rise 150ms (ease-out), fall 900ms (ease-in),
+            // 50ms gap — repeats every 1.1s like the decompiled song select.
+            glowTime += pSecondsElapsed;
+            float phase = (glowTime + glowOffset) % 1.1f;
+            float glowK;
+            if (phase < 0.15f) {
+                float x = phase / 0.15f;
+                glowK = 1f - (1f - x) * (1f - x);
+            } else if (phase < 1.05f) {
+                float x = (phase - 0.15f) / 0.9f;
+                glowK = 1f - x * x;
+            } else {
+                glowK = 0f;
+            }
+            float glowLift = GLOW_LIFT * glowK;
+            setColor(
+                Math.min(1f, glowBaseR + glowLift),
+                Math.min(1f, glowBaseG + glowLift),
+                Math.min(1f, glowBaseB + glowLift)
+            );
 
             // This is to avoid loading avatars when the scene was changed (game started or user gone back to main menu).
             if (avatarTask != null && currentAvatarTask == null) {
