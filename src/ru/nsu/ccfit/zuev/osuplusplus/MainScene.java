@@ -115,9 +115,13 @@ public class MainScene implements IUpdateHandler {
     private final float[] frequencyAmplitudes = new float[120];
     private int spectrumIndexOffset = 0;
     private long lastSpectrumUpdate = 0;
-    private static final float SPECTRUM_DECAY_PER_MS = 0.0024f;
+    // osu!stable spectrum behavior:
+    // per-frame decay = pow(0.95, dtMs / 16.6667), attack = max(held, bin * 3f),
+    // hidden below scale 0.01, alpha = 0.4 * clamp((scale - 0.04) / 0.08, 0, 1).
+    private static final double SPECTRUM_DECAY_BASE = 0.949999988079071;
+    private static final float SPECTRUM_ATTACK_MULTIPLIER = 3f;
+    private static final float SPECTRUM_SCALE_DEAD_ZONE = 0.01f;
     private static final float SPECTRUM_BAR_LENGTH = 600f;
-    private static final float SPECTRUM_DEAD_ZONE = 1f / SPECTRUM_BAR_LENGTH;
     private static final int SPECTRUM_INDEX_CHANGE = 3;
     private static final long SPECTRUM_UPDATE_INTERVAL = 50;
     private LinkedList<TimingControlPoint> timingControlPoints;
@@ -1657,16 +1661,8 @@ public class MainScene implements IUpdateHandler {
                 float[] fft = GlobalManager.getInstance()
                     .getSongService()
                     .getSpectrum();
-                if (fft == null) return;
 
                 long nowMs = System.currentTimeMillis();
-
-                // Normalize FFT: find max across bins, divide by it
-                float maxAmp = 0;
-                for (int b = 1; b < 512; b++) {
-                    if (fft[b] > maxAmp) maxAmp = fft[b];
-                }
-                float normFactor = maxAmp > 0.001f ? 1f / maxAmp : 1f;
 
                 // User-configurable behavior (osu!droid+ settings, 100 = default)
                 float visualizerIntensity =
@@ -1676,8 +1672,8 @@ public class MainScene implements IUpdateHandler {
                     ) /
                     100f;
 
-                // Update amplitudes every N ms (like osu! PC)
                 if (
+                    fft != null &&
                     nowMs - lastSpectrumUpdate >=
                     ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
                         "visualizerUpdateRate",
@@ -1708,11 +1704,14 @@ public class MainScene implements IUpdateHandler {
                         if (rightBound <= leftBound) rightBound = leftBound + 1;
                         if (rightBound > 511) rightBound = 511;
                         for (; leftBound < rightBound; leftBound++) {
-                            float val = fft[1 + leftBound] * normFactor;
+                            float val = fft[1 + leftBound];
                             if (val > peak) peak = val;
                         }
                         float targetAmplitude =
-                            peak * kiaiMultiplier * visualizerIntensity;
+                            peak *
+                            SPECTRUM_ATTACK_MULTIPLIER *
+                            kiaiMultiplier *
+                            visualizerIntensity;
                         int idx = (i + spectrumIndexOffset) % 120;
                         if (
                             targetAmplitude > frequencyAmplitudes[idx]
@@ -1727,36 +1726,40 @@ public class MainScene implements IUpdateHandler {
                         (spectrumIndexOffset + rotationSpeed) % 120;
                 }
 
-                // Decay each frame (osu! PC: 0.0024f * (value + 0.03f) per ms)
-                float decayFactor =
-                    pSecondsElapsed *
-                    1000f *
-                    SPECTRUM_DECAY_PER_MS *
-                    (ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
+                // Stable decay: pow(0.95, dtMs / 16.6667) every frame on the
+                // max-held value (stable ticks it per 10ms of music time).
+                // visualizerDecaySpeed scales the time base.
+                float decaySpeed =
+                    ru.nsu.ccfit.zuev.osuplusplus.Config.getInt(
                         "visualizerDecaySpeed",
                         100
                     ) /
-                        100f);
+                    100f;
+                float decayFactor = (float) Math.pow(
+                    SPECTRUM_DECAY_BASE,
+                    (pSecondsElapsed * 1000f * decaySpeed) /
+                        16.666666666666668
+                );
                 for (int i = 0; i < 120; i++) {
-                    frequencyAmplitudes[i] -=
-                        decayFactor * (frequencyAmplitudes[i] + 0.03f);
-                    if (frequencyAmplitudes[i] < 0) frequencyAmplitudes[i] = 0;
+                    float scale = frequencyAmplitudes[i] * decayFactor;
 
-                    float barHeight =
-                        frequencyAmplitudes[i] * SPECTRUM_BAR_LENGTH;
-                    if (barHeight < SPECTRUM_DEAD_ZONE) {
+                    // Stable hides anything below 0.01 completely.
+                    if (scale < SPECTRUM_SCALE_DEAD_ZONE) {
+                        frequencyAmplitudes[i] = 0f;
                         spectrum[i].setWidth(250f);
                         spectrum[i].setAlpha(0f);
-                    } else {
-                        // osu! PC style: bar grows outward, additive feel
-                        spectrum[i].setWidth(250f + barHeight);
-                        // Alpha scales with height, max 1.0 at full bar
-                        float alpha = Math.min(
-                            1f,
-                            barHeight / (SPECTRUM_BAR_LENGTH * 0.6f)
-                        );
-                        spectrum[i].setAlpha(alpha);
+                        continue;
                     }
+
+                    frequencyAmplitudes[i] = scale;
+                    spectrum[i].setWidth(250f + scale * SPECTRUM_BAR_LENGTH);
+                    // Stable alpha ramp: 0.4 * clamp((scale - 0.04) / 0.08, 0, 1)
+                    spectrum[i].setAlpha(
+                        Math.max(
+                            0f,
+                            0.4f * Math.min(1f, (scale - 0.04f) / 0.08f)
+                        )
+                    );
                 }
 
                 // Update kiai flash effects
