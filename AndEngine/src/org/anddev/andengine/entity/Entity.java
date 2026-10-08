@@ -1124,7 +1124,21 @@ public class Entity implements IEntity {
 		final ArrayList<IEntity> children = this.mChildren;
 		final int childCount = children.size();
 		for (int i = 0; i < childCount; i++) {
-			children.get(i).onDraw(pGL, pCamera);
+			// The children list can shrink while it is being iterated: a child may be
+			// detached re-entrantly during drawing or from another thread. Re-validate
+			// the index instead of letting IndexOutOfBoundsException escape, which
+			// would crash the render thread (fixme.txt: "Index 3 out of bounds for
+			// length 3").
+			if (i >= children.size()) {
+				break;
+			}
+			final IEntity child;
+			try {
+				child = children.get(i);
+			} catch (final IndexOutOfBoundsException e) {
+				break;
+			}
+			child.onDraw(pGL, pCamera);
 		}
 	}
 

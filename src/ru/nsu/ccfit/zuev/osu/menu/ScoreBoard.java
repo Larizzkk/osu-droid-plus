@@ -208,11 +208,17 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                     int displayRank = (i + 1);
 
                     if (isPersonalBest) {
-                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true, displayRank), 0);
+                        // This task runs on loadExecutor, so the attach itself must be
+                        // marshalled to the update thread — mutating the scene graph from a
+                        // background thread races the render thread
+                        // (fixme.txt: IndexOutOfBoundsException in onManagedDrawChildren).
+                        final var personalBestItem = new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true, displayRank);
+                        Execution.updateThread(() -> attachChild(personalBestItem, 0));
                     }
 
                     if (isInLeaderboard) {
-                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false, displayRank));
+                        final var leaderboardItem = new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false, displayRank);
+                        Execution.updateThread(() -> attachChild(leaderboardItem));
 
                         var item = new ScoreBoardItem();
                         item.set(beatmapRank, playerName, combo, score, scoreID);
@@ -297,7 +303,8 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                         return;
                     }
 
-                    attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, score.getMark(), false, (int) score.getId(), null, null, false, i + 1));
+                    final var localScoreItem = new ScoreItem(avatarExecutor, titleStr, accStr, score.getMark(), false, (int) score.getId(), null, null, false, i + 1);
+                    Execution.updateThread(() -> attachChild(localScoreItem));
 
                     var item = new ScoreBoardItem();
                     item.set(i + 1, score.getPlayerName(), score.getMaxCombo(), score.getScore(), (int) score.getId());
@@ -635,7 +642,11 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                         onDetached();
                         return;
                     }
-                    attachChild(new Sprite(55, finalBaseY + 12, 90, 90, texture));
+                    // This runs on avatarExecutor: attaching directly would mutate the
+                    // children of a ScoreItem that is already in the scene graph while
+                    // the render thread is drawing it.
+                    final var avatarSprite = new Sprite(55, finalBaseY + 12, 90, 90, texture);
+                    Execution.updateThread(() -> attachChild(avatarSprite));
 
                     if (currentAvatarTask == this)
                         currentAvatarTask = null;
