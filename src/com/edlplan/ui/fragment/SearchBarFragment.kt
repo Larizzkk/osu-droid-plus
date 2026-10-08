@@ -220,10 +220,12 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
                 getGlobal().songMenu.reloadCurrentSelection()
             }
 
-            if (Config.getString("difficultyAlgorithm", "0").toInt() == 0) {
-                difficultyAlgorithmButton.text = "osu!droid"
-            } else {
+            // Only "1" is osu!standard; stale values ("2"/"3" were DRPP/RXPP, now
+            // removed) fall back to osu!droid just like Config.getDifficultyAlgorithm().
+            if (Config.getString("difficultyAlgorithm", "0").toInt() == 1) {
                 difficultyAlgorithmButton.text = "osu!standard"
+            } else {
+                difficultyAlgorithmButton.text = "osu!droid"
             }
 
             val settingsButton = findViewById<Button>(R.id.settingsButton)!!

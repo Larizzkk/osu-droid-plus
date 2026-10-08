@@ -88,15 +88,11 @@
     <string-array name="difficulty_algorithm_names">
         <item>osu!droid</item>
         <item>osu!standard</item>
-        <item>DRPP</item>
-        <item>RXPP</item>
     </string-array>
 
     <string-array name="difficulty_algorithm_values">
         <item>0</item>
         <item>1</item>
-        <item>2</item>
-        <item>3</item>
     </string-array>
 
     <!-- Particle Shape Arrays -->

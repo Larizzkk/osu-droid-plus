@@ -336,10 +336,10 @@ corovans = prefs.getBoolean("images", false);
 
     @NonNull
     public static DifficultyAlgorithm getDifficultyAlgorithm() {
+        // DRPP/RXPP were removed from the settings; a stale saved value ("2"/"3")
+        // falls back to the default algorithm instead of silently staying active.
         return switch (Config.getString("difficultyAlgorithm", "0")) {
             case "1" -> DifficultyAlgorithm.standard;
-            case "2" -> DifficultyAlgorithm.drpp;
-            case "3" -> DifficultyAlgorithm.rxpp;
             default -> DifficultyAlgorithm.droid;
         };
     }
