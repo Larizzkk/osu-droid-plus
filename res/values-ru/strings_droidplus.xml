@@ -302,6 +302,7 @@
     <!-- ══════════ Song menu (поисковая строка) ══════════ -->
 
     <string name="menu_search_sort_source">Источник</string>
+    <string name="menu_search_sort_rank">Достигнутый ранг</string>
     <string name="menu_search_upstream_db">Апстрим</string>
     <string name="upstream_db_imported">База карт загружена из апстрима!</string>
     <string name="upstream_db_not_found">База апстрима не найдена, сканирование папок...</string>

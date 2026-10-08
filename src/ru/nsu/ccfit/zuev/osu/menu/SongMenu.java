@@ -14,6 +14,7 @@ import com.osudroid.beatmaps.BeatmapCache;
 import com.osudroid.data.BeatmapInfo;
 import com.osudroid.data.BeatmapSetInfo;
 import com.osudroid.data.DatabaseManager;
+import com.osudroid.data.ScoreMarkRow;
 import com.osudroid.multiplayer.Multiplayer;
 import com.osudroid.multiplayer.api.RoomAPI;
 import com.osudroid.ui.v1.BeatmapAttributeDisplay;
@@ -1077,57 +1078,191 @@ public class SongMenu
         if (!sortOrder.equals(searchBar.getOrder())) {
             sortOrder = searchBar.getOrder();
         }
+
+        // Rank sorting needs the best grade of every beatmap — fetch the whole score
+        // table once per sort instead of issuing one query per item.
+        final Map<String, Integer> bestMarkRanks = sortOrder == SortOrder.Rank
+            ? buildBestMarkRanks()
+            : Collections.emptyMap();
+
+        // Per-item grade rank in stable's ordinal terms (lower is better).
+        final Map<BeatmapSetItem, Integer> rankByItem = new IdentityHashMap<>();
+        if (sortOrder == SortOrder.Rank) {
+            for (final BeatmapSetItem item : items) {
+                rankByItem.put(item, getBestRankOrdinal(item, bestMarkRanks));
+            }
+        }
+
         Collections.sort(items, (i1, i2) -> {
-            String s1;
-            String s2;
-            switch (sortOrder) {
-                case Artist:
-                    s1 = i1.getFirstBeatmap().getArtist();
-                    s2 = i2.getFirstBeatmap().getArtist();
-                    break;
-                case Creator:
-                    s1 = i1.getFirstBeatmap().getCreator();
-                    s2 = i2.getFirstBeatmap().getCreator();
-                    break;
-                case Date:
-                    final Long int1 = i1.getFirstBeatmap().getDateImported();
-                    final Long int2 = i2.getFirstBeatmap().getDateImported();
-                    return int2.compareTo(int1);
-                case Bpm:
-                    final float bpm1 = i1.getFirstBeatmap().getBpmMax();
-                    final float bpm2 = i2.getFirstBeatmap().getBpmMax();
-                    return Float.compare(bpm2, bpm1);
-                case DroidStars:
-                    final float droid1 = i1
-                        .getFirstBeatmap()
-                        .getStarRating(DifficultyAlgorithm.droid);
-                    final float droid2 = i2
-                        .getFirstBeatmap()
-                        .getStarRating(DifficultyAlgorithm.droid);
-                    return Float.compare(droid2, droid1);
-                case StandardStars:
-                    final float standard1 = i1
-                        .getFirstBeatmap()
-                        .getStarRating(DifficultyAlgorithm.standard);
-                    final float standard2 = i2
-                        .getFirstBeatmap()
-                        .getStarRating(DifficultyAlgorithm.standard);
-                    return Float.compare(standard2, standard1);
-                case Length:
-                    final Long length1 = i1.getFirstBeatmap().getLength();
-                    final Long length2 = i2.getFirstBeatmap().getLength();
-                    return length2.compareTo(length1);
-                case Source:
-                    s1 = i1.getFirstBeatmap().getSource();
-                    s2 = i2.getFirstBeatmap().getSource();
-                    break;
-                default:
-                    s1 = i1.getFirstBeatmap().getTitle();
-                    s2 = i2.getFirstBeatmap().getTitle();
+            if (i1 == i2) {
+                return 0;
             }
 
-            return s1.compareToIgnoreCase(s2);
+            // Stable rule: filtered-out / deleted maps sink to the end of the list.
+            final boolean visible1 = i1.isVisible();
+            final boolean visible2 = i2.isVisible();
+            if (visible1 != visible2) {
+                return visible1 ? -1 : 1;
+            }
+
+            final BeatmapInfo b1 = i1.getFirstBeatmap();
+            final BeatmapInfo b2 = i2.getFirstBeatmap();
+
+            int num;
+            switch (sortOrder) {
+                case Artist:
+                    num = compareSortStrings(b1.getArtist(), b2.getArtist());
+                    if (num != 0) {
+                        return num;
+                    }
+                    // Stable falls through from artist to title when the artists match.
+                    num = compareSortStrings(b1.getTitle(), b2.getTitle());
+                    break;
+                case Creator:
+                    num = compareSortStrings(b1.getCreator(), b2.getCreator());
+                    break;
+                case Source:
+                    num = compareSortStrings(b1.getSource(), b2.getSource());
+                    break;
+                case Date:
+                    num = Long.compare(b1.getDateImported(), b2.getDateImported());
+                    break;
+                case Bpm:
+                    num = Float.compare(b1.getBpmMax(), b2.getBpmMax());
+                    break;
+                case Length:
+                    num = Long.compare(b1.getLength() / 1000, b2.getLength() / 1000);
+                    break;
+                case DroidStars:
+                    num = Float.compare(
+                        b1.getStarRating(DifficultyAlgorithm.droid),
+                        b2.getStarRating(DifficultyAlgorithm.droid)
+                    );
+                    break;
+                case StandardStars:
+                    num = Float.compare(
+                        b1.getStarRating(DifficultyAlgorithm.standard),
+                        b2.getStarRating(DifficultyAlgorithm.standard)
+                    );
+                    break;
+                case Rank:
+                    // Stable compares the grade enum reversed: no grade / worst grade
+                    // first, XH (best) last.
+                    num = Integer.compare(rankByItem.get(i2), rankByItem.get(i1));
+                    break;
+                case Title:
+                default:
+                    num = compareSortStrings(b1.getTitle(), b2.getTitle());
+                    break;
+            }
+
+            if (num != 0) {
+                return num;
+            }
+
+            // Tie-break chain ported from stable: set directory -> star rating -> file name.
+            num = compareSortStrings(
+                i1.getBeatmapSetInfo().getDirectory(),
+                i2.getBeatmapSetInfo().getDirectory()
+            );
+            if (num != 0) {
+                return num;
+            }
+
+            num = Float.compare(
+                b1.getStarRating(DifficultyAlgorithm.droid),
+                b2.getStarRating(DifficultyAlgorithm.droid)
+            );
+            if (num != 0) {
+                return num;
+            }
+
+            return compareSortStrings(b1.getFilename(), b2.getFilename());
         });
+    }
+
+    /**
+     * Case-insensitive comparison used by every sorting key. Stable uses culture-sensitive
+     * string comparison, which orders case-insensitively first as well.
+     */
+    private static int compareSortStrings(String s1, String s2) {
+        if (s1 == null) {
+            s1 = "";
+        }
+        if (s2 == null) {
+            s2 = "";
+        }
+        return s1.compareToIgnoreCase(s2);
+    }
+
+    /**
+     * Maps a score mark onto stable's grade enum ordinals: XH = 0 ... F = 8, N = 9 (worst),
+     * so lower is better. Unknown / legacy marks are treated as "no grade achieved".
+     */
+    private static int markRankOrdinal(String mark) {
+        if (mark == null) {
+            return 9;
+        }
+        switch (mark) {
+            case "XH":
+                return 0;
+            case "SH":
+                return 1;
+            case "X":
+            case "SS":
+                return 2;
+            case "S":
+                return 3;
+            case "A":
+                return 4;
+            case "B":
+                return 5;
+            case "C":
+                return 6;
+            case "D":
+                return 7;
+            case "F":
+                return 8;
+            default:
+                return 9;
+        }
+    }
+
+    /**
+     * Builds an md5 -> grade ordinal map holding the best mark of every played beatmap
+     * (highest score wins, matching ScoreInfoTable#getBestMark).
+     */
+    private static Map<String, Integer> buildBestMarkRanks() {
+        final Map<String, Integer> ranks = new HashMap<>();
+        final Map<String, Integer> bestScores = new HashMap<>();
+
+        for (final ScoreMarkRow row : DatabaseManager.getScoreInfoTable().getAllScoreMarks()) {
+            final String md5 = row.getBeatmapMD5();
+            final Integer previousScore = bestScores.get(md5);
+
+            if (previousScore == null || row.getScore() > previousScore) {
+                bestScores.put(md5, row.getScore());
+                ranks.put(md5, markRankOrdinal(row.getMark()));
+            }
+        }
+        return ranks;
+    }
+
+    /**
+     * Best grade ordinal across all diffs of the item's set (a single-diff item only
+     * contributes its own diff). 9 = no grade achieved.
+     */
+    private static int getBestRankOrdinal(BeatmapSetItem item, Map<String, Integer> ranks) {
+        final BeatmapSetInfo setInfo = item.getBeatmapSetInfo();
+        int best = 9;
+
+        for (int i = 0; i < setInfo.getCount(); i++) {
+            final Integer ordinal = ranks.get(setInfo.getBeatmap(i).getMD5());
+            if (ordinal != null && ordinal < best) {
+                best = ordinal;
+            }
+        }
+        return best;
     }
 
     public void onUpdate(final float pSecondsElapsed) {
@@ -2180,6 +2315,8 @@ public class SongMenu
             case Date:
             case Bpm:
             case Source:
+            // Rank orders sets by the best grade achieved inside them, so it groups by set.
+            case Rank:
                 reloadMenuItems(GroupType.MapSet);
                 break;
             case DroidStars:
@@ -2435,6 +2572,7 @@ public class SongMenu
         // Appended at the end: the ordinal is persisted in the "sortorder" preference,
         // so inserting an entry in the middle would shift the saved sort orders.
         Source,
+        Rank,
     }
 
     public enum GroupType {

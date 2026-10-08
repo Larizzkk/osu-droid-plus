@@ -199,6 +199,15 @@ fun ScoreInfo(json: JSONObject) =
         sliderEndHits = json.optInt("sliderEndHits", -1).takeIf { it >= 0 }
     )
 
+/**
+ * Projection of the columns needed for beatmap sorting by rank achieved.
+ */
+data class ScoreMarkRow(
+    val beatmapMD5: String,
+    val mark: String,
+    val score: Int
+)
+
 @Dao
 interface IScoreInfoDAO {
 
@@ -225,6 +234,9 @@ interface IScoreInfoDAO {
 
     @Query("SELECT EXISTS(SELECT 1 FROM ScoreInfo WHERE id = :id)")
     fun scoreExists(id: Long): Boolean
+
+    @Query("SELECT beatmapMD5, mark, score FROM ScoreInfo")
+    fun getAllScoreMarks(): List<ScoreMarkRow>
 
     @Query("SELECT DISTINCT beatmapMD5 FROM ScoreInfo")
     fun getAllPlayedBeatmapMD5s(): List<String>

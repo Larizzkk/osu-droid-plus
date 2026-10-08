@@ -244,6 +244,7 @@
     <!-- ══════════ Song menu (search bar) ══════════ -->
 
     <string name="menu_search_sort_source">Source</string>
+    <string name="menu_search_sort_rank">Rank Achieved</string>
     <string name="menu_search_upstream_db">Upstream</string>
     <string name="upstream_db_imported">Loaded beatmaps from upstream database!</string>
     <string name="upstream_db_not_found">Upstream database not found, scanning song folders...</string>

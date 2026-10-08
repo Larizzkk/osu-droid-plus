@@ -331,6 +331,7 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
             SongMenu.SortOrder.StandardStars -> StringTable.get(string.menu_search_sort_standard_stars)
             SongMenu.SortOrder.Length -> StringTable.get(string.menu_search_sort_length)
             SongMenu.SortOrder.Source -> StringTable.get(R.string.menu_search_sort_source)
+            SongMenu.SortOrder.Rank -> StringTable.get(R.string.menu_search_sort_rank)
         }
 
         sortButton.text = s
