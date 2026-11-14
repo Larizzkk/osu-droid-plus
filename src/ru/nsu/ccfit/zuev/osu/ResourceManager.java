@@ -46,7 +46,7 @@ import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.helper.QualityAssetBitmapSource;
 import ru.nsu.ccfit.zuev.osu.helper.QualityFileBitmapSource;
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 import ru.nsu.ccfit.zuev.skins.SkinJsonReader;
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager;
@@ -117,6 +117,10 @@ public class ResourceManager {
     private Engine engine;
     private Context context;
 
+    /** Incremented on every completed skin load; see {@link #getSkinVersion()}. */
+    private volatile int skinVersion = 0;
+    private volatile boolean skinLoadFinished = false;
+
     private ResourceManager() {
     }
 
@@ -166,7 +170,29 @@ public class ResourceManager {
         if (!textures.containsKey("lighting"))
             textures.put("lighting", null);
 
+        skinLoadFinished = true;
+        skinVersion++;
+
         UIEngine.getCurrent().onSkinChange();
+    }
+
+    /**
+     * Bumped after every skin load. Persistent entities (cursors, trails) compare their
+     * captured value against this to re-pull skin textures instead of keeping the ones
+     * from the previous skin.
+     */
+    public int getSkinVersion() {
+        return skinVersion;
+    }
+
+    /**
+     * True once the initial skin has finished loading. Until then the texture cache holds
+     * only a partial skin: lazily loading a missing entry (e.g. "cursortrail") would cache
+     * the built-in client texture and shadow the skin's file, which is exactly why the
+     * menu cursor used to show the default trail.
+     */
+    public boolean isSkinLoadFinished() {
+        return skinLoadFinished;
     }
 
     public void loadCustomSkin(String folder) {
