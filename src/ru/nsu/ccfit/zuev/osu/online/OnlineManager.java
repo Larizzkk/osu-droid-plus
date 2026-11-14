@@ -353,13 +353,16 @@ public class OnlineManager {
     }
 
     public RankedStatus getBeatmapStatus(String md5) throws OnlineManagerException {
-        var builder = new Request.Builder().url("https://osu.direct/api/v2/md5/" + md5);
+        // The map's ranked status is owned by our server, not osu.direct. This
+        // keeps every map on the server ranked even when the upstream mirror
+        // reports it as graveyard/pending or does not know it at all.
+        var builder = new Request.Builder().url(endpoint + "v2/md5/" + md5);
         var request = builder.build();
 
         try (var response = client.newCall(request).execute()) {
             if (response.isSuccessful() && response.body() != null) {
                 var json = new JSONObject(response.body().string());
-                return RankedStatus.valueOf(json.optInt("ranked"));
+                return RankedStatus.valueOf(json.optInt("ranked", 1));
             }
         } catch (final IOException e) {
             Debug.e("getBeatmapStatus IOException " + e.getMessage(), e);
