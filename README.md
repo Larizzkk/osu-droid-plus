@@ -5,7 +5,7 @@
 [![Android](https://github.com/osudroid/osu-droid/workflows/Android/badge.svg?branch=master)](https://github.com/osudroid/osu-droid/actions?query=workflow%3A"Android")
 [![CodeFactor](https://www.codefactor.io/repository/github/osudroid/osu-droid/badge)](https://www.codefactor.io/repository/github/osudroid/osu-droid)
 # osu-droid+
-[![Official discord server](https://discord.com/api/guilds/1569004912539340872/widget.png?style=shield)](https://discord.gg/NeKQmXAme6)
+[![Official discord server](https://discord.com/api/guilds/1569004912539340872/widget.png?style=banner2)](https://discord.gg/NeKQmXAme6)
 
 osu!droid is a free-to-play circle clicking rhythm game for Android devices. It was a game hatched many years ago by the
 [osu!](https://osu.ppy.sh/home) community. This project is now being developed by a small group of fans and also with the help of foreign friends.
