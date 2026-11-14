@@ -17,6 +17,7 @@ import com.reco1l.osu.ui.entity.StatisticSelector;
 import com.osudroid.GameMode;
 import com.osudroid.beatmaps.Beatmap;
 import com.osudroid.difficulty.BeatmapDifficultyCalculator;
+import com.osudroid.difficulty.ServerScorePP;
 import com.osudroid.difficulty.attributes.DifficultyAttributes;
 import com.osudroid.difficulty.attributes.DroidDifficultyAttributes;
 import com.osudroid.difficulty.attributes.PerformanceAttributes;
@@ -434,6 +435,18 @@ public class ScoringScene {
             }
 
             if (beatmapData != null) {
+                var serverSystem = ServerScorePP.calculate(beatmapData, mods, stat);
+
+                if (serverSystem != null) {
+                    ppinfo.append(String.format(
+                        Locale.ENGLISH,
+                        "%.2f★ | %.2f/%.2f%s",
+                        serverSystem.stars,
+                        serverSystem.value,
+                        serverSystem.max,
+                        serverSystem.label
+                    ));
+                } else {
                 DifficultyAttributes difficultyAttributes = null;
                 PerformanceAttributes performanceAttributes = null;
 
@@ -521,6 +534,7 @@ public class ScoringScene {
                     performanceAttributes.total,
                     maxPerformanceAttributes.total
                 ));
+                }
             }
 
             if (stat.getUnstableRate() > 0) {
