@@ -2,18 +2,19 @@ package com.osudroid.mods
 
 import com.reco1l.framework.math.roundBy
 import com.osudroid.beatmaps.Beatmap
-import com.osudroid.beatmaps.hitobjects.HitObject
 import com.osudroid.beatmaps.hitobjects.Slider
 import com.osudroid.math.Random
 import com.osudroid.mods.settings.*
 import com.osudroid.utils.HitObjectGenerationUtils
-import kotlin.math.exp
-import kotlin.math.max
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ensureActive
 
 /**
  * Represents the Random mod.
+ *
+ * Unlike the old pattern-preserving implementation, this randomizes every hit
+ * object's position, jump distance and angle, and every slider's orientation.
+ * The result is the same kind of layout the legacy osu!droid Random produced.
  */
 class ModRandom : Mod(), IModApplicableToBeatmap {
     override val name = "Random"
@@ -37,7 +38,7 @@ class ModRandom : Mod(), IModApplicableToBeatmap {
     )
 
     /**
-     * Defines how sharp the angles of [HitObject]s should be.
+     * Defines how sharp the jumps between hit objects should be.
      */
     var angleSharpness by FloatModSetting(
         name = "Angle sharpness",
