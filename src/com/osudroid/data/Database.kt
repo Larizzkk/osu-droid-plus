@@ -549,9 +549,16 @@ object DatabaseManager {
 
         // ScoreInfo
         try {
-            val oldDatabaseFile = File(Config.getCorePath(), "databases/osudroid_test.db")
+            val databaseDir = File(Config.getCorePath(), "databases")
+            val legacyDatabase = sequenceOf("osudroid_test.db", "osudroid.db")
+                .map { File(databaseDir, it) }
+                .firstOrNull { it.isFile && it.length() > 0 }
 
-            if (oldDatabaseFile.exists()) {
+            if (legacyDatabase != null) {
+                // DBOpenHelper also copies osudroid.db to osudroid_test.db when
+                // the original client used the short name.
+                val databaseToArchive = File(databaseDir, "osudroid_test.db")
+
                 GlobalManager.getInstance().info = "Migrating score table..."
 
                 DBOpenHelper.getOrCreate(context).writableDatabase.use { db ->
@@ -629,7 +636,10 @@ object DatabaseManager {
                         scoreInfoTable.insertScores(scoreInfos)
 
                         if (pendingScores <= 0) {
-                            oldDatabaseFile.renameTo(File(Config.getCorePath(), "databases/osudroid_old.db"))
+                            archiveLegacyDatabase(databaseToArchive)
+                            if (legacyDatabase != databaseToArchive) {
+                                archiveLegacyDatabase(legacyDatabase, "osudroid_legacy_old.db")
+                            }
                         }
                     }
 
@@ -637,10 +647,29 @@ object DatabaseManager {
 
             }
 
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             Log.e("DatabaseManager", "Failed to migrate legacy score table", e)
         }
 
+    }
+
+    /** Renames a consumed legacy database so it is not imported twice. */
+    private fun archiveLegacyDatabase(file: File, name: String = "osudroid_old.db") {
+        if (!file.isFile) {
+            return
+        }
+        val target = File(file.parentFile, name)
+        if (target.exists() && !target.delete()) {
+            Log.w("DatabaseManager", "Could not replace old database backup ${target.absolutePath}")
+        }
+        if (!file.renameTo(target)) {
+            try {
+                file.copyTo(target, overwrite = true)
+                file.delete()
+            } catch (e: Exception) {
+                Log.w("DatabaseManager", "Could not archive legacy database $file", e)
+            }
+        }
     }
 
 }
