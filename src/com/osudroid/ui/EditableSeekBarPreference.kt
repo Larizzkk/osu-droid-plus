@@ -6,7 +6,7 @@ import android.util.AttributeSet
 import androidx.preference.PreferenceViewHolder
 import androidx.preference.SeekBarPreference
 import com.reco1l.osu.ui.PromptDialog
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 /**
  * A [SeekBarPreference] that allows for keyboard input.

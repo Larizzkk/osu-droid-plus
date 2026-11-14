@@ -26,6 +26,7 @@ import androidx.core.view.forEach
 import androidx.core.view.get
 import androidx.core.view.updateLayoutParams
 import androidx.preference.CheckBoxPreference
+import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceManager
 import androidx.preference.SeekBarPreference
@@ -70,9 +71,10 @@ import ru.nsu.ccfit.zuev.osu.LibraryManager
 import ru.nsu.ccfit.zuev.osu.MainActivity
 import ru.nsu.ccfit.zuev.osu.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.MoverSettings
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager
 
 
@@ -221,7 +223,9 @@ class SettingsFragment : SettingsFragment() {
         }
 
         createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
+        createSectionButton("Movements", R.drawable.videogame_asset_24px, Section.Movements)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
+        createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
 
 
         sectionSelector[0].topMargin = 32.dp
@@ -246,6 +250,8 @@ class SettingsFragment : SettingsFragment() {
         Section.Audio -> handleAudioSectionPreferences()
         Section.Library -> handleLibrarySectionPreferences()
         Section.Advanced -> handleAdvancedSectionPreferences()
+        Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
+        Section.Movements -> handleMovementsSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
         Section.Player -> handlePlayerSectionPreferences()
         Section.Room -> handleRoomSectionPreferences()
@@ -405,6 +411,11 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
+        findPreference<SeekBarPreference>("kiaiFlashBrightness")?.setOnPreferenceChangeListener { _, newValue ->
+            Config.setInt("kiaiFlashBrightness", newValue as Int)
+            true
+        }
+
         findPreference<Preference>("hud_editor")!!.apply {
 
             if (Multiplayer.isMultiplayer) {
@@ -465,6 +476,84 @@ class SettingsFragment : SettingsFragment() {
                 playfieldAreaDisplay.update()
                 true
             }
+        }
+
+    }
+
+
+    private fun handleOsuDroidPlusSectionPreferences() {
+        findPreference<Preference>("serverLink")?.setOnPreferenceClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://osu-droid-plus-server-v2.larizrkpee.workers.dev")))
+            true
+        }
+    }
+
+
+    /** Switches the visible preferences to [target], used after a reset. */
+    private fun loadSection(target: Section) {
+        root?.findFocus()?.clearFocus()
+        listView.removeAllViews()
+        section = target
+        setPreferencesFromResource(target.xml, null)
+    }
+
+
+    private fun handleMovementsSectionPreferences() {
+        // Every seekbar stores an Int; movers read them through MoverSettings,
+        // which tolerates both Int and Float (never write these keys as Float).
+        findPreference<ListPreference>("autoplayStyle")?.setOnPreferenceChangeListener { _, newValue ->
+            val style = newValue as String
+            Config.setString("autoplayStyle", style)
+            GlobalManager.getInstance().gameScene?.onReplayMovementStyleChanged(style)
+            true
+        }
+
+        findPreference<Preference>("resetMoverSettings")?.setOnPreferenceClickListener {
+            // danser-go DefaultsFactory defaults.
+            Config.setString("autoplayStyle", "linear")
+            Config.setBoolean("linearWaitForPreempt", true)
+            Config.setInt("linearReactionTime", 100)
+            Config.setBoolean("linearChoppyLongObjects", false)
+            Config.setBoolean("sliderDance", true)
+            Config.setBoolean("sliderDanceRandom", false)
+            Config.setInt("bezierAggressiveness", 60)
+            Config.setInt("flowerAngleOffset", 90)
+            Config.setInt("flowerDistanceMult", 67)
+            Config.setInt("flowerStreamAngleOffset", 90)
+            Config.setInt("flowerLongJump", -1)
+            Config.setInt("flowerLongJumpMult", 70)
+            Config.setBoolean("flowerLongJumpOnEqualPos", false)
+            Config.setInt("circularRadiusMultiplier", 100)
+            Config.setInt("circularStreamTrigger", 130)
+            Config.setBoolean("splineRotationalForce", false)
+            Config.setBoolean("splineStreamHalfCircle", true)
+            Config.setBoolean("splineStreamWobble", true)
+            Config.setInt("splineWobbleScale", 67)
+            Config.setBoolean("momentumSkipStackAngles", false)
+            Config.setBoolean("momentumStreamRestrict", true)
+            Config.setInt("momentumStreamMult", 70)
+            Config.setInt("momentumDurationTrigger", 500)
+            Config.setInt("momentumDurationMult", 200)
+            Config.setInt("momentumRestrictAngle", 90)
+            Config.setInt("momentumRestrictArea", 40)
+            Config.setBoolean("momentumRestrictInvert", true)
+            Config.setInt("momentumDistanceMult", 60)
+            Config.setInt("momentumDistanceMultOut", 45)
+            Config.setInt("exgonDelay", 50)
+            Config.setInt("pippiRotationSpeed", 160)
+            Config.setInt("pippiRadiusMultiplier", 98)
+            Config.setInt("pippiSpinnerRadius", 100)
+            Config.setString("spinnerMover", "circle")
+            Config.setInt("spinnerRadius", 100)
+
+            // Drop the hot-path number cache so running movers pick the values up.
+            MoverSettings.clearCache()
+
+            ToastLogger.showText(R.string.movements_reset_done, false)
+
+            // Restart this section so every visible value shows the default again.
+            loadSection(Section.Movements)
+            true
         }
     }
 
@@ -737,6 +826,8 @@ class SettingsFragment : SettingsFragment() {
         Library(R.xml.settings_library),
         Input(R.xml.settings_input),
         Advanced(R.xml.settings_advanced),
+        Movements(R.xml.settings_movements),
+        OsuDroidPlus(R.xml.settings_osudroidplus),
 
         // Multiplayer exclusive
         Room(R.xml.multiplayer_room_settings),

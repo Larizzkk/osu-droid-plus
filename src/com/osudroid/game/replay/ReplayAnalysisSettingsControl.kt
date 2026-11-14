@@ -5,7 +5,7 @@ import com.reco1l.andengine.ui.form.FormCheckbox
 import com.reco1l.andengine.ui.form.FormSlider
 import kotlin.math.roundToInt
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 /**
  * Controls the analysis overlay settings when replaying.

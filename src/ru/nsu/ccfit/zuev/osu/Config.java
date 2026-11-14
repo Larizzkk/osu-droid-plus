@@ -11,7 +11,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
 
-import com.google.firebase.messaging.FirebaseMessaging;
 
 import java.io.File;
 import java.util.HashMap;
@@ -27,6 +26,7 @@ import net.margaritov.preference.colorpicker.ColorPickerPreference;
 
 import org.anddev.andengine.util.Debug;
 
+import ru.nsu.ccfit.zuev.osu.game.GameHelper;
 import ru.nsu.ccfit.zuev.osu.helper.FileUtils;
 import ru.nsu.ccfit.zuev.osu.scoring.BeatmapLeaderboardScoringMode;
 
@@ -53,6 +53,8 @@ public class Config {
         showFPS,
         animateFollowCircle,
         animateComboText,
+        animateReverseArrows,
+        notelockShake,
         snakingInSliders,
         snakingOutSliders,
         playMusicPreview,
@@ -69,8 +71,9 @@ public class Config {
         removeSliderLock,
         displayScoreStatistics,
         hideReplayMarquee,
+        hideReplaySettingsPanel,
         hideInGameUI,
-        receiveAnnouncements,
+        parallaxEnabled,
         enableStoryboard,
         safeBeatmapBg,
         useNightcoreOnMultiplayer,
@@ -181,6 +184,7 @@ public class Config {
         keepBackgroundAspectRatio = prefs.getBoolean("keepBackgroundAspectRatio", false);
         noChangeDimInBreaks = prefs.getBoolean("noChangeDimInBreaks", false);
         dimHitObjects = prefs.getBoolean("dimHitObjects", true);
+        parallaxEnabled = prefs.getBoolean("parallaxEnabled", false);
         forceMaxRefreshRate = prefs.getBoolean("forceMaxRefreshRate", false);
         frameLimiter = parseFrameLimiter(prefs.getString("frameLimiter", String.valueOf(FRAME_LIMITER_VSYNC)));
 
@@ -191,6 +195,8 @@ public class Config {
 
         animateFollowCircle = prefs.getBoolean("animateFollowCircle", true);
         animateComboText = prefs.getBoolean("animateComboText", true);
+        animateReverseArrows = prefs.getBoolean("animateReverseArrows", true);
+        notelockShake = prefs.getBoolean("notelockShake", true);
         snakingInSliders = prefs.getBoolean("snakingInSliders", true);
         snakingOutSliders = prefs.getBoolean("snakingOutSliders", true);
 
@@ -270,8 +276,8 @@ public class Config {
         removeSliderLock = prefs.getBoolean("removeSliderLock", false);
         displayScoreStatistics = prefs.getBoolean("displayScoreStatistics", false);
         hideReplayMarquee = prefs.getBoolean("hideReplayMarquee", false);
+        hideReplaySettingsPanel = prefs.getBoolean("hideReplaySettingsPanel", false);
         hideInGameUI = prefs.getBoolean("hideInGameUI", false);
-        receiveAnnouncements = prefs.getBoolean("receiveAnnouncements", true);
         safeBeatmapBg = prefs.getBoolean("safebeatmapbg", false);
         shiftPitchInRateChange = prefs.getBoolean("shiftPitchInRateChange", false);
         backButtonPressTime = Config.getInt("back_button_press_time", 300);
@@ -280,12 +286,6 @@ public class Config {
         useNightcoreOnMultiplayer = prefs.getBoolean("player_nightcore", false);
         submitScoreOnMultiplayer = prefs.getBoolean("player_submitScore", true);
         preferModAcronymInMultiplayer = prefs.getBoolean("player_preferModAcronym", false);
-
-        if(receiveAnnouncements) {
-            FirebaseMessaging.getInstance().subscribeToTopic("announcements");
-        }else {
-            FirebaseMessaging.getInstance().unsubscribeFromTopic("announcements"); 
-        }
 
         //Init
         onlineDeviceID = prefs.getString("installID", null);
@@ -343,6 +343,10 @@ public class Config {
     }
 
     public static boolean isRemoveSliderLock() {
+        if (GameHelper.isTwoButtons()) {
+            return true;
+        }
+
         //noinspection DataFlowIssue
         return Multiplayer.isConnected() ? Multiplayer.room.getGameplaySettings().isRemoveSliderLock() : removeSliderLock;
     }
@@ -504,6 +508,14 @@ public class Config {
 
     public static boolean isAnimateComboText() {
         return animateComboText;
+    }
+
+    public static boolean isAnimateReverseArrows() {
+        return animateReverseArrows;
+    }
+
+    public static boolean isNotelockShake() {
+        return notelockShake;
     }
 
 
@@ -724,20 +736,20 @@ public class Config {
         Config.hideReplayMarquee = hideReplayMarquee;
     }
 
+    public static boolean isHideReplaySettingsPanel() {
+        return hideReplaySettingsPanel;
+    }
+
+    public static void setHideReplaySettingsPanel(boolean hideReplaySettingsPanel) {
+        Config.hideReplaySettingsPanel = hideReplaySettingsPanel;
+    }
+
     public static boolean isHideInGameUI() {
         return hideInGameUI;
     }
 
     public static void setHideInGameUI(boolean hideInGameUI) {
         Config.hideInGameUI = hideInGameUI;
-    }
-
-    public static boolean isReceiveAnnouncements() {
-        return receiveAnnouncements;
-    }
-
-    public static void setReceiveAnnouncements(boolean receiveAnnouncements) {
-        Config.receiveAnnouncements = receiveAnnouncements;
     }
 
     public static boolean isSafeBeatmapBg() {
@@ -816,6 +828,19 @@ public class Config {
 
     public static boolean isDimHitObjects() {
         return dimHitObjects;
+    }
+
+    /**
+     * Background parallax: the beatmap background (gameplay) and the menu background
+     * (main menu) are overscanned and shifted against the pointer/cursor.
+     */
+    public static boolean isParallaxEnabled() {
+        return parallaxEnabled;
+    }
+
+    public static void setParallaxEnabled(boolean enabled) {
+        parallaxEnabled = enabled;
+        setBoolean("parallaxEnabled", enabled);
     }
 
     public static boolean isForceMaxRefreshRate() {
@@ -925,6 +950,15 @@ public class Config {
         sharedPreferences.edit().putString(key, value).commit();
     }
 
+    /**
+     * Returns the raw stored value for a key regardless of its type, or {@code null} if the key is absent.
+     * Used to tolerate legacy value types (for example a {@code Float} left behind by a preference that has
+     * since become an integer slider).
+     */
+    public static Object getRaw(String key) {
+        return sharedPreferences.getAll().get(key);
+    }
+
     public static float getFloat(String key, float defaultValue) {
         try {
             return sharedPreferences.getFloat(key, defaultValue);
@@ -938,4 +972,50 @@ public class Config {
         sharedPreferences.edit().putFloat(key, value).commit();
     }
 
+
+    // osu!droid+ cursor trail settings
+    public static float getTrailLength() {
+        return getInt("trailLength", 200) / 100f;
+    }
+
+    public static void setTrailLength(float trailLength) {
+        setInt("trailLength", (int) (trailLength * 100));
+    }
+
+    public static float getTrailSize() {
+        return getInt("trailSize", 100) / 100f;
+    }
+
+    public static void setTrailSize(float size) {
+        setInt("trailSize", (int) (size * 100));
+    }
+
+    public static float getTrailWidth() {
+        return getInt("trailWidth", 100) / 100f;
+    }
+
+    public static void setTrailWidth(float width) {
+        setInt("trailWidth", (int) (width * 100));
+    }
+
+    /**
+     * Long trail removal mode. When ON (default), trail points age out with
+     * danser-go's count-proportional formula. When OFF, every point lives
+     * exactly {@link #getTrailFadeTime()} seconds of gameplay time instead.
+     */
+    public static boolean isTrailFastRemoval() {
+        return getBoolean("trailFastRemoval", true);
+    }
+
+    public static void setTrailFastRemoval(boolean enabled) {
+        setBoolean("trailFastRemoval", enabled);
+    }
+
+    public static float getTrailFadeTime() {
+        return getInt("trailFadeTime", 200) / 100f;
+    }
+
+    public static void setTrailFadeTime(float seconds) {
+        setInt("trailFadeTime", (int) (seconds * 100));
+    }
 }

@@ -29,6 +29,12 @@ class ReplaySettingsPanel(private val showAnalysisControls: Boolean) : UIContain
         private set
 
     /**
+     * The autoplay movement style card shown during autoplay and replay playback.
+     */
+    lateinit var movementControl: ReplayMovementControl
+        private set
+
+    /**
      * The analysis settings card. Only created when [showAnalysisControls] is `true`, otherwise `null`.
      */
     // Must be declared above elementContainer. Its initializer calls addControls(), and an `= null` initializer
@@ -104,6 +110,9 @@ class ReplaySettingsPanel(private val showAnalysisControls: Boolean) : UIContain
 
         visualSettingsControl = ReplayVisualSettingsControl()
         +visualSettingsControl
+
+        movementControl = ReplayMovementControl()
+        +movementControl
 
         if (showAnalysisControls) {
             val card = ReplayAnalysisSettingsControl()

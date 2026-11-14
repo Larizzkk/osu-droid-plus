@@ -18,6 +18,15 @@
             android:summary="@string/opt_sound_volume_summary"
             android:title="@string/opt_sound_volume_title"
             app:showSeekBarValue="true"
+            app:layout="@layout/settings_preference_seekbar" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="heartbeatVolume"
+            android:max="100"
+            android:summary="@string/droidplus_heartbeat_volume_summary"
+            android:title="@string/droidplus_heartbeat_volume_title"
+            app:showSeekBarValue="true"
             app:layout="@layout/settings_preference_seekbar_bottom" />
 
     </PreferenceCategory>

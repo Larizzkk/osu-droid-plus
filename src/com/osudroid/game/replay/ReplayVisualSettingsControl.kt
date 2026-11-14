@@ -1,6 +1,7 @@
 package com.osudroid.game.replay
 
 import com.reco1l.andengine.ui.UICard
+import com.reco1l.andengine.ui.form.FormCheckbox
 import com.reco1l.andengine.ui.form.FormSlider
 import kotlin.math.roundToInt
 import ru.nsu.ccfit.zuev.osu.Config
@@ -32,15 +33,41 @@ class ReplayVisualSettingsControl : UICard() {
         onValueChanged = { onBackgroundBrightnessChanged?.invoke(it / 100f) }
     }
 
+    private val parallaxToggle = object : FormCheckbox(Config.isParallaxEnabled()) {
+        override fun onControlValueChanged() {
+            // Skip the very first invocation: FormControl fires onControlValueChanged
+            // while the control tree is inside its constructor.
+            if (!isInitialized) {
+                isInitialized = control.value
+                super.onControlValueChanged()
+                return
+            }
+            Config.setParallaxEnabled(control.value)
+            onParallaxChanged?.invoke(control.value)
+            super.onControlValueChanged()
+        }
+    }.apply {
+        label = "Parallax"
+    }
+
+    private var isInitialized = false
+
     /**
      * Called when the background brightness was changed. The argument is the background brightness (from 0 to 1).
      */
     var onBackgroundBrightnessChanged: ((Float) -> Unit)? = null
+
+    /**
+     * Called when the parallax toggle changed. The gameplay background has to be
+     * rebuilt so the overscan factor applies immediately.
+     */
+    var onParallaxChanged: ((Boolean) -> Unit)? = null
 
     init {
         width = FillParent
         title = "Visual Settings"
 
         content += brightnessSlider
+        content += parallaxToggle
     }
 }

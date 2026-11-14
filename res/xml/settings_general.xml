@@ -54,17 +54,6 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/opt_category_community">
-
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="receiveAnnouncements"
-            android:summary="@string/opt_receive_announcements_summary"
-            android:title="@string/opt_receive_announcements_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
-
-    </PreferenceCategory>
-
     <PreferenceCategory android:title="@string/opt_category_updates">
 
         <Preference

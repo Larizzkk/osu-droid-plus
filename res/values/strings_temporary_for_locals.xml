@@ -3,6 +3,12 @@
 <!-- This file here is for new strings that will be temporary:-->
 <!-- Link to localizations pack: https://github.com/osudroid/language-pack-->
 
+    <string name="opt_animate_reverse_arrows_title">Animate slider reverse arrows</string>
+    <string name="opt_animate_reverse_arrows_summary">Pulse repeat arrows while a slider is active (danser-go style)</string>
+
+    <string name="opt_notelock_shake_title">Notelock shake</string>
+    <string name="opt_notelock_shake_summary">Shake an object when a press lands on it while it is locked behind an earlier object</string>
+
     <string name="replay_analysis_title">Analysis</string>
     <string name="replay_analysis_show_tap_markers">Show tap markers</string>
     <string name="replay_analysis_show_frame_markers">Show frame markers</string>

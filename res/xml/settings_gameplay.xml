@@ -9,6 +9,20 @@
             android:key="showfirstapproachcircle"
             android:summary="@string/opt_show_first_approach_circle_summary"
             android:title="@string/opt_show_first_approach_circle_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="notelockShake"
+            android:summary="@string/opt_notelock_shake_summary"
+            android:title="@string/opt_notelock_shake_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="animateReverseArrows"
+            android:summary="@string/opt_animate_reverse_arrows_summary"
+            android:title="@string/opt_animate_reverse_arrows_title"
             app:layout="@layout/settings_preference_checkbox_bottom" />
 
     </PreferenceCategory>
@@ -96,6 +110,13 @@
             android:key="hideReplayMarquee"
             android:summary="@string/opt_hide_replay_marquee_summary"
             android:title="@string/opt_hide_replay_marquee_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="hideReplaySettingsPanel"
+            android:summary="@string/opt_hide_replay_settings_panel_summary"
+            android:title="@string/opt_hide_replay_settings_panel_title"
             app:layout="@layout/settings_preference_checkbox" />
 
         <CheckBoxPreference

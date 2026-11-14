@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string-array name="spinner_mover_names">
+        <item>Circle</item>
+        <item>Heart</item>
+        <item>Triangle</item>
+        <item>Square</item>
+        <item>Cube</item>
+    </string-array>
+    <string-array name="spinner_mover_values">
+        <item>circle</item>
+        <item>heart</item>
+        <item>triangle</item>
+        <item>square</item>
+        <item>cube</item>
+    </string-array>
+
+    <string name="movements_cat_type">Movement Type</string>
+    <string name="movements_type_title">Movement Type</string>
+    <string name="movements_type_summary">Autoplay cursor movement style</string>
+    <string name="movements_slider_dance_title">Slider Dance</string>
+    <string name="movements_slider_dance_summary">danser-go style: a slider becomes dummy circles at its head and at every tick, repeat and tail, so the cursor dances across it and hits each scoring point on time</string>
+    <string name="movements_slider_dance_random_title">Random Slider Dance</string>
+    <string name="movements_slider_dance_random_summary">danser-go RandomSliderDance: each slider is randomly danced or crossed normally, roughly half of them. Can be used on its own without Slider Dance</string>
+    <string name="movements_cat_linear">Linear</string>
+    <string name="movements_linear_wait_preempt_title">Wait For Preempt</string>
+    <string name="movements_linear_wait_preempt_summary">Cursor waits until the object approaches the screen before moving</string>
+    <string name="movements_linear_reaction_title">Reaction Time (ms)</string>
+    <string name="movements_linear_reaction_summary">How late the cursor starts moving when Wait For Preempt is on</string>
+    <string name="movements_linear_choppy_title">Choppy Long Objects</string>
+    <string name="movements_linear_choppy_summary">Follow sliders in 60fps steps instead of smooth interpolation</string>
+    <string name="movements_cat_bezier">Bezier</string>
+    <string name="movements_bezier_aggressiveness_title">Aggressiveness</string>
+    <string name="movements_bezier_aggressiveness_summary">How energetic the movement between objects is</string>
+    <string name="movements_cat_flower">Flower (Angle Offset)</string>
+    <string name="movements_flower_angle_offset_title">Angle Offset (deg)</string>
+    <string name="movements_flower_angle_offset_summary">Base angle offset applied to movement</string>
+    <string name="movements_flower_distance_mult_title">Distance Multiplier</string>
+    <string name="movements_flower_distance_mult_summary">Movement control point distance (100 = 1.00x)</string>
+    <string name="movements_flower_stream_angle_offset_title">Stream Angle Offset (deg)</string>
+    <string name="movements_flower_stream_angle_offset_summary">Angle offset used during streams</string>
+    <string name="movements_flower_long_jump_title">Long Jump (ms)</string>
+    <string name="movements_flower_long_jump_summary">Time delta threshold to trigger Long Jump (-1 = off)</string>
+    <string name="movements_flower_long_jump_mult_title">Long Jump Multiplier</string>
+    <string name="movements_flower_long_jump_mult_summary">Distance multiplier when Long Jump triggers (100 = 1.00x)</string>
+    <string name="movements_flower_long_jump_equal_title">Long Jump On Equal Position</string>
+    <string name="movements_flower_long_jump_equal_summary">Apply Long Jump even when objects are stacked</string>
+    <string name="movements_cat_circular">Circular (Half Circle)</string>
+    <string name="movements_circular_radius_title">Radius Multiplier</string>
+    <string name="movements_circular_radius_summary">Half-circle arc size (100 = 1.00x)</string>
+    <string name="movements_circular_stream_trigger_title">Stream Trigger (ms)</string>
+    <string name="movements_circular_stream_trigger_summary">Time below which arc direction inverts (streams)</string>
+    <string name="movements_cat_spline">Spline</string>
+    <string name="movements_spline_rotational_title">Rotational Force</string>
+    <string name="movements_spline_rotational_summary">Alternate rotation direction on large jumps between streams</string>
+    <string name="movements_spline_half_circle_title">Stream Half Circle</string>
+    <string name="movements_spline_half_circle_summary">Draw half-circle arcs during streams</string>
+    <string name="movements_spline_wobble_title">Stream Wobble</string>
+    <string name="movements_spline_wobble_summary">Wobble the cursor during streams</string>
+    <string name="movements_spline_wobble_scale_title">Wobble Scale</string>
+    <string name="movements_spline_wobble_scale_summary">Wobble amplitude (100 = 1.00x)</string>
+    <string name="movements_cat_momentum">Momentum</string>
+    <string name="movements_momentum_skip_stack_title">Skip Stack Angles</string>
+    <string name="movements_momentum_skip_stack_summary">Use raw positions instead of stacked positions for angles</string>
+    <string name="movements_momentum_stream_restrict_title">Stream Restrict</string>
+    <string name="movements_momentum_stream_restrict_summary">Special stream handling in Momentum</string>
+    <string name="movements_momentum_stream_mult_title">Stream Multiplier</string>
+    <string name="movements_momentum_stream_mult_summary">Distance multiplier during streams (100 = 1.00x)</string>
+    <string name="movements_momentum_duration_trigger_title">Duration Trigger (ms)</string>
+    <string name="movements_momentum_duration_trigger_summary">Gap length that triggers Duration Multiplier</string>
+    <string name="movements_momentum_duration_mult_title">Duration Multiplier</string>
+    <string name="movements_momentum_duration_mult_summary">Extra distance multiplier on long gaps (100 = 1.00x)</string>
+    <string name="movements_momentum_restrict_angle_title">Restrict Angle (deg)</string>
+    <string name="movements_momentum_restrict_angle_summary">Clamp angle for stream exits</string>
+    <string name="movements_momentum_restrict_area_title">Restrict Area (deg)</string>
+    <string name="movements_momentum_restrict_area_summary">Angular area where restriction applies</string>
+    <string name="movements_momentum_restrict_invert_title">Restrict Invert</string>
+    <string name="movements_momentum_restrict_invert_summary">Invert the restriction side</string>
+    <string name="movements_momentum_distance_in_title">Distance Multiplier (In)</string>
+    <string name="movements_momentum_distance_in_summary">Control point distance inside restriction area (100 = 1.00x)</string>
+    <string name="movements_momentum_distance_out_title">Distance Multiplier (Out)</string>
+    <string name="movements_momentum_distance_out_summary">Control point distance outside restriction area (100 = 1.00x)</string>
+    <string name="movements_cat_exgon">ExGon</string>
+    <string name="movements_exgon_delay_title">Delay (ms)</string>
+    <string name="movements_exgon_delay_summary">How often the cursor jumps to a new random position</string>
+    <string name="movements_cat_pippi">Pippi (osu!pippi wobble)</string>
+    <string name="movements_pippi_rotation_speed_title">Rotation Speed</string>
+    <string name="movements_pippi_rotation_speed_summary">Wobble rotation speed (100 = 1.0x)</string>
+    <string name="movements_pippi_radius_title">Radius Multiplier</string>
+    <string name="movements_pippi_radius_summary">Wobble radius relative to circle radius (100 = 1.00x)</string>
+    <string name="movements_pippi_spinner_radius_title">Spinner Radius (osu!px)</string>
+    <string name="movements_pippi_spinner_radius_summary">Wobble radius around spinners</string>
+    <string name="movements_cat_spinner">Spinner Movement</string>
+    <string name="movements_spinner_shape_title">Spinner Shape</string>
+    <string name="movements_spinner_shape_summary">Cursor path while spinning (danser-go spinner movers)</string>
+    <string name="movements_spinner_radius_title">Spinner Radius (osu!px)</string>
+    <string name="movements_spinner_radius_summary">Size of the spinner movement shape</string>
+    <string name="movements_cat_reset">Reset</string>
+    <string name="movements_reset_title">Reset All Movement Settings</string>
+    <string name="movements_reset_summary">Restore every movement parameter to danser-go defaults</string>
+
+    <string name="movements_reset_done">Movement settings reset to defaults</string>
+
+</resources>
