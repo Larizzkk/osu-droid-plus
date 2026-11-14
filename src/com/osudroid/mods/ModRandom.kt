@@ -50,6 +50,21 @@ class ModRandom : Mod(), IModApplicableToBeatmap {
         precision = 1
     )
 
+    /**
+     * Overall randomization intensity. Higher values increase jump distances,
+     * slider flips and therefore the difficulty (and PP bonus) of the map.
+     */
+    var aggressive by FloatModSetting(
+        name = "Aggressive",
+        key = "aggressive",
+        valueFormatter = { it.roundBy(1).toString() },
+        defaultValue = 1f,
+        minValue = 0.1f,
+        maxValue = 3f,
+        step = 0.1f,
+        precision = 1
+    )
+
     private var random: Random? = null
 
     override fun applyToBeatmap(beatmap: Beatmap, scope: CoroutineScope?) {
