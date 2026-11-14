@@ -131,7 +131,9 @@ public class OnlinePanel extends Entity {
     public void setInfo() {
         nameText.setText(OnlineManager.getInstance().getUsername());
 
-        ppText.setText(String.format(Locale.US, "Performance: %,dpp", Math.round(OnlineManager.getInstance().getPP())));
+        // getPP() is the PP of the last submitted play; the profile panel must
+        // keep showing the player's cumulative PP (same value as at login).
+        ppText.setText(String.format(Locale.US, "Performance: %,dpp", Math.round(OnlineManager.getInstance().getTotalDpp())));
 
         accText.setText(String.format("Accuracy: %.2f%%",
                 OnlineManager.getInstance().getAccuracy() * 100f));
