@@ -75,6 +75,18 @@
             android:paddingRight="24dp"
             tools:text="Folder" />
 
+        <Button
+            android:id="@+id/legacyDbButton"
+            style="@style/button_borderless"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="0"
+            android:drawableLeft="@drawable/download_24px"
+            android:drawableTint="#8C8CB4"
+            android:text="@string/menu_legacy_db"
+            android:textColor="#8C8CB4"
+            tools:text="Legacy DB" />
+
     </LinearLayout>
 
 </RelativeLayout>
