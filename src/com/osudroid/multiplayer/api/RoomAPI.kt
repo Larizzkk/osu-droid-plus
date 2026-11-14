@@ -23,6 +23,8 @@ import io.socket.emitter.Emitter.Listener
 import org.json.JSONArray
 import org.json.JSONObject
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
+import java.util.Timer
+import java.util.TimerTask
 
 object RoomAPI {
 
@@ -47,7 +49,45 @@ object RoomAPI {
     private var socket: Socket? = null
 
     @Volatile
+    private var connectedSocket: Socket? = null
+
+    @Volatile
     internal var lastRoomPassword: String? = null
+
+    @Volatile
+    private var connectTimeout: Timer? = null
+
+    /**
+     * Called when a room connection fails before an [IRoomEventListener] is installed
+     * (for example, when joining from the lobby or an invite link). Without this,
+     * the loading screen stayed up forever if the server never answered.
+     */
+    @Volatile
+    private var connectFailureCallback: ((String?) -> Unit)? = null
+
+    private fun finishConnectionAttempt() {
+        connectTimeout?.cancel()
+        connectTimeout = null
+        connectFailureCallback = null
+    }
+
+    private fun notifyConnectFailure(message: String?, expectedSocket: Socket) {
+        Multiplayer.log("ERROR: room connection failed -> $message")
+
+        val callback = connectFailureCallback
+        finishConnectionAttempt()
+
+        roomEventListener?.onRoomConnectFail(message)
+        callback?.invoke(message)
+
+        if (socket === expectedSocket) {
+            socket = null
+        }
+        connectedSocket = null
+
+        expectedSocket.off()
+        expectedSocket.disconnect()
+    }
 
 
     // https://gist.github.com/Rian8337/ceab4d3b179cbeee7dd548cfcf145b95
@@ -56,10 +96,21 @@ object RoomAPI {
     private val beatmapChanged = Listener {
         Multiplayer.log("RECEIVED: beatmapChanged -> ${it.contentToString()}")
 
-        val json = it[0] as? JSONObject
-        val beatmap = parseBeatmap(json)
+        // An exception thrown here unwinds into the socket.io EventThread and kills the
+        // connection with it (which reads as "the room died" for everyone), so processing is
+        // isolated and the room is always released from its beatmap-change lock, even when
+        // handling fails part-way through.
+        try {
+            val json = it[0] as? JSONObject
+            val beatmap = parseBeatmap(json)
 
-        roomEventListener?.onRoomBeatmapChange(beatmap)
+            roomEventListener?.onRoomBeatmapChange(beatmap)
+        } catch (e: Exception) {
+            Multiplayer.log("ERROR: beatmapChanged handler threw ${e.javaClass.simpleName} — ${e.message}")
+            Multiplayer.log(e)
+
+            Multiplayer.roomScene?.isWaitingForBeatmapChange?.set(false)
+        }
     }
 
     private val hostChanged = Listener {
@@ -228,7 +279,10 @@ object RoomAPI {
 
     private val liveScoreData = Listener {
 
-        val json = it[0] as JSONArray
+        val json = it[0] as? JSONArray ?: run {
+            Multiplayer.log("WARNING: liveScoreData — unexpected payload type: ${it.contentToString()}")
+            return@Listener
+        }
 
         //Multiplayer.log("RECEIVED: liveScoreData -> ${it.contentToString()}")
         roomEventListener?.onRoomLiveLeaderboard(json)
@@ -275,12 +329,7 @@ object RoomAPI {
 
             if (localPlayer == null) {
                 Multiplayer.log("ERROR: initialConnection — local player UID not found in server player list. Disconnecting.")
-                roomEventListener?.onRoomConnectFail("Server did not include local player in room state.")
-
-                socket = null
-
-                expectedSocket.off()
-                expectedSocket.disconnect()
+                notifyConnectFailure("Server did not include local player in room state.", expectedSocket)
                 return@Listener
             }
 
@@ -306,6 +355,9 @@ object RoomAPI {
                 on("allPlayersSkipRequested", allPlayersSkipRequested)
                 on("allPlayersScoreSubmitted", allPlayersScoreSubmitted)
             }
+
+            connectedSocket = expectedSocket
+            finishConnectionAttempt()
 
             // During reconnection, reuse the RoomScene. Creating a new one would:
             // - replace roomEventListener / playerEventListener with a scene that is never displayed (see
@@ -337,12 +389,7 @@ object RoomAPI {
             Multiplayer.log("ERROR: initialConnection handler threw an exception: ${e.javaClass.simpleName} — ${e.message}")
             Multiplayer.log(e)
 
-            roomEventListener?.onRoomConnectFail("Unexpected error processing server room state: ${e.message}")
-
-            socket = null
-
-            expectedSocket.off()
-            expectedSocket.disconnect()
+            notifyConnectFailure("Unexpected error processing server room state: ${e.message}", expectedSocket)
         }
     }
 
@@ -411,19 +458,20 @@ object RoomAPI {
         }
 
         Multiplayer.log("RECEIVED: connect_error -> ${it.contentToString()}")
-
-        roomEventListener?.onRoomConnectFail(it[0].toString())
-
-        socket = null
-
-        expectedSocket.off()
-        expectedSocket.disconnect()
+        notifyConnectFailure(it[0].toString(), expectedSocket)
     }
 
     private fun createDisconnectListener(expectedSocket: Socket) = Listener {
         if (socket !== expectedSocket) return@Listener
 
         Multiplayer.log("RECEIVED: disconnect -> ${it.contentToString()}")
+
+        // A disconnect before initialConnection means the join never completed;
+        // report it as a connection failure so the loading screen can be dismissed.
+        if (connectedSocket !== expectedSocket) {
+            notifyConnectFailure("Connection closed before the room was joined.", expectedSocket)
+            return@Listener
+        }
 
         val reason = it.getOrNull(0) as? String
 
@@ -447,14 +495,18 @@ object RoomAPI {
      * [IRoomEventListener.onRoomConnectFail]
      */
     fun connectToRoom(roomId: Long, userId: Long, gameSessionId: String, roomPassword: String? = null,
-                      multiplayerSessionID: String? = null) {
+                      multiplayerSessionID: String? = null, onConnectFailure: ((String?) -> Unit)? = null) {
         lastRoomPassword = roomPassword
 
         val oldSocket = socket
         socket = null
+        connectedSocket = null
 
         oldSocket?.off()
         oldSocket?.disconnect()
+
+        finishConnectionAttempt()
+        connectFailureCallback = onConnectFailure
 
         val url = "${LobbyAPI.HOST}/$roomId"
         val auth = mutableMapOf<String, String>()
@@ -498,19 +550,34 @@ object RoomAPI {
             on(Socket.EVENT_DISCONNECT, createDisconnectListener(this))
 
         }.connect()
+
+        // The socket.io client retries/hangs on some networks without ever firing
+        // connect_error. Leave the loading screen instead of waiting indefinitely.
+        connectTimeout = Timer("room-connect-timeout", true).also { timer ->
+            timer.schedule(object : TimerTask() {
+                override fun run() {
+                    if (socket === newSocket && connectedSocket !== newSocket) {
+                        notifyConnectFailure("The room connection timed out.", newSocket)
+                    }
+                }
+            }, 20_000)
+        }
     }
 
     /**
      * Disconnect from socket.
      */
     fun disconnect() {
-        socket?.apply {
+        val oldSocket = socket
+        socket = null
+        connectedSocket = null
+        finishConnectionAttempt()
+
+        oldSocket?.apply {
             Multiplayer.log("Disconnected from socket.")
             off()
             disconnect()
         }
-
-        socket = null
     }
 
     // Host only

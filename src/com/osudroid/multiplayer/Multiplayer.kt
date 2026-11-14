@@ -139,7 +139,16 @@ object Multiplayer {
                     roomId = roomID,
                     userId = OnlineManager.getInstance().userId,
                     gameSessionId = OnlineManager.getInstance().sessionId,
-                    roomPassword = password
+                    roomPassword = password,
+                    onConnectFailure = { error ->
+                        updateThread {
+                            ToastLogger.showText(
+                                "Failed to connect to the room: ${error ?: "unknown error"}",
+                                true
+                            )
+                            UIEngine.current.scene = LobbyScene()
+                        }
+                    }
                 )
 
             } catch (e: Exception) {

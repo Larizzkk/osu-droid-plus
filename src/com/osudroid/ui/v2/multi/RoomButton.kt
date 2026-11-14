@@ -6,6 +6,7 @@ import com.osudroid.multiplayer.api.*
 import com.osudroid.multiplayer.api.data.*
 import com.osudroid.ui.v2.*
 import com.osudroid.utils.async
+import com.osudroid.utils.updateThread
 import com.reco1l.andengine.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
@@ -183,7 +184,16 @@ class RoomButton(val lobbyScene: LobbyScene, val room: Room) : UIButton() {
                     roomId = room.id,
                     userId = OnlineManager.getInstance().userId,
                     gameSessionId = OnlineManager.getInstance().sessionId,
-                    roomPassword = password
+                    roomPassword = password,
+                    onConnectFailure = { error ->
+                        updateThread {
+                            ToastLogger.showText(
+                                "Failed to connect to the room: ${error ?: "unknown error"}",
+                                true
+                            )
+                            UIEngine.current.scene = lobbyScene
+                        }
+                    }
                 )
             } catch (e: Exception) {
                 ToastLogger.showText("Failed to connect to the room: ${e.javaClass} - ${e.message}", true)

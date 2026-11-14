@@ -4,6 +4,7 @@ import com.osudroid.resources.R.string
 import com.osudroid.multiplayer.api.*
 import com.osudroid.multiplayer.api.data.*
 import com.osudroid.utils.async
+import com.osudroid.utils.updateThread
 import com.reco1l.andengine.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
@@ -67,7 +68,16 @@ class RoomCreateDialog(lobbyScene: LobbyScene) : UIDialog<UIScrollableContainer>
                             roomId = roomId,
                             userId = OnlineManager.getInstance().userId,
                             gameSessionId = OnlineManager.getInstance().sessionId,
-                            roomPassword = password
+                            roomPassword = password,
+                            onConnectFailure = { error ->
+                                updateThread {
+                                    ToastLogger.showText(
+                                        "Failed to connect to the room: ${error ?: "unknown error"}",
+                                        true
+                                    )
+                                    UIEngine.current.scene = lobbyScene
+                                }
+                            }
                         )
 
                     } catch (e: Exception) {

@@ -149,6 +149,7 @@ class RoomScene(
         ResourceManager.getInstance().loadHighQualityAsset("bpm", "bpm.png")
         ResourceManager.getInstance().loadHighQualityAsset("chat", "chat.png")
         ResourceManager.getInstance().loadHighQualityAsset("download", "download.png")
+        ResourceManager.getInstance().loadHighQualityAsset("download_off", "download_off.png")
         ResourceManager.getInstance().loadHighQualityAsset("send", "send.png")
         ResourceManager.getInstance().loadHighQualityAsset("settings-icon", "settings-icon.png")
         ResourceManager.getInstance().loadHighQualityAsset("missing", "missing.png")
@@ -932,18 +933,28 @@ class RoomScene(
         isWaitingForBeatmapChange.set(false)
 
         val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
+
         updateThread {
             updateBackground(selectedBeatmap?.backgroundPath)
             updateBeatmap(beatmap)
-        }
 
-        if (selectedBeatmap == null) {
-            GlobalManager.getInstance().songService.stop()
-            return
-        }
+            // Audio belongs to the update thread: onManagedUpdate runs there and restarts the
+            // preview as soon as the service reports STOPPED, so stop/preLoad/play issued from
+            // the socket thread could recreate the BASS stream while the update thread is
+            // inside the previous one. A map change is exactly when both fire at once.
+            val songService = GlobalManager.getInstance().songService
 
-        GlobalManager.getInstance().songService.preLoad(selectedBeatmap.audioPath)
-        GlobalManager.getInstance().songService.play()
+            if (songService == null) {
+                return@updateThread
+            }
+
+            if (selectedBeatmap == null) {
+                songService.stop()
+            } else {
+                songService.preLoad(selectedBeatmap.audioPath)
+                songService.play()
+            }
+        }
     }
 
     override fun onRoomHostChange(uid: Long) {

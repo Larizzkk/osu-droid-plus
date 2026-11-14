@@ -246,34 +246,59 @@ class LobbyScene : UIScene() {
                 roomContainer.detachChildren()
             }
 
-            val list = LobbyAPI.getRooms(
-                query = searchQuery,
-                sessionId = OnlineManager.getInstance().sessionId,
-                uid = OnlineManager.getInstance().userId,
-                sign = SecurityUtils.signRequest("${searchQuery ?: ""}_${OnlineManager.getInstance().userId}_${OnlineManager.getInstance().sessionId}")
-            )
+            // A hung HTTP request must not leave the lobby spinner on screen forever.
+            // runInterruptible lets the timeout actually break the blocking OkHttp call.
+            val list = withTimeoutOrNull(15_000) {
+                runInterruptible(Dispatchers.IO) {
+                    LobbyAPI.getRooms(
+                        query = searchQuery,
+                        sessionId = OnlineManager.getInstance().sessionId,
+                        uid = OnlineManager.getInstance().userId,
+                        sign = SecurityUtils.signRequest("${searchQuery ?: ""}_${OnlineManager.getInstance().userId}_${OnlineManager.getInstance().sessionId}")
+                    )
+                }
+            } ?: throw IllegalStateException("The room list request timed out.")
 
             updateThread {
+                try {
+                    list.forEach {
+                        roomContainer.attachChild(RoomButton(this@LobbyScene, it))
+                    }
 
-                list.forEach {
-                    roomContainer.attachChild(RoomButton(this@LobbyScene, it))
-                }
+                    if (list.isEmpty()) {
+                        messageContainer.apply {
+                            detachChildren()
 
-                if (list.isEmpty()) {
+                            text {
+                                font = ResourceManager.getInstance().getFont("smallFont")
+                                applyTheme = { color = it.accentColor }
+                                setText(if (searchQuery.isNullOrEmpty()) string.multiplayer_lobby_no_rooms else string.multiplayer_lobby_no_results)
+                            }
+                        }
+                    } else {
+                        switchContainers(roomContainer)
+                    }
+                } catch (e: Exception) {
+                    Log.e("LobbyScene", "Error rendering multiplayer rooms", e)
+                    ToastLogger.showText(
+                        StringTable.format(string.multiplayer_lobby_fetch_error_toast, e.message),
+                        true
+                    )
                     messageContainer.apply {
                         detachChildren()
 
                         text {
                             font = ResourceManager.getInstance().getFont("smallFont")
                             applyTheme = { color = it.accentColor }
-                            setText(if (searchQuery.isNullOrEmpty()) string.multiplayer_lobby_no_rooms else string.multiplayer_lobby_no_results)
+                            setText(string.multiplayer_lobby_fetch_error)
                         }
                     }
-                } else {
-                    switchContainers(roomContainer)
+                    switchContainers(messageContainer)
+                } finally {
+                    // Rendering happens on another thread, so the coroutine handler above
+                    // cannot release the spinner when RoomButton construction throws.
+                    isFetching = false
                 }
-
-                isFetching = false
             }
         }
     }
