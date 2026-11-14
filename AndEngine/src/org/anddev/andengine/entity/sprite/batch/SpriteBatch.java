@@ -36,13 +36,13 @@ public class SpriteBatch extends Entity {
 	protected final int mCapacity;
 
 	protected int mIndex;
-	private int mVertices;
+	protected int mVertices;
 
 	private int mSourceBlendFunction;
 	private int mDestinationBlendFunction;
 
 	private final SpriteBatchVertexBuffer mSpriteBatchVertexBuffer;
-	private final SpriteBatchTextureRegionBuffer mSpriteBatchTextureRegionBuffer;
+	protected final SpriteBatchTextureRegionBuffer mSpriteBatchTextureRegionBuffer;
 
 	// ===========================================================
 	// Constructors
