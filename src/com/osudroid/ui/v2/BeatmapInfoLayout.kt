@@ -259,9 +259,9 @@ class BeatmapInfoLayout : UILinearContainer() {
         val difficulty = beatmapInfo.getBeatmapDifficulty()
         difficulty.applyMods(GameMode.Droid, mods.values, true)
 
-        val minBpm = (beatmapInfo.bpmMin * totalSpeedMultiplier).roundToInt()
-        val maxBpm = (beatmapInfo.bpmMax * totalSpeedMultiplier).roundToInt()
-        val commonBpm = (beatmapInfo.mostCommonBPM * totalSpeedMultiplier).roundToInt()
+        val minBpm = bpmOf(beatmapInfo.bpmMin, totalSpeedMultiplier)
+        val maxBpm = bpmOf(beatmapInfo.bpmMax, totalSpeedMultiplier)
+        val commonBpm = bpmOf(beatmapInfo.mostCommonBPM, totalSpeedMultiplier)
         val length = (beatmapInfo.length / totalSpeedMultiplier).toLong()
 
         val sdf = SimpleDateFormat(if (length > 3600 * 1000) "HH:mm:ss" else "mm:ss")
@@ -271,12 +271,18 @@ class BeatmapInfoLayout : UILinearContainer() {
         bpmBadge.text = if (minBpm == maxBpm) commonBpm.toString() else "$minBpm-$maxBpm ($commonBpm)"
 
         // Round to 2 decimal places.
-        arText.value = difficulty.ar.roundBy(2).toString()
-        odText.value = difficulty.od.roundBy(2).toString()
-        csText.value = difficulty.difficultyCS.roundBy(2).toString()
-        hpText.value = difficulty.hp.roundBy(2).toString()
+        arText.value = difficulty.ar.sanitised().roundBy(2).toString()
+        odText.value = difficulty.od.sanitised().roundBy(2).toString()
+        csText.value = difficulty.difficultyCS.sanitised().roundBy(2).toString()
+        hpText.value = difficulty.hp.sanitised().roundBy(2).toString()
         starRatingBadge.rating = beatmapInfo.getStarRating().toDouble()
     }
+
+
+    /** [roundToInt] and [roundBy] both throw on NaN; a broken value must not crash the room. */
+    private fun Float.sanitised() = if (isNaN()) 0f else this
+
+    private fun bpmOf(value: Float, rate: Float) = (value * rate).sanitised().roundToInt()
 
 
     companion object {
