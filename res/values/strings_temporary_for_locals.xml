@@ -9,6 +9,10 @@
     <string name="opt_notelock_shake_title">Notelock shake</string>
     <string name="opt_notelock_shake_summary">Shake an object when a press lands on it while it is locked behind an earlier object</string>
 
+    <string name="menu_legacy_db">Legacy DB</string>
+    <string name="legacy_db_imported">Legacy room-plus library imported: %1$d beatmap sets</string>
+    <string name="legacy_db_missing">Legacy room-plus database not found</string>
+
     <string name="replay_analysis_title">Analysis</string>
     <string name="replay_analysis_show_tap_markers">Show tap markers</string>
     <string name="replay_analysis_show_frame_markers">Show frame markers</string>

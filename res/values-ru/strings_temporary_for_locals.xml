@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="menu_legacy_db">Легаси БД</string>
+    <string name="legacy_db_imported">База room-plus загружена: %1$d наборов карт</string>
+    <string name="legacy_db_missing">Легаси-база room-plus не найдена</string>
+</resources>
