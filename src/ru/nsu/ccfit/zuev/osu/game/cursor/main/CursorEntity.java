@@ -185,6 +185,8 @@ public class CursorEntity extends UIComponent {
             trailEnabled = true;
             if (trailImplementation == 0) {
                 ((CursorTrail) trail).setParticlesSpawnEnabled(true);
+            } else if (trailImplementation == 2) {
+                ((CursorTrailClassic) trail).setParticlesSpawnEnabled(true);
             }
         }
     }
@@ -197,6 +199,7 @@ public class CursorEntity extends UIComponent {
             switch (trailImplementation) {
                 case 0: ((CursorTrail) trail).reset(); break;
                 case 1: ((CursorTrailOptimized) trail).reset(); break;
+                case 2: ((CursorTrailClassic) trail).reset(); break;
             }
         }
     }
@@ -222,6 +225,9 @@ public class CursorEntity extends UIComponent {
                         // updateRemovalOnly() while hidden (danser-go behavior).
                         ((CursorTrailOptimized) trail).markDiscontinuity();
                         break;
+                    case 2:
+                        ((CursorTrailClassic) trail).setParticlesSpawnEnabled(false);
+                        break;
                 }
             }
         } else if (!isShowing) {
@@ -232,6 +238,12 @@ public class CursorEntity extends UIComponent {
                 trailEnabled = true;
                 if (trail != null) {
                     ((CursorTrail) trail).setParticlesSpawnEnabled(true);
+                }
+            } else if (trailImplementation == 2) {
+                // Original osu!droid trail also needs no delay.
+                trailEnabled = true;
+                if (trail != null) {
+                    ((CursorTrailClassic) trail).setParticlesSpawnEnabled(true);
                 }
             } else {
                 if (!forceTrailEnabled) {
@@ -296,6 +308,12 @@ public class CursorEntity extends UIComponent {
                     // (no segment interpolation → visibly torn at speed).
                     ((CursorTrail) trail).feedPosition(getX(), getY());
                 }
+            } else if (trailImplementation == 2) {
+                trailEnabled = true;
+                if (trail != null) {
+                    ((CursorTrailClassic) trail).setParticlesSpawnEnabled(true);
+                    ((CursorTrailClassic) trail).update();
+                }
             } else if (forceTrailEnabled || !trailDelayEnabled) {
                 if (!trailEnabled) {
                     trailEnabled = true;
@@ -326,6 +344,9 @@ public class CursorEntity extends UIComponent {
                     // Legacy trail is fed from the block above (feedPosition).
                     break;
                 case 1: ((CursorTrailOptimized) trail).updatePosition(tx, ty, pSecondsElapsed); break;
+                case 2:
+                    // Particle emitter follows the cursor via setPosition().
+                    break;
             }
         } else if (!isShowing && trailImplementation == 1 && trail != null) {
             // Hidden cursor: keep aging the remaining points out (danser-go removal runs
@@ -379,6 +400,9 @@ public class CursorEntity extends UIComponent {
                     break;
                 case 1: // Long trail
                     ((CursorTrailOptimized) trail).updateTrailLength();
+                    break;
+                case 2:
+                    // The classic particle trail has a fixed lifetime.
                     break;
             }
         }
