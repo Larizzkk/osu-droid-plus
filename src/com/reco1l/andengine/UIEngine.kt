@@ -33,6 +33,12 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options),
     val resources = UIResourceManager(context)
 
     /**
+     * Legacy-style skin cursor drawn in every menu scene. Gameplay hides it and
+     * draws its own per-pointer cursors.
+     */
+    val menuCursor = ru.nsu.ccfit.zuev.osuplusplus.MenuCursor(this)
+
+    /**
      * The current focused entity.
      */
     var focusedEntity: UIComponent? = null
@@ -65,6 +71,11 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options),
         camera.hud = overlay
     }
 
+
+    override fun onUpdateScene(pSecondsElapsed: Float) {
+        menuCursor.update(pSecondsElapsed)
+        super.onUpdateScene(pSecondsElapsed)
+    }
 
     override fun onDrawScene(pGL: GL10) {
         val focusedEntity = focusedEntity
@@ -174,6 +185,9 @@ class UIEngine(val context: Activity, options: EngineOptions) : Engine(options),
 
 
     override fun onTouchHUD(camera: Camera, event: TouchEvent): Boolean {
+        // Observe only: the event is still dispatched below. Kept in the existing
+        // override so there is exactly one HUD touch entry point.
+        menuCursor.onTouch(event)
 
         if (checkFocusedEntityBounds(event)) {
             return true

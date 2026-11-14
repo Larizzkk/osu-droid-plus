@@ -73,11 +73,13 @@ class HUDLeaderboard : HUDElement() {
             val elapsed = (System.currentTimeMillis() - lastTimeDataChange) * 0.001f
 
             when {
+                // Flash the colour only: interpolating alpha made the row jump to full
+                // opacity for the duration of the flash.
                 elapsed < 1 -> setColor(
                     1 + (r - 1) * elapsed,
                     1 + (g - 1) * elapsed,
                     1 + (b - 1) * elapsed,
-                    1 + (a - 1) * elapsed
+                    a
                 )
 
                 else -> setColor(r, g, b, a)
@@ -236,15 +238,19 @@ class HUDLeaderboard : HUDElement() {
 
             if (it == playerItem) {
 
-                // This is only used for multiplayer when the list gets invalidated we try to figure if the rank was
-                // changed by referencing the old player sprite.
-                if (playerSprite?.data?.rank != it.rank) {
+                // Only a comparison against an ALREADY displayed sprite is a real
+                // change: on the first invalidate playerSprite is null, which made
+                // these fire every game start and flash the row white for a second
+                // ("lights up when it shouldn't").
+                val previousSprite = playerSprite
+
+                if (previousSprite != null && previousSprite.data.rank != it.rank) {
                     lastTimeDataChange = System.currentTimeMillis()
                 }
 
                 // Determining if the player 'isAlive' was changed from the last time the leaderboard was invalidated,
                 // this is only used for multiplayer.
-                if (playerSprite?.data?.isAlive != it.isAlive) {
+                if (previousSprite != null && previousSprite.data.isAlive != it.isAlive) {
                     lastTimeDataChange = System.currentTimeMillis()
                 }
 

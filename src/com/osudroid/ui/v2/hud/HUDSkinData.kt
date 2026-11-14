@@ -6,6 +6,8 @@ import com.osudroid.ui.v2.hud.elements.HUDBackButton
 import com.osudroid.ui.v2.hud.elements.HUDBarHitErrorMeter
 import com.osudroid.ui.v2.hud.elements.HUDComboCounter
 import com.osudroid.ui.v2.hud.elements.HUDHealthBar
+import com.osudroid.ui.v2.hud.elements.HUDHitErrorMeter
+import com.osudroid.ui.v2.hud.elements.HUDKeyCounter
 import com.osudroid.ui.v2.hud.elements.HUDPieSongProgress
 import com.osudroid.ui.v2.hud.elements.HUDScoreCounter
 import com.osudroid.ui.v2.hud.elements.HUDUnstableRateCounter
@@ -91,6 +93,12 @@ data class HUDSkinData(val elements: List<HUDElementSkinData>) {
                     type = HUDBarHitErrorMeter::class,
                     anchor = Anchor.BottomCenter,
                     origin = Anchor.BottomCenter
+                ),
+                HUDElementSkinData(
+                    type = HUDKeyCounter::class,
+                    anchor = Anchor.BottomRight,
+                    origin = Anchor.BottomRight,
+                    position = Vec2(-10f, -100f)
                 )
             )
         )

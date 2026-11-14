@@ -20,6 +20,17 @@ interface IGameplayEvents {
 
     fun onHitObjectLifetimeStart(obj: HitObject)
 
+    /**
+     * Called when gameplay starts holding a key on the player's behalf (autoplay /
+     * relax): on a slider head hit and at a spinner start. Paired with [onKeyHoldEnd]
+     * at the slider/spinner end so the key counter can show the key held for the whole
+     * object instead of a short flash.
+     */
+    fun onKeyHoldStart() {}
+
+    /** Counterpart of [onKeyHoldStart], fired when the slider/spinner ends. */
+    fun onKeyHoldEnd() {}
+
     fun onNoteHit(statistics: StatisticV2)
 
     fun onBreakStateChange(isBreak: Boolean)

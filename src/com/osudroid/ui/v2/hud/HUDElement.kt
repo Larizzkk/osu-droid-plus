@@ -45,7 +45,10 @@ enum class HUDElements(val type: KClass<out HUDElement>) {
     notes_per_second_counter(HUDNotesPerSecondCounter::class),
     taps_per_second_counter(HUDTapsPerSecondCounter::class),
     back_button(HUDBackButton::class),
-    leaderboard(HUDLeaderboard::class);
+    grade_display(HUDGradeDisplay::class),
+    leaderboard(HUDLeaderboard::class),
+    cursor_speed(HUDCursorSpeed::class),
+    key_counter(HUDKeyCounter::class);
 
     companion object {
         operator fun get(type: KClass<out HUDElement>) = entries.first { it.type == type }

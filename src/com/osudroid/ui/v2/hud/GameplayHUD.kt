@@ -298,6 +298,16 @@ class GameplayHUD : UIContainer(), IGameplayEvents {
         elementSelector?.onHitObjectLifetimeStart(obj)
     }
 
+    override fun onKeyHoldStart() {
+        forEachElement { it.onKeyHoldStart() }
+        elementSelector?.onKeyHoldStart()
+    }
+
+    override fun onKeyHoldEnd() {
+        forEachElement { it.onKeyHoldEnd() }
+        elementSelector?.onKeyHoldEnd()
+    }
+
     override fun onNoteHit(statistics: StatisticV2) {
         forEachElement { it.onNoteHit(statistics) }
         elementSelector?.onNoteHit(statistics)
