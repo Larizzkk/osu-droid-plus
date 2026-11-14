@@ -248,6 +248,13 @@ interface IScoreInfoDAO {
     @Query("SELECT * FROM ScoreInfo WHERE beatmapMD5 = :beatmapMD5")
     fun getBeatmapScores(beatmapMD5: String): List<ScoreInfo>
 
+    /**
+     * Every stored score, used by the song select grouping to build its
+     * "last played" buckets in a single pass.
+     */
+    @Query("SELECT * FROM ScoreInfo")
+    fun getAllScores(): List<ScoreInfo>
+
     fun getBeatmapLeaderboard(beatmapMD5: String, difficulty: BeatmapDifficulty) =
         getBeatmapScores(beatmapMD5)
             .map { ScoredScoreInfo(it, it.calculateEffectiveScore(difficulty)) }

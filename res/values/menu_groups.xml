@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="menu_group_label">Group</string>
+    <string name="menu_sort_label">Sort</string>
+    <string name="menu_group_none">No Grouping</string>
+    <string name="menu_group_title">By title</string>
+    <string name="menu_group_artist">By Artist</string>
+    <string name="menu_group_creator">By creator</string>
+    <string name="menu_group_date">By date added</string>
+    <string name="menu_group_last_played">Recently Played</string>
+    <string name="menu_group_difficulty">By Difficulty</string>
+    <string name="menu_group_length">By length</string>
+    <string name="menu_group_bpm">By BPM</string>
+    <string name="menu_group_collection">Collections</string>
+    <string name="menu_group_today">Today</string>
+    <string name="menu_group_yesterday">Yesterday</string>
+    <string name="menu_group_last_week">Last week</string>
+    <string name="menu_group_months_ago">%d months ago</string>
+    <string name="menu_group_over_months">Over 5 months ago</string>
+    <string name="menu_group_never">Never</string>
+    <string name="menu_group_no_collection">Not in any collection</string>
+    <string name="menu_group_length_1">&lt;=5 min</string>
+    <string name="menu_group_length_2">5-10 min</string>
+    <string name="menu_group_length_3">10-15 min</string>
+    <string name="menu_group_length_4">&gt;15 min</string>
+    <string name="menu_group_bpm_1">&lt;60 BPM</string>
+    <string name="menu_group_bpm_2">60-120 BPM</string>
+    <string name="menu_group_bpm_3">120-180 BPM</string>
+    <string name="menu_group_bpm_4">180-240 BPM</string>
+    <string name="menu_group_bpm_5">240-300 BPM</string>
+    <string name="menu_group_bpm_6">&gt;300 BPM</string>
+
+</resources>

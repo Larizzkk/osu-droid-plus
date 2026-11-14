@@ -24,7 +24,7 @@ public class BeatmapItem extends Sprite {
 
     private static final Color4 DEFAULT_TEXT_COLOR = new Color4(1f, 1f, 1f);
     private static final Color4 SELECTED_TEXT_COLOR = new Color4(0f, 0f, 0f);
-    private final ChangeableText beatmapTitle, beatmapLeftText;
+    private final ChangeableText beatmapTitle, beatmapLeftText, beatmapVersion;
     private final Sprite[] stars;
     private final Sprite halfStar;
     private boolean moved = false;
@@ -39,10 +39,15 @@ public class BeatmapItem extends Sprite {
         super(0, 0, ResourceManager.getInstance().getTexture(
                 "menu-button-background"));
 
-        beatmapTitle = new ChangeableText(Utils.toRes(32), Utils.toRes(22),
+        // Stable card layout: title (font) on top, then "artist // creator", then
+        // the difficulty version — the two secondary lines use the smaller font so
+        // all three fit above the star row inside the 127px card.
+        beatmapTitle = new ChangeableText(Utils.toRes(32), Utils.toRes(8),
                 ResourceManager.getInstance().getFont("font"), "", 200);
-        beatmapLeftText = new ChangeableText(Utils.toRes(350), Utils.toRes(22),
-                ResourceManager.getInstance().getFont("font"), "", 30);
+        beatmapLeftText = new ChangeableText(Utils.toRes(32), Utils.toRes(44),
+                ResourceManager.getInstance().getFont("smallFont"), "", 128);
+        beatmapVersion = new ChangeableText(Utils.toRes(32), Utils.toRes(71),
+                ResourceManager.getInstance().getFont("smallFont"), "", 64);
 
 
         ComponentsKt.setColor4(this, OsuSkin.get().getColor("MenuItemVersionsDefaultColor", DEFAULT_COLOR));
@@ -50,15 +55,20 @@ public class BeatmapItem extends Sprite {
         Color4 menuItemDefaultTextColor = OsuSkin.get().getColor("MenuItemDefaultTextColor", DEFAULT_TEXT_COLOR);
         ComponentsKt.setColor4(beatmapTitle, menuItemDefaultTextColor);
         ComponentsKt.setColor4(beatmapLeftText, menuItemDefaultTextColor);
+        ComponentsKt.setColor4(beatmapVersion, menuItemDefaultTextColor);
 
         setAlpha(0.8f);
         attachChild(beatmapTitle);
-//		attachChild(trackLeftText);
+        attachChild(beatmapLeftText);
+        attachChild(beatmapVersion);
 
+        // Stars sit on the last line of the card, scaled down so the full row fits
+        // under the three text lines (stable shows the star row below the version).
         stars = new Sprite[10];
         for (int i = 0; i < 10; i++) {
-            stars[i] = new Sprite(Utils.toRes(60 + 52 * i), Utils.toRes(50),
+            stars[i] = new Sprite(Utils.toRes(32 + 31 * i), Utils.toRes(97),
                     ResourceManager.getInstance().getTexture("star"));
+            stars[i].setScale(0.6f);
             attachChild(stars[i]);
         }
         final TextureRegion starTex = ResourceManager.getInstance()
@@ -74,8 +84,9 @@ public class BeatmapItem extends Sprite {
 
     public void setBeatmapInfo(final BeatmapInfo beatmapInfo) {
         this.beatmapInfo = beatmapInfo;
-        beatmapTitle.setText(beatmapInfo.getVersion() + " (" + beatmapInfo.getCreator() + ")");
-        beatmapLeftText.setText("\n" + beatmapInfo.getTitleText());
+        beatmapTitle.setText(beatmapInfo.getTitleText());
+        beatmapLeftText.setText(beatmapInfo.getArtistText() + " // " + beatmapInfo.getCreator());
+        beatmapVersion.setText(beatmapInfo.getVersion());
 
         for (final Sprite s : stars) {
             s.setVisible(false);
@@ -97,9 +108,9 @@ public class BeatmapItem extends Sprite {
 
         if (fPoint > 0 && fInt != 10) {
             halfStar.setVisible(true);
-            halfStar.setPosition(Utils.toRes(60 + 52 * fInt),
-                    Utils.toRes(50));
-            halfStar.setScale(fPoint);
+            halfStar.setPosition(Utils.toRes(32 + 31 * fInt),
+                    Utils.toRes(97));
+            halfStar.setScale(fPoint * 0.6f);
         }
         updateMark();
     }
@@ -121,8 +132,12 @@ public class BeatmapItem extends Sprite {
             mark.detachSelf();
         }
         if (newmark != null) {
-            mark = new Sprite(Utils.toRes(25), Utils.toRes(55), ResourceManager
+            mark = new Sprite(0, 0, ResourceManager
                     .getInstance().getTexture("ranking-" + newmark + "-small"));
+            // Top-right corner: the left column now carries three text lines, so the
+            // grade badge moves out of their way (724px card width).
+            mark.setPosition(Utils.toRes(724) - mark.getWidth() - Utils.toRes(25),
+                    Utils.toRes(16));
             attachChild(mark);
         } else {
             mark = null;
@@ -141,6 +156,7 @@ public class BeatmapItem extends Sprite {
 
         ComponentsKt.setColor4(beatmapTitle, menuItemDefaultTextColor);
         ComponentsKt.setColor4(beatmapLeftText, menuItemDefaultTextColor);
+        ComponentsKt.setColor4(beatmapVersion, menuItemDefaultTextColor);
     }
 
     public void setSelectedColor() {
@@ -150,6 +166,7 @@ public class BeatmapItem extends Sprite {
         Color4 menuItemSelectedTextColor = OsuSkin.get().getColor("MenuItemSelectedTextColor", SELECTED_TEXT_COLOR);
         ComponentsKt.setColor4(beatmapTitle, menuItemSelectedTextColor);
         ComponentsKt.setColor4(beatmapLeftText, menuItemSelectedTextColor);
+        ComponentsKt.setColor4(beatmapVersion, menuItemSelectedTextColor);
     }
 
     @Override

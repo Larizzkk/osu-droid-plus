@@ -14,7 +14,10 @@ import ru.nsu.ccfit.zuev.osu.Utils;
 
 public class MenuItemBackground extends Sprite {
 
-    private static final Color4 DEFAULT_COLOR = new Color4(240 / 255f, 150 / 255f, 0 / 255f);
+    // Stable's song-select cards are blue banners — the same blue the difficulty
+    // rows use (BeatmapItem). The old orange tint is what made the list read
+    // warm/pink over beatmap backgrounds.
+    private static final Color4 DEFAULT_COLOR = new Color4(25 / 255f, 25 / 255f, 240 / 255f);
     private static final Color4 ON_TOUCH_COLOR = new Color4(1f, 1f, 1f);
     private final ChangeableText title, author;
     private final Color4 defColor = OsuSkin.get().getColor("MenuItemDefaultColor", DEFAULT_COLOR);
@@ -33,7 +36,7 @@ public class MenuItemBackground extends Sprite {
                 ResourceManager.getInstance().getFont("font"), "", 255);
         author = new ChangeableText(0, 0, ResourceManager.getInstance()
                 .getFont("font"), "", 100);
-        author.setPosition(Utils.toRes(150), Utils.toRes(60));
+        author.setPosition(Utils.toRes(32), Utils.toRes(62));
 
         ComponentsKt.setColor4(this, defColor);
         attachChild(title);

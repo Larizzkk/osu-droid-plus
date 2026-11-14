@@ -5,6 +5,7 @@ import static com.osudroid.data.BeatmapsKt.BeatmapInfo;
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.edlplan.framework.easing.Easing;
@@ -21,6 +22,7 @@ import com.osudroid.multiplayer.api.RoomAPI;
 import com.osudroid.data.BeatmapInfo;
 import com.osudroid.data.BeatmapSetInfo;
 import com.osudroid.data.DatabaseManager;
+import com.osudroid.data.ScoreInfo;
 import com.reco1l.andengine.sprite.UIAnimatedSprite;
 import com.reco1l.andengine.sprite.UISprite;
 import com.osudroid.multiplayer.Multiplayer;
@@ -84,6 +86,7 @@ import ru.nsu.ccfit.zuev.osu.online.OnlineScoring;
 import ru.nsu.ccfit.zuev.osu.scoring.BeatmapLeaderboardScoringMode;
 import ru.nsu.ccfit.zuev.osu.scoring.ScoringScene;
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 import ru.nsu.ccfit.zuev.skins.SkinLayout;
 
@@ -92,6 +95,10 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
     public UIScene scene;
     public UIContainer frontLayer = new UIContainer();
     SortOrder sortOrder = SortOrder.Title;
+    GroupMode groupMode = GroupMode.None;
+    private SortGroupPanel sortGroupPanel;
+    /** Stable group banners; they live beside the cards so the cards keep their look. */
+    private final List<GroupHeader> groupHeaders = new ArrayList<>();
     private Engine engine;
     public GameScene game;
     private ScoringScene scoreScene;
@@ -112,7 +119,14 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
     private float maxY = 100500;
     private int pointerId = -1;
     private float initalY = -1;
+
     private float secPassed = 0, tapTime;
+
+    // Menu kiai flash: white overlay pulsing on every second beat of the playing preview.
+    private Rectangle kiaiFlashOverlay;
+    private long lastKiaiBeatPosition = 0;
+    private int kiaiBeatCount = 0;
+    private float kiaiFlashAlpha = 0f;
     private ScrollBar scrollbar;
     private boolean allowAutomaticPlaybackRestart = true;
     private ValueAnimator musicVolumeAnimator;
@@ -137,6 +151,13 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
     private Timer previousSelectionTimer;
     private final long previousSelectionInterval = 1000;
     private boolean previousSelectionPerformed;
+    /**
+     * True while reSelectItem() re-binds the selection after the list was rebuilt
+     * (sort/group change). The beatmap itself is unchanged, so selectBeatmap() must
+     * skip its heavy side effects — most importantly board.init(), which would reload
+     * and re-animate a leaderboard the user did not touch.
+     */
+    private boolean reselecting;
     private final LinkedList<BeatmapSetItem> previousSelectedItems = new LinkedList<>();
     private final LRUCache<String, RankedStatus> mapStatuses = new LRUCache<>(50);
 
@@ -231,7 +252,14 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
 //            oy += item.getHeight();
         }
         sortOrder = SortOrder.Title;
+        groupMode = readGroupModePref();
         sort();
+        applyGrouping();
+
+        sortGroupPanel = new SortGroupPanel(this::setGroupMode, this::setSortOrderFromPanel);
+        sortGroupPanel.setGroupMode(groupMode);
+        sortGroupPanel.setSortOrder(sortOrder);
+        scene.attachChild(sortGroupPanel.getRoot());
 
         if (items.size() == 0) {
             final Text text = new Text(0, 0, ResourceManager.getInstance()
@@ -306,10 +334,26 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
 
         scrollbar = new ScrollBar(scene);
 
+        // songselect-top.png is a black header silhouette whose bottom edge is the blue
+        // divider (straight across the left half, curving up on the right). This mapping
+        // lands that divider under the beatmap info on the left and just below the
+        // Group/Sort quick tabs on the right, like the stable client. The strip above
+        // the sprite is filled with the same 0.6 black so the band reads as one header.
+        final Rectangle songSelectTopFill = new Rectangle(
+            0,
+            0,
+            Config.getRES_WIDTH(),
+            62
+        );
+        songSelectTopFill.setColor(0, 0, 0, 0.6f);
+        frontLayer.attachChild(songSelectTopFill);
+
         final TextureRegion songSelectTopTexture = ResourceManager.getInstance().getTexture("songselect-top");
-        final Sprite songSelectTop = new Sprite(0, 0, songSelectTopTexture);
-        songSelectTop.setSize(songSelectTopTexture.getWidth() * songSelectTopTexture.getHeight() / 184f, 184);
-        songSelectTop.setPosition(-1640, songSelectTop.getY());
+        final Sprite songSelectTop = new Sprite(0, 62, songSelectTopTexture);
+        songSelectTop.setSize(
+            songSelectTopTexture.getWidth() * 0.677f,
+            songSelectTopTexture.getHeight() * (115f / 378f)
+        );
         songSelectTop.setAlpha(0.6f);
         frontLayer.attachChild(songSelectTop);
 
@@ -746,6 +790,9 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
         }
         if (!order.equals(sortOrder)) {
             sortOrder = order;
+            if (sortGroupPanel != null) {
+                sortGroupPanel.setSortOrder(order);
+            }
             tryReloadMenuItems(sortOrder);
             sort();
             reSelectItem(beatmapFilename);
@@ -771,6 +818,7 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
         if (selectedItem != null && !selectedItem.isVisible()) {
             selectedItem = null;
         }
+        applyGrouping();
     }
 
     public void sort() {
@@ -818,6 +866,538 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
         });
     }
 
+    // ------------------------------------------------------------------
+    // Grouping (stable's "Group by" tree, ported without its header
+    // coordinates: headers are part of each item's height so the existing
+    // scroll layout keeps working unchanged).
+    // ------------------------------------------------------------------
+
+    /** Date bucket keys in stable's display order. */
+    private static final String[] DATE_GROUP_KEYS = {
+        "d.today",
+        "d.yesterday",
+        "d.week",
+        "d.m1",
+        "d.m2",
+        "d.m3",
+        "d.m4",
+        "d.m5",
+        "d.over",
+        "d.never",
+    };
+
+    /**
+     * Applies a group mode chosen in the top-right panel: persists it, syncs the
+     * dropdown (quick tabs bypass it) and re-sorts so switching back from any group
+     * mode lands on the plain sorted list.
+     */
+    void setGroupMode(final GroupMode mode) {
+        if (mode == groupMode) {
+            return;
+        }
+        groupMode = mode;
+        if (sortGroupPanel != null) {
+            sortGroupPanel.setGroupMode(mode);
+        }
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putInt("groupmode", mode.ordinal())
+            .apply();
+        camY = 0;
+        velocityY = 0;
+        sort();
+    }
+
+    void setSortOrderFromPanel(final SortOrder order) {
+        if (order == sortOrder) {
+            return;
+        }
+        PreferenceManager.getDefaultSharedPreferences(context)
+            .edit()
+            .putInt("sortorder", order.ordinal())
+            .apply();
+        // Reuses the regular filter pipeline: reloads items if the row layout changed,
+        // sorts, regroups and re-selects the beatmap.
+        loadFilter(searchBar);
+    }
+
+    private GroupMode readGroupModePref() {
+        try {
+            final int ordinal = PreferenceManager.getDefaultSharedPreferences(context)
+                .getInt("groupmode", 0);
+            final GroupMode[] values = GroupMode.values();
+            return ordinal >= 0 && ordinal < values.length
+                ? values[ordinal]
+                : GroupMode.None;
+        } catch (final Exception e) {
+            return GroupMode.None;
+        }
+    }
+
+    /**
+     * Re-partitions the already sorted item list into groups and puts a stable-style
+     * header ("Name (N maps)") on the first item of every group. Invisible (filtered
+     * out) items keep no header and stay at the end, where they occupy zero height.
+     */
+    private void applyGrouping() {
+        if (items.isEmpty()) {
+            return;
+        }
+
+        clearGroupHeaders();
+
+        if (groupMode == GroupMode.None) {
+            return;
+        }
+
+        final Map<String, Long> lastPlayed = groupMode == GroupMode.LastPlayed
+            ? buildScoreStats().lastPlayedByMd5
+            : Collections.emptyMap();
+        final Map<String, String> collectionByDir = groupMode == GroupMode.Collection
+            ? buildCollectionMap()
+            : Collections.emptyMap();
+
+        final Map<String, List<BeatmapSetItem>> buckets = new HashMap<>();
+        final List<BeatmapSetItem> hidden = new ArrayList<>();
+
+        for (final BeatmapSetItem item : items) {
+            if (!item.isVisible()) {
+                hidden.add(item);
+                continue;
+            }
+            final String key = groupKey(item, lastPlayed, collectionByDir);
+            buckets.computeIfAbsent(key, k -> new ArrayList<>()).add(item);
+        }
+
+        final List<BeatmapSetItem> reordered = new ArrayList<>(items.size());
+        for (final String key : orderedGroupKeys(buckets.keySet())) {
+            final List<BeatmapSetItem> group = buckets.get(key);
+            boolean first = true;
+            for (final BeatmapSetItem item : group) {
+                if (first) {
+                    addGroupHeader(
+                        item,
+                        groupHeaderDisplay(key) + " (" + group.size() + " maps)"
+                    );
+                    first = false;
+                }
+                reordered.add(item);
+            }
+        }
+        reordered.addAll(hidden);
+
+        items.clear();
+        items.addAll(reordered);
+    }
+
+    /** One stable-style banner drawn just above the first card of a group. */
+    private static final class GroupHeader {
+        final BeatmapSetItem item;
+        final Rectangle bar;
+        final ChangeableText text;
+        final float height;
+
+        GroupHeader(final BeatmapSetItem item, final Rectangle bar, final ChangeableText text) {
+            this.item = item;
+            this.bar = bar;
+            this.text = text;
+            this.height = text.getHeight() + Utils.toRes(10);
+        }
+    }
+
+    private void clearGroupHeaders() {
+        for (final GroupHeader header : groupHeaders) {
+            header.bar.detachSelf();
+            header.text.detachSelf();
+        }
+        groupHeaders.clear();
+    }
+
+    private void addGroupHeader(final BeatmapSetItem item, final String label) {
+        final ChangeableText text = new ChangeableText(
+            0,
+            0,
+            ResourceManager.getInstance().getFont("smallFont"),
+            label,
+            96
+        );
+        final Rectangle bar = new Rectangle(0, 0, 10, 10);
+        bar.setColor(0.04f, 0.05f, 0.09f);
+        bar.setAlpha(0.78f);
+        // Banners are separate entities at the back of the list layer, so the cards
+        // keep their normal size and overlap.
+        backLayer.attachChild(bar, 0);
+        backLayer.attachChild(text, 1);
+        groupHeaders.add(new GroupHeader(item, bar, text));
+    }
+
+    @Nullable
+    private GroupHeader getGroupHeader(final BeatmapSetItem item) {
+        for (final GroupHeader header : groupHeaders) {
+            if (header.item == item) {
+                return header;
+            }
+        }
+        return null;
+    }
+
+    private void positionGroupHeader(final GroupHeader header, final float x, final float y) {
+        final float barWidth = Math.max(
+            header.text.getWidth() + Utils.toRes(80),
+            Utils.toRes(180)
+        );
+        header.bar.setPosition(x, y);
+        header.bar.setSize(barWidth, header.height);
+        header.text.setPosition(
+            x + (barWidth - header.text.getWidth()) / 2f,
+            y + (header.height - header.text.getHeight()) / 2f
+        );
+    }
+
+    private String groupKey(
+        final BeatmapSetItem item,
+        final Map<String, Long> lastPlayed,
+        final Map<String, String> collectionByDir
+    ) {
+        final BeatmapInfo b = item.getFirstBeatmap();
+        switch (groupMode) {
+            case Title:
+                return letterGroupKey(b.getTitle());
+            case Artist:
+                return letterGroupKey(b.getArtist());
+            case Creator:
+                return letterGroupKey(b.getCreator());
+            case DateAdded:
+                return dateGroupKey(b.getDateImported());
+            case LastPlayed: {
+                final Long time = lastPlayed.get(b.getMD5());
+                return time == null ? "d.never" : dateGroupKey(time);
+            }
+            case Difficulty: {
+                final float stars = b.getStarRating();
+                if (stars > 10f) {
+                    return "s.over";
+                }
+                int n = (int) Math.ceil(stars);
+                if (n < 1) {
+                    n = 1;
+                }
+                return "s." + n;
+            }
+            case Length: {
+                final long minutes = b.getLength() / 60000;
+                if (minutes <= 5) {
+                    return "l.1";
+                }
+                if (minutes <= 10) {
+                    return "l.2";
+                }
+                if (minutes <= 15) {
+                    return "l.3";
+                }
+                return "l.4";
+            }
+            case Bpm: {
+                final float bpm = b.getBpmMax();
+                if (bpm < 60) {
+                    return "b.1";
+                }
+                if (bpm < 120) {
+                    return "b.2";
+                }
+                if (bpm < 180) {
+                    return "b.3";
+                }
+                if (bpm < 240) {
+                    return "b.4";
+                }
+                if (bpm < 300) {
+                    return "b.5";
+                }
+                return "b.6";
+            }
+            case Collection: {
+                final String collection = collectionByDir.get(
+                    item.getBeatmapSetInfo().getDirectory()
+                );
+                return collection != null ? "c:" + collection : "c.none";
+            }
+            default:
+                return "none";
+        }
+    }
+
+    private static String letterGroupKey(final String value) {
+        if (value == null || value.isEmpty()) {
+            return "#";
+        }
+        final char c = Character.toUpperCase(value.charAt(0));
+        return c >= 'A' && c <= 'Z' ? String.valueOf(c) : "#";
+    }
+
+    private static String dateGroupKey(final long millis) {
+        if (millis <= 0) {
+            return "d.never";
+        }
+        final long days = (System.currentTimeMillis() - millis) / 86_400_000L;
+        if (days < 1) {
+            return "d.today";
+        }
+        if (days < 2) {
+            return "d.yesterday";
+        }
+        if (days < 7) {
+            return "d.week";
+        }
+        if (days < 30) {
+            return "d.m1";
+        }
+        if (days < 60) {
+            return "d.m2";
+        }
+        if (days < 90) {
+            return "d.m3";
+        }
+        if (days < 120) {
+            return "d.m4";
+        }
+        if (days < 150) {
+            return "d.m5";
+        }
+        return "d.over";
+    }
+
+    /** Bucket keys in stable's display order, limited to those present. */
+    private List<String> orderedGroupKeys(final Set<String> keys) {
+        final List<String> result = new ArrayList<>();
+        switch (groupMode) {
+            case Title:
+            case Artist:
+            case Creator:
+                for (char c = 'A'; c <= 'Z'; c++) {
+                    final String key = String.valueOf(c);
+                    if (keys.contains(key)) {
+                        result.add(key);
+                    }
+                }
+                if (keys.contains("#")) {
+                    result.add("#");
+                }
+                break;
+            case DateAdded:
+            case LastPlayed:
+                for (final String key : DATE_GROUP_KEYS) {
+                    if (keys.contains(key)) {
+                        result.add(key);
+                    }
+                }
+                break;
+            case Difficulty:
+                for (int i = 1; i <= 10; i++) {
+                    final String key = "s." + i;
+                    if (keys.contains(key)) {
+                        result.add(key);
+                    }
+                }
+                if (keys.contains("s.over")) {
+                    result.add("s.over");
+                }
+                break;
+            case Length:
+                for (int i = 1; i <= 4; i++) {
+                    final String key = "l." + i;
+                    if (keys.contains(key)) {
+                        result.add(key);
+                    }
+                }
+                break;
+            case Bpm:
+                for (int i = 1; i <= 6; i++) {
+                    final String key = "b." + i;
+                    if (keys.contains(key)) {
+                        result.add(key);
+                    }
+                }
+                break;
+            case Collection: {
+                final List<String> collections = new ArrayList<>();
+                for (final String key : keys) {
+                    if (!key.equals("c.none")) {
+                        // Prefix is "c:" (2 chars) - substring(3) would chop the first
+                        // letter of the collection name.
+                        collections.add(key.substring(2));
+                    }
+                }
+                collections.sort(String.CASE_INSENSITIVE_ORDER);
+                for (final String collection : collections) {
+                    result.add("c:" + collection);
+                }
+                if (keys.contains("c.none")) {
+                    result.add("c.none");
+                }
+                break;
+            }
+            default:
+                result.addAll(keys);
+                break;
+        }
+        return result;
+    }
+
+    /** Human-readable group name for a bucket key (stable localization style). */
+    private String groupHeaderDisplay(final String key) {
+        switch (groupMode) {
+            case Title:
+            case Artist:
+            case Creator:
+                return key;
+            case DateAdded:
+            case LastPlayed:
+                return dateGroupLabel(key);
+            case Difficulty:
+                return key.equals("s.over") ? ">10\u2605" : key.substring(2) + "\u2605";
+            case Length:
+                switch (key) {
+                    case "l.1":
+                        return StringTable.get(R.string.menu_group_length_1);
+                    case "l.2":
+                        return StringTable.get(R.string.menu_group_length_2);
+                    case "l.3":
+                        return StringTable.get(R.string.menu_group_length_3);
+                    default:
+                        return StringTable.get(R.string.menu_group_length_4);
+                }
+            case Bpm:
+                switch (key) {
+                    case "b.1":
+                        return StringTable.get(R.string.menu_group_bpm_1);
+                    case "b.2":
+                        return StringTable.get(R.string.menu_group_bpm_2);
+                    case "b.3":
+                        return StringTable.get(R.string.menu_group_bpm_3);
+                    case "b.4":
+                        return StringTable.get(R.string.menu_group_bpm_4);
+                    case "b.5":
+                        return StringTable.get(R.string.menu_group_bpm_5);
+                    default:
+                        return StringTable.get(R.string.menu_group_bpm_6);
+                }
+            case Collection:
+                return key.equals("c.none")
+                    ? StringTable.get(R.string.menu_group_no_collection)
+                    : key.substring(2);
+            default:
+                return key;
+        }
+    }
+
+    private String dateGroupLabel(final String key) {
+        switch (key) {
+            case "d.today":
+                return StringTable.get(R.string.menu_group_today);
+            case "d.yesterday":
+                return StringTable.get(R.string.menu_group_yesterday);
+            case "d.week":
+                return StringTable.get(R.string.menu_group_last_week);
+            case "d.over":
+                return StringTable.get(R.string.menu_group_over_months);
+            case "d.never":
+                return StringTable.get(R.string.menu_group_never);
+            default:
+                // d.m1 .. d.m5 - the prefix is "d.m" (3 chars), the number starts at 3.
+                final int months = Integer.parseInt(key.substring(3));
+                return StringTable.format(R.string.menu_group_months_ago, months);
+        }
+    }
+
+    /**
+     * Per-beatmap "last played" timestamps from a single pass over the score table.
+     */
+    private static final class ScoreStats {
+        final Map<String, Long> lastPlayedByMd5 = new HashMap<>();
+    }
+
+    private static ScoreStats buildScoreStats() {
+        final ScoreStats stats = new ScoreStats();
+
+        for (final ScoreInfo row : DatabaseManager.getScoreInfoTable().getAllScores()) {
+            final String md5 = row.getBeatmapMD5();
+            final Long previousTime = stats.lastPlayedByMd5.get(md5);
+
+            if (previousTime == null || row.getTime() > previousTime) {
+                stats.lastPlayedByMd5.put(md5, row.getTime());
+            }
+        }
+        return stats;
+    }
+
+    /**
+     * setDirectory -> collection name (first match wins, collections are traversed
+     * alphabetically so the assignment is deterministic).
+     */
+    private static Map<String, String> buildCollectionMap() {
+        final Map<String, String> result = new HashMap<>();
+        final List<String> names = new ArrayList<>(
+            DatabaseManager.getBeatmapCollectionsTable().getCollections()
+        );
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+
+        for (final String name : names) {
+            final List<String> dirs = DatabaseManager.getBeatmapCollectionsTable()
+                .getBeatmaps(name);
+            if (dirs == null) {
+                continue;
+            }
+            for (final String dir : dirs) {
+                result.putIfAbsent(dir, name);
+            }
+        }
+        return result;
+    }
+
+    private void updateMenuKiaiFlash(final float pSecondsElapsed) {
+        if (kiaiFlashOverlay == null) {
+            kiaiFlashOverlay = new Rectangle(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+            kiaiFlashOverlay.setColor(1, 1, 1);
+            kiaiFlashOverlay.setAlpha(0);
+            kiaiFlashOverlay.setIgnoreUpdate(true);
+            backLayer.attachChild(kiaiFlashOverlay);
+        }
+
+        if (!Config.getBoolean("menuKiaiFlash", true)) {
+            kiaiFlashOverlay.setAlpha(0);
+            return;
+        }
+
+        var songService = GlobalManager.getInstance().getSongService();
+        if (songService != null && songService.getStatus() == Status.PLAYING) {
+            int currentPos = songService.getPosition();
+            float bpm = 150f;
+            if (selectedBeatmap != null) {
+                float commonBpm = selectedBeatmap.getMostCommonBPM();
+                if (commonBpm > 0) bpm = commonBpm;
+            }
+            int beatInterval = Math.max(100, Math.round(60000f / bpm));
+            long currentBeat = currentPos / beatInterval;
+            if (currentBeat != lastKiaiBeatPosition) {
+                kiaiBeatCount++;
+                lastKiaiBeatPosition = currentBeat;
+            }
+            if (kiaiBeatCount % 2 == 0) {
+                float beatPhase = (float) (currentPos % beatInterval) / beatInterval;
+                float pulse = (float) Math.sin(beatPhase * Math.PI);
+                kiaiFlashAlpha = pulse * 0.06f;
+            } else {
+                kiaiFlashAlpha -= pSecondsElapsed * 3.0f;
+                if (kiaiFlashAlpha < 0) kiaiFlashAlpha = 0;
+            }
+        } else {
+            kiaiFlashAlpha -= pSecondsElapsed * 2.0f;
+            if (kiaiFlashAlpha < 0) kiaiFlashAlpha = 0;
+        }
+        kiaiFlashOverlay.setAlpha(kiaiFlashAlpha);
+    }
+
     public void onUpdate(final float pSecondsElapsed) {
         secPassed += pSecondsElapsed;
         increaseBackgroundLuminance(pSecondsElapsed);
@@ -837,13 +1417,27 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
             }
         }
 
+        updateMenuKiaiFlash(pSecondsElapsed);
+
         float oy = -camY;
         for (final BeatmapSetItem item : items) {
+            final GroupHeader header = getGroupHeader(item);
+            final float headerY = oy;
+
+            if (header != null) {
+                oy += header.height + Utils.toRes(5);
+            }
+
             final float cy = oy + Config.getRES_HEIGHT() / 2f + item.getHeight()
                     / 2;
             float ox = Config.getRES_WIDTH() / 1.85f + 200 * (float) Math.abs(Math.cos(cy * Math.PI
                     / (Config.getRES_HEIGHT() * 2)));
             ox = Utils.toRes(ox);
+
+            if (header != null) {
+                positionGroupHeader(header, ox, headerY);
+            }
+
             item.setPos(ox, oy);
             oy += item.getHeight();
         }
@@ -914,6 +1508,10 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
                 break;
             }
             height += items.get(i).getInitialHeight();
+            final GroupHeader header = getGroupHeader(items.get(i));
+            if (header != null) {
+                height += header.height + Utils.toRes(5);
+            }
         }
         camY = height - Config.getRES_HEIGHT() / 2f;
         camY += item.getTotalHeight() / 2;
@@ -1077,6 +1675,15 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
 
     @Override
     public void selectBeatmap(final BeatmapInfo beatmapInfo, boolean reloadBG) {
+        if (reselecting) {
+            // Programmatic re-bind of the SAME beatmap after a sort/group rebuild
+            // (reSelectItem). SongMenu.select() nulled selectedBeatmap right before, so
+            // restore the state here but skip music/background/leaderboard work —
+            // sorting maps must not reload or re-sort the scoreboard.
+            selectedBeatmap = beatmapInfo;
+            GlobalManager.getInstance().setSelectedBeatmap(beatmapInfo);
+            return;
+        }
 
         // Playing corresponding audio for the selected track.
         var selectedAudio = selectedBeatmap != null ? selectedBeatmap : GlobalManager.getInstance().getSelectedBeatmap();
@@ -1613,6 +2220,10 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
                         break;
                     }
                     height += items.get(i).getInitialHeight();
+                    final GroupHeader header = getGroupHeader(items.get(i));
+                    if (header != null) {
+                        height += header.height + Utils.toRes(5);
+                    }
                 }
                 camY = height - Config.getRES_HEIGHT() / 2f;
                 camY += items.get(0).getTotalHeight() / 2;
@@ -1623,9 +2234,14 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
                 if (item == null || !item.isVisible()) continue;
                 int beatmapId = item.tryGetCorrespondingBeatmapId(beatmapFilename);
                 if (beatmapId >= 0) {
-                    item.select(false);
-                    if (beatmapId != 0) {
-                        item.selectBeatmap(item.getBeatmapSpritesById(beatmapId), false);
+                    reselecting = true;
+                    try {
+                        item.select(false);
+                        if (beatmapId != 0) {
+                            item.selectBeatmap(item.getBeatmapSpritesById(beatmapId), false);
+                        }
+                    } finally {
+                        reselecting = false;
                     }
                     break;
                 }
@@ -1745,6 +2361,20 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
         DroidStars,
         StandardStars,
         Length
+    }
+
+    /** Stable's "Group by" buckets. */
+    public enum GroupMode {
+        None,
+        Title,
+        Artist,
+        Creator,
+        DateAdded,
+        LastPlayed,
+        Difficulty,
+        Length,
+        Bpm,
+        Collection
     }
 
     public enum GroupType {

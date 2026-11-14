@@ -26,7 +26,7 @@ import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.menu.IFilterMenu
 import ru.nsu.ccfit.zuev.osu.menu.SongMenu
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import ru.nsu.ccfit.zuev.osu.GlobalManager.getInstance as getGlobal
 
 class SearchBarFragment : BaseFragment(), IFilterMenu {
@@ -65,7 +65,11 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
     }
 
     override fun getFilter(): String {
-        return filter.text.toString()
+        // The fragment object outlives its view: SongMenu re-applies the filter when
+        // the sort panel changes order (loadFilter -> getFilter) even if the search
+        // bar was never opened, so fall back to the persisted state instead of
+        // crashing on the uninitialized lateinit.
+        return if (::filter.isInitialized) filter.text.toString() else savedFilter.orEmpty()
     }
 
     override fun getOrder(): SongMenu.SortOrder {
@@ -75,10 +79,17 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
         return SongMenu.SortOrder.entries[order % SongMenu.SortOrder.entries.size]
     }
 
-    override fun isFavoritesOnly(): Boolean = favoritesOnly.isChecked
+    override fun isFavoritesOnly(): Boolean =
+        if (::favoritesOnly.isInitialized) favoritesOnly.isChecked else savedFavOnly
 
     override fun getFavoriteFolder(): String =
-        if (StringTable.get(string.favorite_default) == favoriteFolder.text) "" else favoriteFolder.text.toString()
+        if (::favoriteFolder.isInitialized) {
+            if (StringTable.get(string.favorite_default) == favoriteFolder.text) "" else favoriteFolder.text.toString()
+        } else {
+            // No view yet: savedFolder is empty for the default folder, which
+            // loadFilter already maps to "no collection filter".
+            savedFolder.orEmpty()
+        }
 
     override fun loadConfig(context: Context?) {
         configContext = context

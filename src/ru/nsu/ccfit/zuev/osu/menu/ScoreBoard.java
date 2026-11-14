@@ -130,6 +130,8 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                 boolean isPPScoringMode = currentScoringMode == BeatmapLeaderboardScoringMode.PP;
                 var username = OnlineManager.getInstance().getUsername();
                 var items = new ArrayList<ScoreBoardItem>(scores.size());
+                var rows = new ArrayList<ScoreBoardRow>(scores.size());
+                var pinnedRows = new ArrayList<ScoreItem>(1);
                 var sb = new StringBuilder();
 
                 float nextTotal = 0;
@@ -205,19 +207,46 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                     }
 
                     if (isPersonalBest) {
-                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true), 0);
+                        pinnedRows.add(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true, beatmapRank));
                     }
 
                     if (isInLeaderboard) {
-                        attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false));
+                        final var leaderboardItem = new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false, beatmapRank);
+                        rows.add(new ScoreBoardRow(beatmapRank, leaderboardItem));
 
                         var item = new ScoreBoardItem();
                         item.set(beatmapRank, playerName, combo, score, scoreID);
                         items.add(item);
                     }
                 }
-                scoreItems = items;
-                percentShow = 0;
+
+                if (!isActive()) {
+                    return;
+                }
+
+                // In-list rows ascend by their displayed rank (server order normally,
+                // but the personal-best row with 10 fields can arrive among them).
+                rows.sort(Comparator.comparingInt(r -> r.rank));
+                items.sort(Comparator.comparingInt(item -> item.rank));
+
+                Execution.updateThread(() -> {
+                    if (!isActive()) {
+                        return;
+                    }
+                    // Pinned "Personal Best" rows first - they occupy the top layout
+                    // slot regardless of where they appeared in the server response.
+                    for (var pinned : pinnedRows) {
+                        attachChild(pinned);
+                    }
+                    for (var row : rows) {
+                        attachChild(row.item);
+                    }
+                });
+
+                if (isActive()) {
+                    scoreItems = items;
+                    percentShow = 0;
+                }
             }
         };
         loadExecutor.submit(currentTask);
@@ -248,6 +277,7 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                 }
 
                 var items = new ArrayList<ScoreBoardItem>(scores.size());
+                var rows = new ArrayList<ScoreBoardRow>(scores.size());
                 var sb = new StringBuilder();
 
                 long nextTotalScore;
@@ -297,22 +327,55 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                         return;
                     }
 
-                    attachChild(new ScoreItem(avatarExecutor, titleStr, accStr, score.getMark(), false, (int) score.getId(), null, null, false));
+                    final var localScoreItem = new ScoreItem(avatarExecutor, titleStr, accStr, score.getMark(), false, (int) score.getId(), null, null, false, i + 1);
+                    rows.add(new ScoreBoardRow(i + 1, localScoreItem));
 
                     var item = new ScoreBoardItem();
                     item.set(i + 1, score.getPlayerName(), score.getMaxCombo(), effectiveScore, (int) score.getId());
                     items.add(item);
                 }
-                scoreItems = items;
-                percentShow = 0;
+
+                if (!isActive()) {
+                    return;
+                }
+
+                // Same contract as the online board: rows attach once, ascending by
+                // rank, on the update thread - a fixed order for every leaderboard.
+                rows.sort(Comparator.comparingInt(r -> r.rank));
+                items.sort(Comparator.comparingInt(item -> item.rank));
+
+                Execution.updateThread(() -> {
+                    if (!isActive()) {
+                        return;
+                    }
+                    for (var row : rows) {
+                        attachChild(row.item);
+                    }
+                });
+
+                if (isActive()) {
+                    scoreItems = items;
+                    percentShow = 0;
+                }
             }
         };
         loadExecutor.submit(currentTask);
     }
 
     public synchronized void init(final BeatmapInfo beatmapInfo) {
-        if (lastBeatmapInfo == beatmapInfo && showOnlineScores == wasOnline && wasOnline &&
-                Config.getBeatmapLeaderboardScoringMode() == currentScoringMode) {
+        init(beatmapInfo, false);
+    }
+
+    /**
+     * @param force reload even if this exact board is already loaded (after a play,
+     *              a deleted score, ...). Without it an identical init() is a no-op:
+     *              unrelated UI events must not detach the rows and replay the
+     *              entrance animation ("scores shuffle around").
+     */
+    public synchronized void init(final BeatmapInfo beatmapInfo, boolean force) {
+        if (!force && beatmapInfo != null && lastBeatmapInfo == beatmapInfo
+                && showOnlineScores == wasOnline
+                && Config.getBeatmapLeaderboardScoringMode() == currentScoringMode) {
             return;
         }
 
@@ -323,6 +386,9 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
         lastBeatmapInfo = beatmapInfo;
         wasOnline = showOnlineScores;
         scoreItems = null;
+        // Never let a mid-flight entrance from the previous board resume on the new
+        // rows (they would snap back up and re-expand = visible reshuffle).
+        percentShow = -1;
 
         Execution.updateThread(() -> {
 
@@ -361,7 +427,8 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
             {
                 var child = getChild(i);
 
-                if (!(child instanceof Sprite))
+                // The loading text is a Sprite too; it must not occupy a layout slot.
+                if (!(child instanceof Sprite) || child == loadingText)
                     continue;
 
                 var sprite = (Sprite) child;
@@ -396,7 +463,8 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
             {
                 var child = getChild(i);
 
-                if (!(child instanceof Sprite))
+                // The loading text is a Sprite too; it must not occupy a layout slot.
+                if (!(child instanceof Sprite) || child == loadingText)
                     continue;
 
                 var sprite = (Sprite) child;
@@ -504,6 +572,18 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
     }
 
 
+    /** A leaderboard row paired with the rank it displays, for stable ordering. */
+    private static final class ScoreBoardRow {
+        final int rank;
+        final ScoreItem item;
+
+        ScoreBoardRow(final int rank, final ScoreItem item) {
+            this.rank = rank;
+            this.item = item;
+        }
+    }
+
+
     private class ScoreItem extends Sprite {
 
 
@@ -522,7 +602,17 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
         private final int scoreID;
 
         private final boolean showOnline;
-        
+
+        // osu!stable leaderboard glow: the row colour loops black -> (100,100,100)
+        // with a 150ms rise (ease-out), 900ms fall (ease-in) and a 50ms gap, so the
+        // period is 1100ms, staggered by 50ms per rank down the list.
+        private float glowBaseR;
+        private float glowBaseG;
+        private float glowBaseB;
+        private float glowOffset;
+        private float glowTime;
+        private static final float GLOW_LIFT = 100f / 255f;
+
 
         private ScoreItem(
                 ExecutorService avatarExecutor,
@@ -533,7 +623,8 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                 int scoreID,
                 String avaURL,
                 String username,
-                boolean isPersonalBest) {
+                boolean isPersonalBest,
+                int rank) {
             super(-150, 40,  ResourceManager.getInstance().getTexture("menu-button-background").deepCopy());
 
             this.avatarExecutor = avatarExecutor;
@@ -573,8 +664,23 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
             setWidth(724 * 1.1f);
             camY = -146;
 
-            setColor(0, 0, 0);
-            setAlpha(0.5f);
+            if (rank == 1) {
+                glowBaseR = 0.98f;
+                glowBaseG = 0.78f;
+                glowBaseB = 0.18f;
+            } else if (rank == 2) {
+                glowBaseR = 0.75f;
+                glowBaseG = 0.75f;
+                glowBaseB = 0.78f;
+            } else if (rank == 3) {
+                glowBaseR = 0.80f;
+                glowBaseG = 0.45f;
+                glowBaseB = 0.10f;
+            }
+            setColor(glowBaseR, glowBaseG, glowBaseB);
+            setAlpha(rank <= 3 ? 0.35f : 0.5f);
+
+            glowOffset = Math.max(0, rank - 1) * 0.05f;
 
             float finalBaseY = baseY;
             avatarTask = shouldLoadAvatar ? new Runnable() {
@@ -632,6 +738,28 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
         protected void onManagedUpdate(float pSecondsElapsed)
         {
             super.onManagedUpdate(pSecondsElapsed);
+
+            // Stable glow flash: rise 150ms (ease-out), fall 900ms (ease-in), 50ms gap.
+            glowTime += pSecondsElapsed;
+            float phase = (glowTime + glowOffset) % 1.1f;
+            float glowK;
+
+            if (phase < 0.15f) {
+                float x = phase / 0.15f;
+                glowK = 1f - (1f - x) * (1f - x);
+            } else if (phase < 1.05f) {
+                float x = (phase - 0.15f) / 0.9f;
+                glowK = 1f - x * x;
+            } else {
+                glowK = 0f;
+            }
+
+            float glowLift = GLOW_LIFT * glowK;
+            setColor(
+                Math.min(1f, glowBaseR + glowLift),
+                Math.min(1f, glowBaseG + glowLift),
+                Math.min(1f, glowBaseB + glowLift)
+            );
 
             // This is to avoid loading avatars when the scene was changed (game started or user gone back to main menu).
             if (avatarTask != null && currentAvatarTask == null) {
