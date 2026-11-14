@@ -33,25 +33,37 @@ class SendingPanel(
     private val columnGap = 10
 
     private var moveModifier: MoveYModifier? = null
+    private var isCollapsed = false
 
     private val dismissButton = object : DismissButton() {
         override fun onAreaTouched(touchEvent: TouchEvent, localX: Float, localY: Float): Boolean {
-            if (canBeDismissed) {
-                this@SendingPanel.let {
-                    if (moveModifier != null) {
-                        it.unregisterEntityModifier(moveModifier)
+            if (touchEvent.isActionUp) {
+                this@SendingPanel.let { panel ->
+                    if (isCollapsed) {
+                        // Reopen the panel
+                        isCollapsed = false
+                        if (moveModifier != null) {
+                            panel.unregisterEntityModifier(moveModifier)
+                        }
+                        moveModifier = MoveYModifier(0.4f, panel.y, 0f)
+                        panel.registerEntityModifier(moveModifier)
+                        setText("Dismiss")
+                        canBeDismissed = true
+                    } else if (canBeDismissed) {
+                        // Collapse - slide up, keep button visible
+                        isCollapsed = true
+                        if (moveModifier != null) {
+                            panel.unregisterEntityModifier(moveModifier)
+                        }
+                        moveModifier = MoveYModifier(0.4f, panel.y, -panel.height)
+                        panel.registerEntityModifier(moveModifier)
+                        setText("Rank")
+                        canBeDismissed = false
                     }
-
-                    val offset = it.height + height
-                    moveModifier = MoveYModifier(0.5f * (it.y + offset) / offset, it.y, -offset)
-                    it.registerEntityModifier(moveModifier)
                 }
-
-                canBeDismissed = false
                 return true
             }
-
-            return false
+            return true
         }
     }.also {
         attachChild(it)
@@ -77,6 +89,7 @@ class SendingPanel(
 
     fun show(newMapRank: Long, newOverallRank: Long, newScore: Long, newAccuracy: Float, newPP: Float) {
         dismissButton.canBeDismissed = true
+        isCollapsed = false
 
         // Map rank column is special, as its color is different when ranking up
         updateColumn(mapRankColumn, "#$newMapRank", 0f)
