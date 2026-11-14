@@ -73,6 +73,12 @@ public class SongService extends Service {
         System.out.println("onReBind");
     }
 
+    public void setLoop(boolean isLoop) {
+        if (audioFunc != null) {
+            audioFunc.setLoop(isLoop);
+        }
+    }
+
     public boolean preLoad(String filePath) {
         return preLoad(filePath, 1, false, false);
     }
@@ -170,6 +176,17 @@ public class SongService extends Service {
             return audioFunc.getSpectrum();
         }
         return new float[0];
+    }
+
+    /**
+     * Current peak level of the left/right output channels, or null when nothing
+     * is playing.
+     */
+    public float[] getChannelLevel() {
+        if (audioFunc != null) {
+            return audioFunc.getChannelLevel();
+        }
+        return null;
     }
 
     public float getVolume() {

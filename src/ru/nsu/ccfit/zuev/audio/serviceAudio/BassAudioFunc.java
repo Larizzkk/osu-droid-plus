@@ -78,6 +78,13 @@ public class BassAudioFunc {
 
         BASS.BASS_ChannelSetAttribute(channel, BASS.BASS_ATTRIB_BUFFER, 0.1f);
 
+        // BASS_FX_TempoCreate() returns a new stream, which does not inherit the
+        // BASS_SAMPLE_LOOP flag of the decoded source. Re-apply it here so a track
+        // preloaded while repeat was on actually loops.
+        BASS.BASS_ChannelFlags(channel,
+                (playFlag & BASS.BASS_SAMPLE_LOOP) != 0 ? BASS.BASS_SAMPLE_LOOP : 0,
+                BASS.BASS_SAMPLE_LOOP);
+
         return true;
     }
 
@@ -160,6 +167,25 @@ public class BassAudioFunc {
         return spectrum;
     }
 
+    /**
+     * Instantaneous peak level of the left and right channels (0..1 each, from
+     * BASS_ChannelGetLevel), or null when the stream is not playing. Used by the
+     * main-menu side flashes.
+     */
+    public synchronized float[] getChannelLevel() {
+        if (BASS.BASS_ChannelIsActive(channel) != BASS.BASS_ACTIVE_PLAYING) {
+            return null;
+        }
+        int level = BASS.BASS_ChannelGetLevel(channel);
+        if (level == -1) {
+            return null;
+        }
+        return new float[]{
+                (level & 0xFFFF) / 32768f,
+                ((level >> 16) & 0xFFFF) / 32768f
+        };
+    }
+
     private void doClear() {
         if (channel != 0 && BASS.BASS_ChannelIsActive(channel) == BASS.BASS_ACTIVE_PLAYING) {
             BASS.BASS_ChannelStop(channel);
@@ -171,7 +197,15 @@ public class BassAudioFunc {
         if (isLoop) {
             playFlag |= BASS.BASS_SAMPLE_LOOP;
         } else {
-            playFlag ^= BASS.BASS_SAMPLE_LOOP;
+            playFlag &= ~BASS.BASS_SAMPLE_LOOP;
+        }
+
+        // Apply to the stream that is already loaded/playing: the flag above only
+        // matters for the next BASS_StreamCreateFile call.
+        if (channel != 0) {
+            BASS.BASS_ChannelFlags(channel,
+                    isLoop ? BASS.BASS_SAMPLE_LOOP : 0,
+                    BASS.BASS_SAMPLE_LOOP);
         }
     }
 
