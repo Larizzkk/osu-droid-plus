@@ -10,6 +10,7 @@ class ModAutoplay : Mod() {
     override val acronym = "AT"
     override val description = "Watch a perfect automated play through the song."
     override val type = ModType.Automation
+    override val isRanked = false
     override val isValidForMultiplayer = false
     override val isValidForMultiplayerAsFreeMod = false
 

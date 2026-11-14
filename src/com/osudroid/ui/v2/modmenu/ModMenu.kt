@@ -587,9 +587,21 @@ object ModMenu : UIScene() {
             background!!.colorTo(if (isRanked) Color4(0xFF83DF6B) else Theme.current.accentColor * 0.15f, 0.1f)
         }
 
+        val unrestricted = ru.nsu.ccfit.zuev.osu.Config.getBoolean("unrestrictedMods", false)
         modToggles.forEach {
             it.hasIncompatibility =
-                !it.isSelected && enabledMods.any { m -> !it.mod.isCompatibleWith(m) || !m.isCompatibleWith(it.mod) }
+                if (!it.isSelected) {
+                    enabledMods.any { m ->
+                        if (unrestricted) {
+                            // Only automation mods are incompatible with each other
+                            it.mod.type == ModType.Automation &&
+                                    m.type == ModType.Automation &&
+                                    !it.mod.isCompatibleWith(m)
+                        } else {
+                            !it.mod.isCompatibleWith(m) || !m.isCompatibleWith(it.mod)
+                        }
+                    }
+                } else false
         }
 
         val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
@@ -613,7 +625,27 @@ object ModMenu : UIScene() {
         if (mod in enabledMods) {
             return
         }
-        enabledMods.put(mod)
+
+        val unrestricted = ru.nsu.ccfit.zuev.osu.Config.getBoolean("unrestrictedMods", false)
+        if (unrestricted) {
+            // When unrestricted, only remove incompatible automation mods
+            val autoMods = enabledMods.filter { (_, m) -> m.type == ModType.Automation }
+            for ((_, m) in autoMods) {
+                if (!mod.isCompatibleWith(m)) {
+                    enabledMods.remove(m::class)
+                }
+            }
+            // Check if any existing non-automation mod is incompatible with the new automation mod
+            if (mod.type == ModType.Automation) {
+                val toRemove = enabledMods.filter { (_, m) -> !mod.isCompatibleWith(m) }.toList()
+                for ((cls, _) in toRemove) {
+                    enabledMods.remove(cls)
+                }
+            }
+            enabledMods.putWithoutIncompatibilityCheck(mod)
+        } else {
+            enabledMods.put(mod)
+        }
 
         modToggles.forEach { button ->
 

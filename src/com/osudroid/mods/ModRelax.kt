@@ -17,11 +17,4 @@ class ModRelax : Mod() {
             ModNoFail::class,
             ModAutopilot::class
         ) && super.isCompatibleWith(other)
-
-    companion object {
-        /**
-         * How early before a hit object's start time (in milliseconds) a cursor flowing over it can trigger a hit.
-         */
-        const val RELAX_LENIENCY = 12.0
-    }
 }

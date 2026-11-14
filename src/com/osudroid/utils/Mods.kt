@@ -19,6 +19,7 @@ import kotlinx.serialization.json.Json
  */
 val allModsInstances by lazy {
     arrayOf(
+        Mod2B(),
         ModApproachDifferent(),
         ModAutoplay(),
         ModAutopilot(),
@@ -28,6 +29,7 @@ val allModsInstances by lazy {
         ModEasy(),
         ModFlashlight(),
         ModFreezeFrame(),
+        ModGravity(),
         ModHalfTime(),
         ModHardRock(),
         ModHidden(),

@@ -51,8 +51,11 @@ abstract class Mod {
 
     /**
      * Whether scores with this [Mod] active can be submitted online.
+     *
+     * Every mod is ranked by default; only mods that automate play (Autoplay)
+     * opt out with `isRanked = false`.
      */
-    open val isRanked = false
+    open val isRanked = true
 
     /**
      * Whether this [Mod] requires configuration by the user to make any meaningful changes to gameplay.

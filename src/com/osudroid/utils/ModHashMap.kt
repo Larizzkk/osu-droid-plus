@@ -83,6 +83,14 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
     operator fun contains(key: KClass<out Mod>) = containsKey(key.java)
 
     /**
+     * Inserts the specified [Mod] into this [ModHashMap] without removing any [Mod]s
+     * that are incompatible with it.
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Mod> putWithoutIncompatibilityCheck(mod: T) =
+        super.put(mod::class.java, mod) as? T
+
+    /**
      * Checks if this [ModHashMap] contains a [Mod] of the specified type.
      *
      * @param key The [Mod] type to check for.
@@ -313,6 +321,7 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
             ModHidden(),
             ModApproachDifferent(),
             ModFreezeFrame(),
+            ModGravity(),
             ModTraceable(),
             ModFlashlight(),
             ModDoubleTime(),
