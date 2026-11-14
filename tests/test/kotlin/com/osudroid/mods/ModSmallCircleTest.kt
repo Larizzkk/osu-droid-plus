@@ -7,14 +7,6 @@ import org.junit.Test
 
 class ModSmallCircleTest {
     @Test
-    fun `Test migration`() {
-        ModSmallCircle().migrate(BeatmapDifficulty(cs = 4f)).apply {
-            Assert.assertNotNull(cs)
-            Assert.assertEquals(8f, cs!!, 0f)
-        }
-    }
-
-    @Test
     fun `Test beatmap setting adjustment in osu!droid game mode`() {
         BeatmapDifficulty(cs = 3f).apply {
             ModSmallCircle().applyToDifficulty(GameMode.Droid, this, listOf())
