@@ -480,6 +480,9 @@ public class CursorEntity extends UIComponent {
                 case 0:
                     ((CursorTrail) trail).reset();
                     break;
+                case 2:
+                    ((CursorTrailClassic) trail).reset();
+                    break;
             }
             trail = null;
         }
