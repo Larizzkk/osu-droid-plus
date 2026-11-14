@@ -3,12 +3,15 @@ package ru.nsu.ccfit.zuev.osu.game.cursor.main;
 import com.reco1l.andengine.component.UIComponent;
 
 import org.anddev.andengine.entity.Entity;
+import org.anddev.andengine.entity.particle.emitter.PointParticleEmitter;
 import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
 import ru.nsu.ccfit.zuev.osu.Config;
+import ru.nsu.ccfit.zuev.osu.GlobalManager;
 import ru.nsu.ccfit.zuev.osu.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.game.cursor.trail.CursorTrail;
+import ru.nsu.ccfit.zuev.osu.game.cursor.trail.CursorTrailClassic;
 import ru.nsu.ccfit.zuev.osu.game.cursor.trail.CursorTrailOptimized;
 
 public class CursorEntity extends UIComponent {
@@ -16,6 +19,11 @@ public class CursorEntity extends UIComponent {
     protected Object trail = null; // CursorTrail (legacy) or CursorTrailOptimized (long)
     private boolean isShowing = false;
     protected int trailImplementation = 1; // Default to long (optimized) trail
+
+    // Original osu!droid particle trail (style 2).
+    private PointParticleEmitter classicEmitter = null;
+    private float classicOffsetX = 0f;
+    private float classicOffsetY = 0f;
 
     // Trail delay: only show trail when cursor is held >1s
     private float showTimer = 0f;
@@ -79,6 +87,17 @@ public class CursorEntity extends UIComponent {
                 break;
 
             case 1: // Long trail (optimized)
+                trail = new CursorTrailOptimized(trailTex, cursorSprite);
+                break;
+
+            case 2: // Original osu!droid particle trail
+                classicOffsetX = -trailTex.getWidth() / 2f;
+                classicOffsetY = -trailTex.getHeight() / 2f;
+                classicEmitter = new PointParticleEmitter(classicOffsetX, classicOffsetY);
+                int spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 2);
+                trail = new CursorTrailClassic(classicEmitter, spawnRate, trailTex, cursorSprite);
+                break;
+
             default:
                 trail = new CursorTrailOptimized(trailTex, cursorSprite);
                 break;
