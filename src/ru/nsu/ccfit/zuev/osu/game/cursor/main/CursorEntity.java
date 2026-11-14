@@ -67,8 +67,8 @@ public class CursorEntity extends UIComponent {
         } catch (Exception e) {
             trailImplementation = 1;
         }
-        // Clamp to valid range: 0=legacy, 1=long (optimized)
-        trailImplementation = Math.max(0, Math.min(1, trailImplementation));
+        // Clamp to valid range: 0=legacy, 1=long (optimized), 2=osu!droid
+        trailImplementation = Math.max(0, Math.min(2, trailImplementation));
     }
 
     private void createTrail(TextureRegion trailTex) {
@@ -90,7 +90,7 @@ public class CursorEntity extends UIComponent {
      * Note: This requires recreating the trail
      */
     public void setTrailImplementation(int implementation) {
-        implementation = Math.max(0, Math.min(1, implementation));
+        implementation = Math.max(0, Math.min(2, implementation));
         if (trailImplementation != implementation) {
             trailImplementation = implementation;
             Config.setString("trailImplementation", String.valueOf(trailImplementation));
@@ -147,8 +147,8 @@ public class CursorEntity extends UIComponent {
         } catch (Exception e) {
             requested = 1;
         }
-        // Clamp to valid range: 0=legacy, 1=long (optimized)
-        requested = Math.max(0, Math.min(1, requested));
+        // Clamp to valid range: 0=legacy, 1=long (optimized), 2=osu!droid
+        requested = Math.max(0, Math.min(2, requested));
 
         if (requested != trailImplementation) {
             setTrailImplementation(requested);
