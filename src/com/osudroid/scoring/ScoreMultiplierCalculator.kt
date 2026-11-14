@@ -57,7 +57,7 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
         single<Mod2B>(0.9)
         single<ModWindUp> { timeRampMultiplier() }
         single<ModWindDown> { timeRampMultiplier() }
-        single<ModRandom>(0.7)
+        single<ModRandom> { randomMultiplier() }
         single<ModApproachDifferent>(0.7)
         single<ModGravity>(1.06)
         single<ModSynesthesia>(0.99)
@@ -78,6 +78,15 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
 
     override val defaultMultiplier = 1.0
     override fun multiply(a: Double, b: Double) = a * b
+
+    /**
+     * Random becomes harder as its intensity and angle sharpness grow, so the
+     * score multiplier grows with it. This mirrors the server's PP bonus.
+     */
+    private fun ModRandom.randomMultiplier(): Double {
+        val bonus = 1.15 + 0.10 * (aggressive.toDouble() - 1.0) + 0.015 * max(0.0, angleSharpness.toDouble() - 7.0)
+        return bonus.coerceIn(1.15, 1.45)
+    }
 
     private fun ModDifficultyAdjust.difficultyAdjustMultiplier(): Double {
         var multiplier = 1.0
