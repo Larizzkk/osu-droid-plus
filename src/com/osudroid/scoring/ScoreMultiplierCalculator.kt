@@ -53,10 +53,13 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
 
         // region Fun
 
+        // 2B removes the slider/spinner lock, so it is easier than normal play.
+        single<Mod2B>(0.9)
         single<ModWindUp> { timeRampMultiplier() }
         single<ModWindDown> { timeRampMultiplier() }
         single<ModRandom>(0.7)
         single<ModApproachDifferent>(0.7)
+        single<ModGravity>(1.06)
         single<ModSynesthesia>(0.99)
 
         // endregion

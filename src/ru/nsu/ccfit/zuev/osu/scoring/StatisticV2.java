@@ -544,6 +544,10 @@ public class StatisticV2 implements Serializable {
         builder.append(isPerfect() ? 1 : 0);
         builder.append(' ');
         builder.append(getPlayerName());
+        // Optional trailing field: 1 when notelock was disabled. Older servers
+        // ignore unknown trailing fields; v2 reads it to apply the PP penalty.
+        builder.append(' ');
+        builder.append(Config.isRemoveSliderLock() ? 1 : 0);
         return builder.toString();
     }
 

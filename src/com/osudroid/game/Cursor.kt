@@ -4,6 +4,8 @@ import android.os.SystemClock
 
 import org.anddev.andengine.input.touch.TouchEvent
 
+import java.util.BitSet
+
 /**
  * Represents a cursor in gameplay.
  */
@@ -34,6 +36,12 @@ class Cursor {
     var latestProcessedDownEventIndex = 0
 
     /**
+     * The indices of [downEvents] that were claimed by a gameplay object. Without a claim, every
+     * object locked behind the claiming object would also react to the same press.
+     */
+    private val claimedDownEvents = BitSet()
+
+    /**
      * [CursorEvent]s of this [Cursor] that have not been processed yet.
      */
     @JvmField
@@ -50,6 +58,15 @@ class Cursor {
      */
     var latestEvent: CursorEvent? = null
         private set
+
+    /** Whether the [CursorEvent] at [index] of [downEvents] was claimed by a gameplay object. */
+    fun isDownEventClaimed(index: Int) = claimedDownEvents[index]
+
+    /**
+     * Claims the [CursorEvent] at [index] of [downEvents] for a gameplay object, so that other
+     * gameplay objects do not react to it.
+     */
+    fun claimDownEvent(index: Int) = claimedDownEvents.set(index)
 
     /**
      * Adds a [CursorEvent] to this [Cursor].
@@ -139,6 +156,18 @@ class Cursor {
     }
 
     /**
+     * Drops the latest [CursorEvent], so the cursor does not keep reporting a
+     * position that belongs to a part of the map that is no longer being played
+     * (for example after seeking backwards).
+     */
+    fun clearLatestEvent() {
+        if (events.isEmpty()) {
+            latestEvent?.release()
+            latestEvent = null
+        }
+    }
+
+    /**
      * Resets this [Cursor] for the next update tick.
      *
      * @param frameTime The time of the current frame, in the [SystemClock.uptimeMillis] time base.
@@ -161,6 +190,7 @@ class Cursor {
         }
 
         downEvents.clear()
+        claimedDownEvents.clear()
         events.clear()
         latestProcessedDownEventIndex = 0
         latestProcessedEventIndex = 0

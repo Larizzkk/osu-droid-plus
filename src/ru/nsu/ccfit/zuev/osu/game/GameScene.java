@@ -16,6 +16,8 @@ import com.osudroid.audio.SongServiceClock;
 import com.osudroid.beatmaps.constants.HitObjectType;
 import com.osudroid.game.FramedBeatmapClock;
 import com.osudroid.game.GameplayFrameStabilityClock;
+import com.osudroid.plugin.GameState;
+import com.osudroid.plugin.PluginManager;
 import ru.nsu.ccfit.zuev.osu.SecurityUtils;
 
 import com.acivev.VibratorManager;
@@ -119,7 +121,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.annotation.Nullable;
+import androidx.annotation.Nullable;
 import javax.microedition.khronos.opengles.GL10;
 
 import ru.nsu.ccfit.zuev.audio.effect.Metronome;
@@ -131,7 +133,11 @@ import ru.nsu.ccfit.zuev.osu.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.Utils;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper.SliderPath;
 import ru.nsu.ccfit.zuev.osu.game.cursor.flashlight.FlashLightEntity;
+import ru.nsu.ccfit.zuev.osu.game.cursor.AutoplayStyle;
+import ru.nsu.ccfit.zuev.osuplusplus.ScreenShake;
+import ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.AutoCursor;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.MoverSettings;
 import ru.nsu.ccfit.zuev.osu.game.cursor.main.CursorEntity;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
@@ -150,6 +156,24 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     public static final int CursorCount = 10;
     private final int maximumActiveCursorCount = 3;
     private final UIEngine engine;
+    private ScreenShake screenShake;
+    private TriangleBackground triangleBg;
+    private boolean wasKiaiActive;
+
+    // Kiai flash: a single fullscreen white overlay that fades in and out once per kiai section.
+    private org.anddev.andengine.entity.primitive.Rectangle kiaiFlashOverlay;
+    private float kiaiFlashAlpha = 0f;
+    private float kiaiFlashMaxAlpha = 0.2f;
+    private boolean kiaiFlashTriggered = false;
+    private boolean wasKiaiFlash = false;
+    private float kiaiFlashTimer = 0f;
+
+    // Kiai particles: two star spouts from the left and right screen edges that
+    // fire when a kiai section starts (same setup as the legacy build).
+    private org.anddev.andengine.entity.particle.ParticleSystem[] kiaiParticles =
+        new org.anddev.andengine.entity.particle.ParticleSystem[2];
+    private boolean kiaiParticlesRunning = false;
+    private float kiaiParticlesStartTime = 0f;
     private Cursor[] cursors = new Cursor[CursorCount];
     public String audioFilePath = null;
     private GameUIScene scene;
@@ -193,6 +217,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private float skipTime;
     private double distToNextObject;
     private CursorEntity[] cursorSprites;
+
     private AutoCursor autoCursor;
     private FlashLightEntity flashlightSprite;
     private int mainCursorId = -1;
@@ -200,6 +225,19 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private boolean replaying;
     private String replayFilePath;
     private Rectangle dimRectangle = null;
+
+    // ── Background parallax (Config "parallaxEnabled") ───────────────────────
+    // Same effect as the main menu: the background is overscanned by 10% in
+    // applyBackground() and shifted against the active cursor, smoothed with the
+    // half-life formula from the legacy client (p = 0.5^(delta/100ms)). Pure state
+    // here, the work per frame is one setPosition on the background shape.
+    private float bgBaseX = 0f;
+    private float bgBaseY = 0f;
+    private float parallaxPosX = 0f;
+    private float parallaxPosY = 0f;
+    private float parallaxLastTime = -1f;
+    /** osu!stable letterbox-in-breaks bars (top/bottom black strips). */
+    private Rectangle letterboxTop, letterboxBottom;
     private ComboBurst comboBurst;
     private int failcount = 0;
     private Color4 sliderBorderColor;
@@ -598,8 +636,18 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 ? Config.getRES_HEIGHT() / background.getHeight()
                 : Config.getRES_WIDTH() / background.getWidth();
 
+        // Extra 10% when parallax is on, so the shift never exposes an edge.
+        if (Config.isParallaxEnabled()) {
+            factor *= 1.1f;
+        }
+
         background.setScale(factor);
         background.setPosition((Config.getRES_WIDTH() - background.getWidth()) / 2f, (Config.getRES_HEIGHT() - background.getHeight()) / 2f);
+        bgBaseX = background.getX();
+        bgBaseY = background.getY();
+        parallaxPosX = 0f;
+        parallaxPosY = 0f;
+        parallaxLastTime = -1f;
         scene.setBackground(new EntityBackground(background));
 
         if (storyboardSprite != null) {
@@ -1038,6 +1086,57 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         bgScene.setBackgroundEnabled(false);
         mgScene.setBackgroundEnabled(false);
         fgScene.setBackgroundEnabled(false);
+
+        PluginManager.getInstance().initGameplay(GlobalManager.getInstance().getMainActivity(), fgScene);
+
+        screenShake = new ScreenShake(engine.getCamera());
+
+        // osu!droid+ effects: animated triangle background behind the playfield and a
+        // kiai flash overlay above the hit objects.
+        triangleBg = new TriangleBackground();
+        bgScene.attachChild(triangleBg);
+
+        initializeKiaiParticles();
+
+        wasKiaiActive = false;
+
+        kiaiFlashOverlay = new org.anddev.andengine.entity.primitive.Rectangle(
+            0,
+            0,
+            Config.getRES_WIDTH(),
+            Config.getRES_HEIGHT()
+        );
+        kiaiFlashOverlay.setColor(1f, 1f, 1f, 0f);
+        kiaiFlashOverlay.setVisible(false);
+        fgScene.attachChild(kiaiFlashOverlay);
+
+        // Stable letterbox-in-breaks bars: same geometry as the main menu dim bars
+        // (86.4 design units at a 768-high screen), transparent until a break runs.
+        float letterboxBarHeight = 86.4f * Config.getRES_HEIGHT() / 768f;
+
+        letterboxTop = new org.anddev.andengine.entity.primitive.Rectangle(
+            0,
+            0,
+            Config.getRES_WIDTH(),
+            letterboxBarHeight
+        );
+        letterboxTop.setColor(0f, 0f, 0f, 0f);
+        fgScene.attachChild(letterboxTop);
+
+        letterboxBottom = new org.anddev.andengine.entity.primitive.Rectangle(
+            0,
+            Config.getRES_HEIGHT() - letterboxBarHeight,
+            Config.getRES_WIDTH(),
+            letterboxBarHeight
+        );
+        letterboxBottom.setColor(0f, 0f, 0f, 0f);
+        fgScene.attachChild(letterboxBottom);
+
+        kiaiFlashAlpha = 0f;
+        kiaiFlashTriggered = false;
+        wasKiaiFlash = false;
+        kiaiFlashTimer = 0f;
+
         failcount = 0;
         mainCursorId = -1;
         gameplayClock.changeSource(null);
@@ -1157,9 +1256,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         stat.setMod(lastMods);
         stat.migrateLegacyMods(parsedBeatmap.getDifficulty());
         stat.calculateModScoreMultiplier(parsedBeatmap.getDifficulty());
+        // Legacy behaviour: Relax and Autopilot still let the player die (their HP
+        // can drain to zero), only NoFail and the autoplay spectator mod block it.
         stat.canFail = !stat.getMod().contains(ModNoFail.class)
-                && !stat.getMod().contains(ModRelax.class)
-                && !stat.getMod().contains(ModAutopilot.class)
                 && !stat.getMod().contains(ModAutoplay.class);
 
         float difficultyScoreMultiplier = 1 + Math.min(parsedBeatmap.getDifficulty().od, 10) / 10f +
@@ -1179,6 +1278,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setHidden(lastMods.ofType(ModHidden.class));
         GameHelper.setTraceable(lastMods.ofType(ModTraceable.class));
         GameHelper.setFlashlight(lastMods.ofType(ModFlashlight.class));
+        GameHelper.setGravity(lastMods.ofType(ModGravity.class));
         GameHelper.setRelax(lastMods.ofType(ModRelax.class));
         GameHelper.setAutopilot(lastMods.ofType(ModAutopilot.class));
         GameHelper.setAutoplay(lastMods.ofType(ModAutoplay.class));
@@ -1190,6 +1290,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setMuted(lastMods.ofType(ModMuted.class));
         GameHelper.setFreezeFrame(lastMods.ofType(ModFreezeFrame.class));
         GameHelper.setApproachDifferent(lastMods.ofType(ModApproachDifferent.class));
+        GameHelper.setTwoButtons(lastMods.ofType(Mod2B.class));
 
         int cursorCount = replaying && replay != null ? replay.cursorMoves.size() : CursorCount;
 
@@ -1237,8 +1338,23 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
+            // Mover settings are read on the hot path, so refresh the cached values once per session.
+            MoverSettings.clearCache();
+
             autoCursor = new AutoCursor();
+
+            var autoplayObjects = playableBeatmap.getHitObjects().objects;
+            if (!autoplayObjects.isEmpty()) {
+                var firstAutoplayObject = autoplayObjects.get(0);
+                autoCursor.setDifficulty(
+                    (float) firstAutoplayObject.timePreempt,
+                    GameHelper.getSpeedMultiplier(),
+                    (float) firstAutoplayObject.getScreenSpaceGameplayRadius()
+                );
+            }
+
             autoCursor.attachToScene(fgScene);
+            autoCursor.initQueue(autoplayObjects.toArray(new HitObject[0]), this);
         }
 
         final var countdown = playableBeatmap.getGeneral().countdown;
@@ -1275,7 +1391,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         boolean hasUnrankedMod = SmartIterator.wrap(lastMods.values().iterator()).applyFilter(m -> !m.isRanked()).hasNext();
-        if (hasUnrankedMod || Config.isRemoveSliderLock()) {
+        if (hasUnrankedMod || (Config.isRemoveSliderLock() && !GameHelper.isTwoButtons())) {
             unrankedSprite = new UISprite(ResourceManager.getInstance().getTexture("play-unranked"));
             unrankedSprite.setAnchor(Anchor.TopCenter);
             unrankedSprite.setOrigin(Anchor.Center);
@@ -1374,10 +1490,35 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
         stat.setPlayerName(playname);
 
+        var pluginMetadata = playableBeatmap.getMetadata();
+        var pluginObjectCount = playableBeatmap.getHitObjects().objects.size();
+
+        GameState.setBeatmapInfo(
+            pluginMetadata.title,
+            pluginMetadata.artist,
+            pluginMetadata.version,
+            playableBeatmap.getMd5()
+        );
+        GameState.setObjectCount(pluginObjectCount);
+        PluginManager.getInstance().dispatchBeatmapLoaded(
+            pluginMetadata.title,
+            pluginMetadata.artist,
+            pluginMetadata.version,
+            pluginObjectCount
+        );
+
         breakAnimator = new BreakAnimator(fgScene, stat, hud);
 
-        if (!startedFromHUDEditor && (GameHelper.isAutoplay() || replaying)) {
+        // Legacy osu!droid+ "Hide replay settings panel" (Gameplay -> HUD). The
+        // panel is nullable everywhere else, so skipping it entirely is safe.
+        if (!startedFromHUDEditor && (GameHelper.isAutoplay() || replaying)
+                && !Config.isHideReplaySettingsPanel()) {
             hud.attachChild(replaySettingsPanel = new ReplaySettingsPanel(replaying));
+
+            replaySettingsPanel.getMovementControl().setOnMovementStyleChanged(style -> {
+                onReplayMovementStyleChanged(style);
+                return Unit.INSTANCE;
+            });
 
             var seekControl = replaySettingsPanel.getPlaybackControl().getSeekControl();
 
@@ -1412,6 +1553,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     dimRectangle.setAlpha(1f - brightness);
                 }
 
+                return Unit.INSTANCE;
+            });
+
+            replaySettingsPanel.getVisualSettingsControl().setOnParallaxChanged(enabled -> {
+                onReplayParallaxChanged(enabled);
                 return Unit.INSTANCE;
             });
 
@@ -1550,6 +1696,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
 
+        PluginManager.getInstance().dispatchGameUpdate(dt, (float) gameplayClock.getCurrentTime());
+
         previousFrameTime = SystemClock.uptimeMillis();
 
         var playableBeatmap = this.playableBeatmap;
@@ -1583,6 +1731,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         final float mSecPassed = gameplayClock.getCurrentTime() * 1000;
+
+        if (screenShake != null) {
+            screenShake.update(dt);
+        }
+
+        updateBackgroundParallax(dt);
 
         if (!isGameOver) {
             float modRate = ModUtils.calculateRateWithTrackRateMods(rateAdjustingMods, mSecPassed);
@@ -1698,6 +1852,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             autoCursor.update(dt);
+            autoCursor.updateMovement(dt, (float) gameplayClock.getCurrentTime());
         } else if (cursorSprites != null) {
             for (int i = 0; i < cursorSprites.length; i++) {
                 var sprite = cursorSprites[i];
@@ -1709,7 +1864,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 if (replaying && latestEvent != null) {
                     sprite.setPosition(latestEvent.position.x, latestEvent.position.y);
                     sprite.setShowing(!hideReplayCursor && !latestEvent.isActionUp());
+                    // Replays switch finger up/down constantly, which would keep
+                    // resetting the trail delay timer; force it on instead.
+                    sprite.setForceTrailEnabled(true);
                 }
+
+                // Feed the trail right after the position for this frame so the
+                // ribbon never lags one frame behind the cursor.
+                sprite.updateTrailFromMovement(dt);
 
                 if (cursor.getLatestDownEvent() != null) {
                     sprite.click();
@@ -1785,6 +1947,21 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         GameHelper.setBeatLength(activeTimingPoint.msPerBeat / 1000);
         GameHelper.setKiai(activeEffectPoint.isKiai);
+
+        if (activeEffectPoint.isKiai != wasKiaiActive) {
+            wasKiaiActive = activeEffectPoint.isKiai;
+
+            if (triangleBg != null) {
+                triangleBg.setKiai(wasKiaiActive);
+            }
+
+            startKiaiParticles(wasKiaiActive);
+        }
+
+        updateKiaiFlash(dt);
+        updateKiaiParticles();
+        updateLetterbox(mSecPassed);
+
         GameHelper.setCurrentBeatTime(Math.max(0, gameplayClock.getCurrentTime() - activeTimingPoint.time / 1000) % GameHelper.getBeatLength());
 
         if (!isGameOver) {
@@ -2038,12 +2215,37 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 applyBackground();
                 stat.reset();
                 skip(true);
+                if (autoCursor != null) {
+                    autoCursor.seekTo((float) gameplayClock.getCurrentTime());
+                }
                 return;
             }
 
             scene = new GameUIScene();
             BeatmapSkinManager.setSkinEnabled(false);
             GameObjectPool.getInstance().purge();
+            if (screenShake != null) {
+                screenShake.reset();
+                screenShake = null;
+            }
+
+            if (kiaiFlashOverlay != null) {
+                kiaiFlashOverlay.detachSelf();
+                kiaiFlashOverlay = null;
+            }
+            for (var spout : kiaiParticles) {
+                if (spout != null) {
+                    spout.setParticlesSpawnEnabled(false);
+                    spout.detachSelf();
+                }
+            }
+            kiaiParticles = new org.anddev.andengine.entity.particle.ParticleSystem[2];
+            kiaiParticlesRunning = false;
+
+            if (triangleBg != null) {
+                triangleBg.clearAll();
+                triangleBg = null;
+            }
             timingControlPoints = null;
             effectControlPoints = null;
             objects = null;
@@ -2298,6 +2500,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     public void quit() {
+        PluginManager.getInstance().destroyGameplay();
+
         // Disable historical event processing for more efficient ACTION_MOVE reports, since frequent reports are
         // not that relevant outside gameplay.
         var touchOptions = new TouchOptions();
@@ -2445,6 +2649,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         float accuracy = Math.abs(acc);
+
+        // Screen shake on hit: gentle for accurate hits, stronger for shaky ones.
+        if (screenShake != null) {
+            screenShake.shake(accuracy < 0.05f ? 1.5f : 0.5f, accuracy < 0.05f ? 0.08f : 0.05f);
+        }
+
         boolean writeReplay = replay != null && !replaying;
         if (writeReplay) {
             short sacc = (short) (acc * 1000);
@@ -2471,6 +2681,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         if (accuracy > playableBeatmap.getHitWindow().getMehWindow() / 1000 || forcedScore == ResultType.MISS.getId()) {
             createHitEffect(pos, "hit0", color);
             registerHit(id, 0, endCombo);
+            PluginManager.getInstance().dispatchCircleHit(id, accuracy, pos.x, pos.y, endCombo, 0);
             return;
         }
 
@@ -2487,6 +2698,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         createBurstEffect(pos, color);
         createHitEffect(pos, scoreName, color);
+
+        final int hitScore = scoreName.startsWith("hit300") ? 300 : scoreName.startsWith("hit100") ? 100 : 50;
+        PluginManager.getInstance().dispatchCircleHit(id, accuracy, pos.x, pos.y, endCombo, hitScore);
 
         if (nearestCursorId >= 0) {
             var aimErrorCursorEvent = cursors[nearestCursorId].getLatestNonUpEvent();
@@ -2506,6 +2720,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public void onSliderHit(int id, final int score, final PointF judgementPos, final boolean endCombo,
                             Color4 color, int type, boolean incrementCombo) {
+        PluginManager.getInstance().dispatchSliderHit(id, score, judgementPos.x, judgementPos.y, endCombo);
+
+        if (type == GameObjectListener.SLIDER_END) {
+            PluginManager.getInstance().dispatchSliderEnd(id, score / 300f);
+        }
+
         // Autoplay/Autopilot synthesize their own cursor movement rather than using real touch input, so
         // real touch events (e.g. a resting finger) must not be picked up as the "cursor position" here.
         boolean isCursorTrackingActive = !GameHelper.isAutoplay() && !GameHelper.isAutopilot();
@@ -2561,6 +2781,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     stat.registerHit(30, false, false);
                     stat.addSliderHeadHit();
                     createBurstEffectSliderStart(judgementPos, color);
+                    // Autoplay/relax key counter: the key stays down from the slider
+                    // head until onSliderEnd() instead of flashing per judgement.
+                    hud.onKeyHoldStart();
 
                     if (nearestCursorId >= 0) {
                         var aimErrorCursorEvent = cursors[nearestCursorId].getLatestNonUpEvent();
@@ -2615,13 +2838,26 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     @Override
     public void onSpinnerStart(int id) {
+        // Autoplay/relax key counter: hold the key for the whole spinner.
+        hud.onKeyHoldStart();
         if (GameHelper.isAutoplay()) {
             autoCursor.click();
             hud.onGameplayTouchDown((float) parsedBeatmap.getHitObjects().objects.get(id).startTime / 1000);
         }
+
+        PluginManager.getInstance().dispatchSpinnerStart(id);
     }
 
     public void onSpinnerHit(int id, final int score, final boolean endCombo, int totalScore) {
+        PluginManager.getInstance().dispatchSpinnerHit(id, score);
+
+        // Final spinner judgement (a miss ends here too, there is no onSpinnerEnd):
+        // release the key held since onSpinnerStart(). The HUD applies the release
+        // on its next tick so this judgement still sees the key as held.
+        if (score != 1000) {
+            hud.onKeyHoldEnd();
+        }
+
         if (score == 1000) {
             stat.registerHit(score, false, false);
             return;
@@ -2744,6 +2980,222 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         return cursors[index];
     }
 
+    /**
+     * Returns the auto cursor that drives autoplay, or {@code null} when the current
+     * play is not an autoplay run.
+     */
+    public AutoCursor getAutoCursor() {
+        return autoCursor;
+    }
+
+    /**
+     * Applies a new autoplay movement style to the running autoplay session.
+     *
+     * @param styleValue the new autoplayStyle value (null/empty = keep the current style).
+     */
+    public void onReplayMovementStyleChanged(String styleValue) {
+        if (autoCursor == null) {
+            return;
+        }
+
+        AutoplayStyle style = (styleValue == null || styleValue.isEmpty())
+            ? null
+            : AutoplayStyle.fromValue(styleValue);
+
+        // Re-baking the movement queue touches the cursor position, so it has to run on the update thread.
+        Execution.updateThread(() ->
+            autoCursor.applyStyleLive(
+                style,
+                playableBeatmap != null
+                    ? playableBeatmap.getHitObjects().objects.toArray(new HitObject[0])
+                    : null,
+                this,
+                (float) gameplayClock.getCurrentTime()
+            )
+        );
+    }
+
+
+    /**
+     * Kiai flash overlay, ported 1:1 from osu!droid+.
+     *
+     * One flash per kiai section: a fullscreen white rectangle fades in over 0.15s and
+     * out over 0.4s. Alpha never exceeds 0.2 so the playfield stays readable.
+     */
+    private void initializeKiaiParticles() {
+        kiaiParticles = new org.anddev.andengine.entity.particle.ParticleSystem[2];
+        kiaiParticlesRunning = false;
+
+        if (!Config.getBoolean("kiaiParticles", true)) {
+            return;
+        }
+
+        TextureRegion starRegion = ResourceManager.getInstance().getTexture("sliderscorepoint");
+        if (starRegion == null) {
+            starRegion = ResourceManager.getInstance().loadTexture(
+                "sliderscorepoint",
+                "gfx/sliderscorepoint.png",
+                false
+            );
+        }
+        if (starRegion == null) {
+            return;
+        }
+
+        float spawnY = Config.getRES_HEIGHT() * 3f / 4f;
+
+        for (int i = 0; i < 2; ++i) {
+            boolean left = i == 0;
+            float spawnX = left ? -40f : Config.getRES_WIDTH();
+
+            var system = new org.anddev.andengine.entity.particle.ParticleSystem(
+                new org.anddev.andengine.entity.particle.emitter.PointParticleEmitter(spawnX, spawnY),
+                32,
+                48,
+                128,
+                starRegion
+            );
+            system.setBlendFunction(
+                javax.microedition.khronos.opengles.GL10.GL_SRC_ALPHA,
+                javax.microedition.khronos.opengles.GL10.GL_ONE_MINUS_SRC_ALPHA
+            );
+
+            system.addParticleInitializer(
+                new org.anddev.andengine.entity.particle.initializer.VelocityInitializer(
+                    left ? 150 : -150,
+                    left ? 430 : -430,
+                    -480,
+                    -520
+                )
+            );
+            system.addParticleInitializer(
+                new org.anddev.andengine.entity.particle.initializer.AccelerationInitializer(
+                    left ? 10 : -10,
+                    30
+                )
+            );
+            system.addParticleInitializer(
+                new org.anddev.andengine.entity.particle.initializer.RotationInitializer(0f, 360f)
+            );
+            system.addParticleModifier(
+                new org.anddev.andengine.entity.particle.modifier.ScaleModifier(0.5f, 2f, 0f, 1f)
+            );
+            system.addParticleModifier(
+                new org.anddev.andengine.entity.particle.modifier.AlphaModifier(1f, 0f, 0f, 1f)
+            );
+            system.addParticleModifier(
+                new org.anddev.andengine.entity.particle.modifier.ExpireModifier(1f)
+            );
+
+            system.setParticlesSpawnEnabled(false);
+            bgScene.attachChild(system);
+            kiaiParticles[i] = system;
+        }
+    }
+
+    private void startKiaiParticles(boolean kiai) {
+        if (!Config.getBoolean("kiaiParticles", true)) {
+            return;
+        }
+        if (kiai && kiaiParticles[0] != null && !kiaiParticlesRunning) {
+            for (var spout : kiaiParticles) {
+                spout.setParticlesSpawnEnabled(true);
+            }
+            kiaiParticlesRunning = true;
+            kiaiParticlesStartTime = gameplayClock.getCurrentTime();
+        }
+    }
+
+    private void updateKiaiParticles() {
+        if (!kiaiParticlesRunning) {
+            return;
+        }
+        if (gameplayClock.getCurrentTime() - kiaiParticlesStartTime > 2f) {
+            for (var spout : kiaiParticles) {
+                if (spout != null) {
+                    spout.setParticlesSpawnEnabled(false);
+                }
+            }
+            kiaiParticlesRunning = false;
+        }
+    }
+
+    /**
+     * Shows the stable letterbox bars while the current break runs, only when the
+     * map sets {@code LetterboxInBreaks}. Alpha fades in over the first 500ms and out
+     * over the last 500ms of the break, up to 0.4, and only for breaks of 4s or more.
+     * Driven by gameplay time, so pause, seek and break end need no extra events.
+     */
+    private void updateLetterbox(double timeMs) {
+        if (letterboxTop == null || letterboxBottom == null) {
+            return;
+        }
+
+        float alpha = 0f;
+
+        if (playableBeatmap != null && playableBeatmap.getGeneral().letterboxInBreaks
+                && breakPeriods != null && breakPeriodIndex > 0
+                && breakPeriodIndex <= breakPeriods.length) {
+            var period = breakPeriods[breakPeriodIndex - 1];
+
+            if (period.getDuration() >= 4000f && timeMs >= period.startTime && timeMs <= period.endTime) {
+                float fadeIn = (float) Math.min(500f, timeMs - period.startTime);
+                float fadeOut = (float) Math.min(500f, period.endTime - timeMs);
+
+                alpha = 0.4f * Math.min(fadeIn, fadeOut) / 500f;
+            }
+        }
+
+        letterboxTop.setAlpha(alpha);
+        letterboxBottom.setAlpha(alpha);
+    }
+
+    private void updateKiaiFlash(float dt) {
+        if (kiaiFlashOverlay == null) {
+            return;
+        }
+
+        if (!Config.getBoolean("kiaiFlash", true)) {
+            kiaiFlashOverlay.setVisible(false);
+            kiaiFlashOverlay.setAlpha(0f);
+            return;
+        }
+
+        boolean isKiai = activeEffectPoint != null && activeEffectPoint.isKiai;
+
+        if (isKiai && !wasKiaiFlash && !kiaiFlashTriggered) {
+            kiaiFlashTriggered = true;
+            kiaiFlashTimer = 0f;
+            kiaiFlashAlpha = 0f;
+            // 0..100 setting -> peak overlay alpha (default 20 = upstream's 0.2).
+            kiaiFlashMaxAlpha = Math.max(0.01f, Config.getInt("kiaiFlashBrightness", 20) / 100f);
+            kiaiFlashOverlay.setColor(1f, 1f, 1f);
+            kiaiFlashOverlay.setVisible(true);
+        }
+
+        if (!isKiai) {
+            kiaiFlashTriggered = false;
+        }
+
+        wasKiaiFlash = isKiai;
+
+        if (kiaiFlashTriggered && kiaiFlashTimer < 0.55f) {
+            kiaiFlashTimer += dt;
+
+            if (kiaiFlashTimer < 0.15f) {
+                kiaiFlashAlpha = (kiaiFlashTimer / 0.15f) * kiaiFlashMaxAlpha;
+            } else {
+                float fadeOut = (kiaiFlashTimer - 0.15f) / 0.4f;
+                kiaiFlashAlpha = (1f - fadeOut) * kiaiFlashMaxAlpha;
+            }
+
+            kiaiFlashOverlay.setAlpha(kiaiFlashAlpha);
+        } else {
+            kiaiFlashOverlay.setVisible(false);
+            kiaiFlashOverlay.setAlpha(0f);
+        }
+    }
+
     public boolean onSceneTouchEvent(final Scene pScene, final TouchEvent event) {
         float offset = previousFrameTime > 0
                 ? (event.getMotionEvent().getEventTime() - previousFrameTime) * GameHelper.getSpeedMultiplier()
@@ -2801,6 +3253,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
             if (sprite != null) {
                 sprite.setShowing(true);
+                // A fresh press is a teleport for the trail: never interpolate
+                // a segment from the previous lift point.
+                sprite.onCursorPress();
             }
 
             if (!GameHelper.isAutoplay()) {
@@ -2936,6 +3391,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
         isGameOver = true;
+
+        PluginManager.getInstance().dispatchBeatmapFinished(
+            (int) stat.getTotalScoreWithMultiplier(),
+            stat.getScoreMaxCombo(),
+            stat.getAccuracy(),
+            stat.getMark()
+        );
 
         if (!replaying) {
             removeAllCursors();
@@ -3260,7 +3722,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     public int getCursorsCount() {
-        return cursors.length;
+        // Relax is single-cursor only. This is the central gate: touch input rejects any
+        // pointer id above 0, and every hit/tracking/spinner loop sees exactly one cursor.
+        return GameHelper.isRelax() ? Math.min(1, cursors.length) : cursors.length;
     }
 
 
@@ -3283,6 +3747,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public void onSliderEnd(int id, int accuracy, BitSet tickSet) {
         onTrackingSliders(false);
+        // Release the key held since the slider head (see onSliderHit).
+        hud.onKeyHoldEnd();
         if (GameHelper.isAutoplay()) {
             autoCursor.onSliderEnd();
         }
@@ -3422,6 +3888,72 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
     public boolean getReplaying() {
         return replaying;
+    }
+
+    /**
+     * Shifts the beatmap background against the active cursor, mirroring the main
+     * menu parallax and the legacy client: normalized cursor position in [-1..1],
+     * 10% of half the screen as the maximum shift, exponentially smoothed with a
+     * 100 ms half-life so fast flicks do not jitter.
+     */
+    private void updateBackgroundParallax(float dt) {
+        if (!Config.isParallaxEnabled() || beatmapBackground == null) {
+            return;
+        }
+
+        float cursorNX = 0f;
+        float cursorNY = 0f;
+
+        if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
+            if (autoCursor != null) {
+                cursorNX = (autoCursor.getX() / Config.getRES_WIDTH() - 0.5f) * 2f;
+                cursorNY = (autoCursor.getY() / Config.getRES_HEIGHT() - 0.5f) * 2f;
+            }
+        } else if (cursorSprites != null) {
+            // The last pressed/moved cursor is the main one; its sprite already holds
+            // the position for this frame.
+            if (mainCursorId >= 0 && mainCursorId < cursorSprites.length && cursorSprites[mainCursorId] != null) {
+                var sprite = cursorSprites[mainCursorId];
+                cursorNX = (sprite.getX() / Config.getRES_WIDTH() - 0.5f) * 2f;
+                cursorNY = (sprite.getY() / Config.getRES_HEIGHT() - 0.5f) * 2f;
+            } else {
+                for (var sprite : cursorSprites) {
+                    if (sprite != null && sprite.isVisible()) {
+                        cursorNX = (sprite.getX() / Config.getRES_WIDTH() - 0.5f) * 2f;
+                        cursorNY = (sprite.getY() / Config.getRES_HEIGHT() - 0.5f) * 2f;
+                        break;
+                    }
+                }
+            }
+        }
+
+        cursorNX = Math.max(-1f, Math.min(1f, cursorNX));
+        cursorNY = Math.max(-1f, Math.min(1f, cursorNY));
+
+        float targetPX = cursorNX * 0.1f * Config.getRES_WIDTH() * 0.5f;
+        float targetPY = cursorNY * 0.1f * Config.getRES_HEIGHT() * 0.5f;
+
+        float now = (float) gameplayClock.getCurrentTime();
+        float delta = parallaxLastTime < 0f ? 0f : Math.abs(now - parallaxLastTime) * 1000f;
+        float p = (float) Math.pow(0.5, delta / 100.0);
+
+        parallaxPosX = targetPX * (1f - p) + p * parallaxPosX;
+        parallaxPosY = targetPY * (1f - p) + p * parallaxPosY;
+        parallaxLastTime = now;
+
+        beatmapBackground.setPosition(bgBaseX + parallaxPosX, bgBaseY + parallaxPosY);
+    }
+
+    /**
+     * Called when the parallax toggle in the replay visual settings changes. The
+     * background is rebuilt so the 1.1x overscan applies (or goes away) at once.
+     */
+    public void onReplayParallaxChanged(boolean enabled) {
+        if (Config.isParallaxEnabled() == enabled) {
+            return;
+        }
+        Config.setParallaxEnabled(enabled);
+        applyBackground();
     }
 
     public @Nullable DroidPlayableBeatmap getPlayableBeatmap() {
@@ -3769,6 +4301,12 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         // Reset auto cursor modifiers.
         if (autoCursor != null) {
             autoCursor.clearEntityModifiers();
+
+            // The auto cursor can only walk its segment queue forward, so after a backward seek it
+            // would sit frozen at its old position until playback reaches the time it was seeked
+            // from. Rewinding it here makes it continue moving from the seek target instead.
+            autoCursor.seekTo(clampedTime);
+            autoCursor.resetTrail();
         }
 
         // Clear pending cursor events.
@@ -3777,8 +4315,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
             if (cursor != null) {
                 cursor.reset(SystemClock.uptimeMillis(), 0);
+                cursor.clearLatestEvent();
                 cursor.latestProcessedDownEventIndex = 0;
                 cursor.latestProcessedEventIndex = 0;
+            }
+
+            if (cursorSprites != null && i < cursorSprites.length && cursorSprites[i] != null) {
+                cursorSprites[i].resetTrail();
             }
         }
 

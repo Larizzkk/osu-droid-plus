@@ -12,6 +12,9 @@ import com.osudroid.beatmaps.HitWindow;
 import com.osudroid.beatmaps.constants.HitObjectType;
 import com.osudroid.beatmaps.hitobjects.HitCircle;
 import com.osudroid.game.GameplayHitSampleInfo;
+import com.osudroid.game.PressResult;
+import com.osudroid.game.ShakeKt;
+import com.osudroid.mods.ModGravity;
 import com.osudroid.mods.ModHidden;
 
 import java.util.ArrayList;
@@ -22,7 +25,6 @@ import ru.nsu.ccfit.zuev.osu.scoring.ResultType;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 
 public class GameplayHitCircle extends GameObject {
-
     private final UISprite approachCircle;
     private Color4 comboColor = new Color4();
     private GameObjectListener listener;
@@ -52,6 +54,9 @@ public class GameplayHitCircle extends GameObject {
         // Storing parameters into fields
         this.beatmapCircle = beatmapCircle;
         replayObjectData = null;
+        // Objects are pooled: never inherit autoplay from a previous lifetime, otherwise
+        // replay notelock shakes (and live hit processing) silently disappear.
+        autoPlay = false;
 
         var stackedPosition = beatmapCircle.getScreenSpaceGameplayStackedPosition();
         position.set(stackedPosition.x, stackedPosition.y);
@@ -78,6 +83,8 @@ public class GameplayHitCircle extends GameObject {
         // Initializing sprites
         circlePiece.setCircleColor(comboColor);
         circlePiece.setScale(scale);
+        // Reset the beat pulse from a previous lifetime (pooled object).
+        circlePiece.setPulseScale(1f);
         circlePiece.setAlpha(0);
         circlePiece.setPosition(this.position.x, this.position.y);
 
@@ -178,6 +185,10 @@ public class GameplayHitCircle extends GameObject {
         }
 
         hitSamples.clear();
+        // Clearing modifiers may interrupt a shake. Reset its translation so it does not
+        // leak into the next use of this pooled object.
+        circlePiece.setTranslationX(0f);
+        approachCircle.setTranslationX(0f);
         circlePiece.clearEntityModifiers();
         approachCircle.clearEntityModifiers();
         approachCircle.detachSelf();
@@ -195,6 +206,17 @@ public class GameplayHitCircle extends GameObject {
         listener.playHitSamples(hitSamples);
     }
 
+    private void startShake() {
+        if (!Config.isNotelockShake()) {
+            return;
+        }
+
+        float magnitude = getShakeMagnitude(beatmapCircle);
+
+        ShakeKt.shake(circlePiece, magnitude);
+        ShakeKt.shake(approachCircle, magnitude);
+    }
+
     @Override
     public void update(final float dt) {
         if (beatmapCircle.hitWindow == null) {
@@ -208,10 +230,24 @@ public class GameplayHitCircle extends GameObject {
 
         passedTime = listener.getElapsedTime() - hitTime;
 
+        // Gravity mod: slide the circle and its approach circle in from the configured
+        // direction. Judgement keeps using the beatmap position.
+        if (GameHelper.isGravity()) {
+            var gravityOffset = ModGravity.getOffset(passedTime + timePreempt, timePreempt,
+                    GameHelper.getGravity().getAnimationDirection());
+
+            circlePiece.setPosition(position.x + gravityOffset[0], position.y + gravityOffset[1]);
+            approachCircle.setPosition(position.x + gravityOffset[0], position.y + gravityOffset[1]);
+        }
+
         double mehWindow = beatmapCircle.hitWindow.getMehWindow() / 1000;
 
         // If we have clicked circle
         if (replayObjectData != null) {
+            if (checkReplayNotelockShake(listener, beatmapCircle)) {
+                startShake();
+            }
+
             if (passedTime + dt / 2 > replayObjectData.accuracy / 1000f) {
                 hitOffset = replayObjectData.accuracy / 1000f;
                 listener.registerAccuracy(HitObjectType.Normal, hitOffset);
@@ -225,11 +261,15 @@ public class GameplayHitCircle extends GameObject {
                 removeFromScene();
                 return;
             }
-        } else if (!autoPlay && listener.isObjectHittable(this)) {
-            var hittingCursor = getHittingCursor(listener, beatmapCircle, passedTime);
+        } else if (!autoPlay) {
+            var press = checkPresses(listener, beatmapCircle, passedTime);
 
-            if (hittingCursor != null) {
-                hitOffset = (float) (hittingCursor.getHitTime() - beatmapCircle.startTime) / 1000;
+            if (press instanceof PressResult.Hit hit) {
+                // osudroid!relax judges by elapsed time, not by the timestamp of the last
+                // cursor event (which can be stale while the cursor is stationary).
+                hitOffset = GameHelper.isRelax()
+                        ? passedTime
+                        : (float) (hit.getEvent().getHitTime() - beatmapCircle.startTime) / 1000;
                 listener.registerAccuracy(HitObjectType.Normal, hitOffset);
                 startHit = true;
                 successfulHit = Math.abs(hitOffset) <= mehWindow;
@@ -240,6 +280,8 @@ public class GameplayHitCircle extends GameObject {
                 }
                 removeFromScene();
                 return;
+            } else if (press == PressResult.Shake.INSTANCE) {
+                startShake();
             }
         }
 
@@ -251,8 +293,18 @@ public class GameplayHitCircle extends GameObject {
                 var b = Math.min(1, comboColor.getBlue() + (1 - comboColor.getBlue()) * kiaiModifier);
                 kiai = true;
                 circlePiece.setCircleColor(r, g, b);
+
+                if (Config.getBoolean("hitCirclePulse", true)) {
+                    // danser-go: Scl = 1 + Beat * (BeatScale - 1); BeatScale 1.2 -> +20% at peak.
+                    circlePiece.setPulseScale(1f + kiaiModifier * 0.4f);
+                }
             } else if (kiai) {
                 circlePiece.setCircleColor(comboColor);
+
+                if (Config.getBoolean("hitCirclePulse", true)) {
+                    circlePiece.setPulseScale(1f);
+                }
+
                 kiai = false;
             }
         }

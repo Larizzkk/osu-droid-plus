@@ -55,6 +55,20 @@ open class CirclePiece(
     fun setOverlayTextureRegion(overlayTexture: String) {
         overlay.textureRegion = ResourceManager.getInstance().getTexture(overlayTexture)
     }
+
+    /**
+     * Beat pulse (danser-go ScaleToTheBeat style): scales the circle and overlay sprites
+     * around their own centers, so the result is independent of skin texture sizes and
+     * never fights the beatmap [setScale].
+     */
+    open fun setPulseScale(scale: Float) {
+        if (pulseScale == scale) return
+        pulseScale = scale
+        circle.setScale(scale)
+        overlay.setScale(scale)
+    }
+
+    private var pulseScale = 1f
 }
 
 class NumberedCirclePiece(circleTexture: String, overlayTexture: String) : CirclePiece(circleTexture, overlayTexture) {
@@ -84,6 +98,15 @@ class NumberedCirclePiece(circleTexture: String, overlayTexture: String) : Circl
 
     fun hideNumber() {
         number.alpha = 0f
+    }
+
+    /**
+     * Pulses the combo number together with the circle body (danser-go pulses
+     * hitCircle, hitCircleOverlay and comboText as one group).
+     */
+    override fun setPulseScale(scale: Float) {
+        super.setPulseScale(scale)
+        number.setScale(scale)
     }
 
 }

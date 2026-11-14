@@ -353,6 +353,17 @@ class Slider(
     fun curvePositionAt(progress: Double) = path.positionAt(progressAt(progress))
 
     /**
+     * The position on this [Slider] at the given progress in real screen
+     * coordinates, with the gameplay stacking applied. Used by the Slider Dance
+     * auto-cursor to follow the ball path (including repeat spans).
+     *
+     * @param progress `[0, 1]` where 0 is the start time of this [Slider] and 1 is the end time.
+     * @return The position on the [Slider] in screen pixels.
+     */
+    fun screenSpaceGameplayPositionAt(progress: Double): Vector2 =
+        convertPositionToRealCoordinates(gameplayStackedPosition + curvePositionAt(progress))
+
+    /**
      * Computes the progress along this [Slider] relative to how much of this [Slider] has been completed.
      *
      * @param progress `[0. 1]` where 0 is the start time of this [Slider] and 1 is the end time of this [Slider].

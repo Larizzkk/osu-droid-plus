@@ -107,6 +107,10 @@ object FollowPointConnection {
     @JvmStatic
     fun addConnection(scene: UIScene, start: HitObject, end: HitObject) {
 
+        // Gravity mod: objects slide in from different directions, so the dotted
+        // connections between them would trail behind the wrong positions.
+        if (ru.nsu.ccfit.zuev.osu.game.GameHelper.isGravity()) return
+
         // Reference: https://github.com/ppy/osu/blob/7bc8908ca9c026fed1d831eb6e58df7624a8d614/osu.Game.Rulesets.Osu/Objects/Drawables/Connections/FollowPointConnection.cs
 
         val scale = start.screenSpaceGameplayScale

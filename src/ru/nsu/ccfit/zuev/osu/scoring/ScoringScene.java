@@ -55,11 +55,12 @@ import com.osudroid.data.BeatmapInfo;
 
 import ru.nsu.ccfit.zuev.osu.ToastLogger;
 import ru.nsu.ccfit.zuev.osu.Utils;
+import ru.nsu.ccfit.zuev.osu.game.GameHelper;
 import ru.nsu.ccfit.zuev.osu.game.GameScene;
 import ru.nsu.ccfit.zuev.osu.menu.SongMenu;
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager;
 import ru.nsu.ccfit.zuev.osu.online.OnlineScoring;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 
 public class ScoringScene {
     private final Engine engine;
@@ -584,18 +585,69 @@ public class ScoringScene {
 
             boolean hasUnrankedMod = SmartIterator.wrap(mods.values().iterator()).applyFilter(m -> !m.isRanked()).hasNext();
 
-            if (hasUnrankedMod || Config.isRemoveSliderLock()) {
+            if (hasUnrankedMod || (Config.isRemoveSliderLock() && !GameHelper.isTwoButtons())) {
                 return;
             }
 
-            var sendingPanel = new SendingPanel(OnlineManager.getInstance().getRank(),
-                    OnlineManager.getInstance().getScore(), OnlineManager.getInstance().getAccuracy(),
-                    OnlineManager.getInstance().getPP());
+            if (Config.getBoolean("manualSubmitEnabled", false)) {
+                // Manual submit mode - show a submit button instead of auto-sending
+                final var submitBg = new Rectangle(0, 0, Utils.toRes(100), Utils.toRes(42)) {
+                    @Override
+                    public boolean onAreaTouched(
+                            final TouchEvent event,
+                            final float localX,
+                            final float localY
+                    ) {
+                        if (event.isActionDown()) {
+                            setColor(0.1f, 0.5f, 0.8f);
+                            return true;
+                        }
+                        if (event.isActionUp()) {
+                            var sp = new SendingPanel(OnlineManager.getInstance().getRank(),
+                                    OnlineManager.getInstance().getScore(),
+                                    OnlineManager.getInstance().getAccuracy(),
+                                    OnlineManager.getInstance().getTotalDpp());
+                            scene.registerTouchArea(sp.getDismissTouchArea());
+                            scene.attachChild(sp);
+                            OnlineScoring.getInstance().sendRecord(beatmap, stat, sp, replayPath);
 
-            scene.registerTouchArea(sendingPanel.getDismissTouchArea());
-            scene.attachChild(sendingPanel);
+                            // Match the legacy client: the manual Submit button is consumed
+                            // after it opens the panel. The panel keeps its own ranking_button
+                            // for collapsing and reopening.
+                            detachSelf();
+                            scene.unregisterTouchArea(this);
+                            return true;
+                        }
+                        return false;
+                    }
+                };
+                submitBg.setColor(0.1f, 0.5f, 0.8f);
+                submitBg.setAlpha(0.75f);
+                submitBg.setPosition(Config.getRES_WIDTH() - Utils.toRes(115), Utils.toRes(10));
+                scene.attachChild(submitBg);
+                scene.registerTouchArea(submitBg);
 
-            OnlineScoring.getInstance().sendRecord(beatmap, stat, sendingPanel, replayPath);
+                final Text submitText = new Text(
+                        0,
+                        0,
+                        ResourceManager.getInstance().getFont("font"),
+                        "Submit"
+                );
+                submitText.setPosition(
+                        submitBg.getX() + (submitBg.getWidth() - submitText.getWidth()) / 2,
+                        submitBg.getY() + (submitBg.getHeight() - submitText.getHeight()) / 2
+                );
+                submitText.setAlpha(0.9f);
+                scene.attachChild(submitText);
+            } else {
+                var sendingPanel = new SendingPanel(OnlineManager.getInstance().getRank(),
+                        OnlineManager.getInstance().getScore(), OnlineManager.getInstance().getAccuracy(),
+                        OnlineManager.getInstance().getTotalDpp());
+                scene.registerTouchArea(sendingPanel.getDismissTouchArea());
+                scene.attachChild(sendingPanel);
+
+                OnlineScoring.getInstance().sendRecord(beatmap, stat, sendingPanel, replayPath);
+            }
         }
     }
 

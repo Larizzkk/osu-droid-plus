@@ -335,13 +335,12 @@ public class GameplaySpinner extends GameObject {
             if (autoPlay) {
                 dfill = 5 * 4 * dt;
                 circle.setRotation((rotations + dfill / 4f) * 360);
-                //auto时，FL光圈绕中心旋转
-                if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
-                    float angle = (rotations + dfill / 4f) * 360;
-                    float pX = position.x + 50 * (float)Math.sin(angle);
-                    float pY = position.y + 50 * (float)Math.cos(angle);
-                    listener.updateAutoBasedPos(pX, pY);
-                }
+                // The cursor is NOT repositioned here: AutoCursor owns it during
+                // autoplay/autopilot and spins it around the configured circle via the
+                // selected SpinnerMover (circle/heart/triangle/square/cube). Pushing a
+                // hardcoded 50px circle from here would override that mover.
+                // Flashlight still follows the real auto cursor through
+                // onUpdatedAutoCursor().
             }
 
             rotations += dfill / 4f;

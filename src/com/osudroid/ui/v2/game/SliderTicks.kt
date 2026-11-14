@@ -8,6 +8,8 @@ import com.osudroid.utils.SynchronizedPool
 import com.reco1l.andengine.Anchor
 import com.reco1l.andengine.container.*
 import com.reco1l.andengine.sprite.*
+import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.min
 import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.game.GameHelper
@@ -36,7 +38,7 @@ class SliderTickContainer : UIContainer() {
             sprite.setPosition(tickPosition.x - position.x, tickPosition.y - position.y)
             attachChild(sprite)
 
-            sprite.init(tick)
+            sprite.init(beatmapSlider, tick)
         }
     }
 
@@ -61,7 +63,7 @@ class SliderTickContainer : UIContainer() {
                 if (newSpanIndex % 2 != 0) childCount - (i - spanStartIndex) - 1 else i - spanStartIndex
             ) as? SliderTickSprite ?: break
 
-            sprite.init(tick)
+            sprite.init(slider!!, tick)
         }
     }
 
@@ -85,31 +87,77 @@ class SliderTickSprite : UISprite(), IPoolable {
     /**
      * Initializes this [SliderTickSprite] with the given [SliderTick].
      *
+     * The tick pop-in mirrors danser-go: a tick only starts growing once the slider's
+     * snake-in front reaches it, grows from 0.5x to 1.2x, then settles back to 1x with
+     * an ease-out curve while fading in. Ticks on later spans are timed from the middle
+     * of the span instead, so they pop when the ball travels back over them.
+     *
+     * @param slider The [Slider] that owns [tick].
      * @param tick The [SliderTick] represented by this [SliderTickSprite].
      */
-    fun init(tick: SliderTick) {
+    fun init(slider: Slider, tick: SliderTick) {
         this.tick = tick
 
-        val startTime = (tick.startTime / 1000).toFloat()
-        val timePreempt = (tick.timePreempt / 1000).toFloat()
-        val fadeInStartTime = startTime - timePreempt
+        val sliderStartTime = slider.startTime
+        val partLen = slider.spanDuration
+        val preempt = slider.timePreempt
+        val tickTime = tick.startTime
+
+        val repeatProgress = if (partLen > 0.0) (tickTime - sliderStartTime) / partLen else 0.0
+
+        var startTime: Double
+        var endTime: Double
+
+        if (repeatProgress < 1.0) {
+            val snakeInStart = sliderStartTime - preempt
+            val snakeInEnd = sliderStartTime - preempt * 2.0 / 3.0
+            val normalStart = (tickTime - sliderStartTime) / 2.0 + snakeInEnd
+
+            startTime = max(repeatProgress * (snakeInEnd - snakeInStart) + snakeInStart, normalStart)
+            endTime = min(startTime + 150.0, tickTime - 36.0)
+        } else {
+            val spanStart = sliderStartTime + partLen * floor(repeatProgress)
+
+            endTime = spanStart + (tickTime - spanStart) / 2.0
+            startTime = endTime - 200.0
+        }
+
+        // A tick close to the slider's start can be given a negative animation window;
+        // collapse it so the sprite simply appears at full scale.
+        if (endTime < startTime) {
+            endTime = startTime
+        }
+
+        val start = (startTime / 1000.0).toFloat()
+        val peak = (endTime / 1000.0).toFloat()
+        val hitTime = (tickTime / 1000.0).toFloat()
 
         clearEntityModifiers()
 
         alpha = 0f
         setScale(0.5f)
 
-        beginAbsoluteSequence(fadeInStartTime) {
-            scaleTo(1f, ANIM_DURATION * 4, Easing.OutElasticHalf)
-            fadeIn(ANIM_DURATION)
+        val growDuration = (peak - start).coerceAtLeast(0f)
+
+        if (growDuration > 0f) {
+            beginAbsoluteSequence(start) {
+                scaleTo(1.2f, growDuration)
+                fadeIn(growDuration)
+            }
+        } else {
+            alpha = 1f
+            setScale(1.2f)
+        }
+
+        beginAbsoluteSequence(peak) {
+            scaleTo(1f, ANIM_DURATION, Easing.OutQuad)
         }
 
         if (GameHelper.isHidden() && !GameHelper.getHidden().onlyFadeApproachCircles) {
-            val fadeOutDuration = min(timePreempt - ANIM_DURATION, 1f)
-            val fadeOutStartTime = startTime - fadeOutDuration
+            val fadeOutStartTime = max(peak, hitTime - 1f)
 
             beginAbsoluteSequence(fadeOutStartTime) {
-                fadeOut(fadeOutDuration)
+                fadeTo(0f, hitTime - fadeOutStartTime)
             }
         }
     }

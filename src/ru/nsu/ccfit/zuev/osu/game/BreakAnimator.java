@@ -1,5 +1,6 @@
 package ru.nsu.ccfit.zuev.osu.game;
 
+import com.osudroid.ui.v2.SpriteFont;
 import com.osudroid.ui.v2.hud.GameplayHUD;
 import com.reco1l.andengine.sprite.UISprite;
 import com.reco1l.andengine.Anchor;
@@ -30,6 +31,10 @@ public class BreakAnimator extends GameObject {
     private boolean isbreak = false;
     private boolean over = false;
     private float dimBrightness = Config.getBackgroundBrightness();
+
+    // Countdown timer rendered with skin score digits (SpriteFont), not painter/canvas.
+    private SpriteFont countdownText;
+    private float initialTime = 0;
 
     public BreakAnimator(final Scene scene, final StatisticV2 stat, GameplayHUD hud) {
         length = 0;
@@ -84,6 +89,12 @@ public class BreakAnimator extends GameObject {
         over = false;
         length = 0;
         time = 0;
+        initialTime = 0;
+
+        if (countdownText != null) {
+            countdownText.detachSelf();
+            countdownText = null;
+        }
 
         if (mark != null) {
             mark.detachSelf();
@@ -113,6 +124,7 @@ public class BreakAnimator extends GameObject {
         isbreak = true;
         over = false;
         this.length = length;
+        this.initialTime = initialTime;
         time = initialTime;
         ending = stat.getHp() > 0.5f ? "pass" : "fail";
 
@@ -135,6 +147,23 @@ public class BreakAnimator extends GameObject {
 
         final TextureRegion zeroRect = ResourceManager.getInstance()
                 .getTextureWithPrefix(OsuSkin.get().getScorePrefix(), "0");
+
+        // Countdown timer rendered with skin score digits (SpriteFont).
+        if (Config.getBoolean("showBreakCountdown", false)) {
+            countdownText = new SpriteFont(OsuSkin.get().getScorePrefix());
+            countdownText.setSpacing(-OsuSkin.get().getScoreOverlap());
+            countdownText.setText(String.format(java.util.Locale.US, "%.0f", length - initialTime));
+
+            // Fixed on-screen height (~70 osupixels). Scaling from the raw texture height
+            // alone gives 0.02-0.05, i.e. a couple of pixels tall.
+            float digitScale = Utils.toRes(70f) / Math.max(1f, zeroRect.getHeight());
+            countdownText.setTextureScale(digitScale);
+            countdownText.setAlpha(0.95f);
+
+            countdownText.setOrigin(Anchor.Center);
+            countdownText.setPosition(Config.getRES_WIDTH() / 2f, Config.getRES_HEIGHT() / 2f - Utils.toRes(100));
+            hud.attachChild(countdownText, 0);
+        }
 
         mark = new UISprite(getRankingTexture());
         mark.setPosition(Config.getRES_WIDTH() - zeroRect.getWidth() * 11, 5);
@@ -211,6 +240,10 @@ public class BreakAnimator extends GameObject {
 
         mark.setTextureRegion(getRankingTexture());
 
+        if (countdownText != null) {
+            countdownText.setText(String.format(java.util.Locale.US, "%.0f", Math.max(0, length - time)));
+        }
+
         if (time >= length) {
             isbreak = false;
             over = true;
@@ -222,6 +255,11 @@ public class BreakAnimator extends GameObject {
                 sp.detachSelf();
             }
             passfail.detachSelf();
+
+            if (countdownText != null) {
+                countdownText.detachSelf();
+                countdownText = null;
+            }
         }
     }
 

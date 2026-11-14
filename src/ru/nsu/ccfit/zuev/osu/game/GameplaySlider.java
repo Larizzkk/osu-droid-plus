@@ -22,7 +22,10 @@ import com.osudroid.beatmaps.hitobjects.sliderobject.SliderTick;
 import com.osudroid.beatmaps.sections.BeatmapControlPoints;
 import com.osudroid.game.GameplayHitSampleInfo;
 import com.osudroid.game.GameplaySequenceHitSampleInfo;
+import com.osudroid.game.PressResult;
+import com.osudroid.game.ShakeKt;
 import com.osudroid.math.Precision;
+import com.osudroid.mods.ModGravity;
 import com.osudroid.mods.ModHidden;
 import com.osudroid.mods.ModSynesthesia;
 import com.osudroid.ui.v2.game.SliderTickSprite;
@@ -54,8 +57,16 @@ public class GameplaySlider extends GameObject {
     // Avoid rebuilding slider body mesh for tiny length deltas every frame.
     private static final float snakeLengthUpdateThreshold = 0.75f;
 
+    /** Repeat arrow pulse cycle, in seconds (danser-go uses 300 ms). */
+    private static final double ARROW_PULSE_PERIOD = 0.3;
+    private static final float REVERSE_ARROW_FADE_IN = 0.15f;
+
     private final UISprite approachCircle;
     private final UISprite startArrow, endArrow;
+
+    /** Base scale of the reverse arrows; the danser-style pulse is applied on top. */
+    private float startArrowBaseScale = 1f;
+    private float endArrowBaseScale = 1f;
     private Slider beatmapSlider;
     private BeatmapControlPoints controlPoints;
     private UIScene scene;
@@ -71,6 +82,81 @@ public class GameplaySlider extends GameObject {
     private boolean reverse;
     private final boolean isSliderBallFlip;
     private boolean shouldSnakeOut;
+
+    /**
+     * Body-progress at which the snake-out was armed (NaN = armed before the last
+     * span, i.e. plain linear retraction). Only set when the head is judged *within*
+     * the span the retraction happens in — mirrors danser-go's ArmStart mid-slider
+     * branch, which eases the first part of the contraction with snakeEase.
+     */
+    private float snakeArmPct = Float.NaN;
+
+    /** completedSpanCount at the moment the snake-out was armed (-1 = never). */
+    private int snakeArmSpan = -1;
+
+    /**
+     * danser-go's snakeEase: the snake-out control bezier (0,0)-(0.1,1)-(0.5,0.5)-(1,1)
+     * sampled by ARC LENGTH (danser's MultiCurve.PointAt is arc-length parameterized),
+     * so the eased value is the curve's Y at the given arc fraction.
+     */
+    private static final float[] SNAKE_EASE_Y = buildSnakeEaseTable();
+
+    private static float[] buildSnakeEaseTable() {
+        final int samples = 128;
+        var ys = new float[samples + 1];
+        var lens = new float[samples + 1];
+        float px = 0, py = 0, acc = 0;
+
+        for (int i = 0; i <= samples; i++) {
+            float u = i / (float) samples;
+            float k1 = 3 * (1 - u) * (1 - u) * u;
+            float k2 = 3 * (1 - u) * u * u;
+            float k3 = u * u * u;
+
+            float x = k1 * 0.1f + k2 * 0.5f + k3;
+            float y = k1 * 1f + k2 * 0.5f + k3;
+
+            if (i > 0) {
+                acc += (float) Math.hypot(x - px, y - py);
+            }
+
+            px = x;
+            py = y;
+            ys[i] = y;
+            lens[i] = acc;
+        }
+
+        var table = new float[samples + 1];
+        int idx = 0;
+
+        for (int i = 0; i <= samples; i++) {
+            float target = (i / (float) samples) * acc;
+
+            while (idx < samples && lens[idx + 1] < target) {
+                idx++;
+            }
+
+            float seg = lens[idx + 1] - lens[idx];
+            float t = seg <= 0 ? 0 : (target - lens[idx]) / seg;
+            table[i] = ys[idx] + (ys[idx + 1] - ys[idx]) * t;
+        }
+        return table;
+    }
+
+    private static float snakeEase(float f) {
+        if (f <= 0f) {
+            return 0f;
+        }
+        if (f >= 1f) {
+            return 1f;
+        }
+
+        var table = SNAKE_EASE_Y;
+        float pos = f * (table.length - 1);
+        int i = (int) pos;
+        float t = pos - i;
+        return table[i] + (table[Math.min(i + 1, table.length - 1)] - table[i]) * t;
+    }
 
     private final ArrayList<ArrayList<GameplayHitSampleInfo>> nestedHitSamples = new ArrayList<>(10);
     private final GameplaySequenceHitSampleInfo sliderSlideSample;
@@ -192,6 +278,8 @@ public class GameplaySlider extends GameObject {
         this.stat = stat;
         this.beatmapSlider = beatmapSlider;
         this.controlPoints = controlPoints;
+        // Sliders are pooled as well; a previous autoplay lifetime must not leak here.
+        autoPlay = false;
 
         var stackedPosition = beatmapSlider.getScreenSpaceGameplayStackedPosition();
         position.set(stackedPosition.x, stackedPosition.y);
@@ -220,6 +308,8 @@ public class GameplaySlider extends GameObject {
         reverse = false;
         startHit = false;
         shouldSnakeOut = false;
+        snakeArmPct = Float.NaN;
+        snakeArmSpan = -1;
         ticksGot = 0;
         completedSpanCount = 0;
         currentTickSpriteIndex = 0;
@@ -248,6 +338,7 @@ public class GameplaySlider extends GameObject {
         headCirclePiece.setOverlayTextureRegion(sliderStartCircleOverlayTexture);
         headCirclePiece.showNumber();
         headCirclePiece.setScale(scale);
+        headCirclePiece.setPulseScale(1f);
         headCirclePiece.setCircleColor(comboColor);
         headCirclePiece.setAlpha(0);
         headCirclePiece.setPosition(this.position.x, this.position.y);
@@ -281,6 +372,7 @@ public class GameplaySlider extends GameObject {
             comboColor;
 
         tailCirclePiece.setScale(scale);
+        tailCirclePiece.setPulseScale(1f);
         tailCirclePiece.setCircleColor(initialTailColor);
         tailCirclePiece.setAlpha(0);
         tailCirclePiece.setVisible(applyIncreasedVisibilityToCirclePiece);
@@ -290,6 +382,7 @@ public class GameplaySlider extends GameObject {
         if (spanCount > 2) {
             startArrow.setAlpha(0);
             startArrow.setScale(scale);
+            startArrowBaseScale = scale;
             startArrow.setPosition(this.position.x, this.position.y);
 
             getPositionAt(0, true, false);
@@ -306,6 +399,7 @@ public class GameplaySlider extends GameObject {
         if (spanCount > 1) {
             endArrow.setAlpha(0);
             endArrow.setScale(scale);
+            endArrowBaseScale = scale;
 
             if (Config.isSnakingInSliders()) {
                 getPositionAt(0, false, true);
@@ -321,10 +415,10 @@ public class GameplaySlider extends GameObject {
 
             scene.attachChild(endArrow, 0);
 
-            // We can use headFadeIn here since the tail's fade in time is the same as the head.
+            // danser-go fades the repeat arrow in right when the slider appears, over 150 ms,
+            // independently of the snake-in body animation.
             endArrow.beginAbsoluteSequence(initialModifierTime, sequence -> sequence
-                    .delay(fadeInDelay)
-                    .fadeIn(headFadeIn));
+                    .fadeIn(REVERSE_ARROW_FADE_IN));
         }
 
         scene.attachChild(tailCirclePiece, 0);
@@ -442,6 +536,90 @@ public class GameplaySlider extends GameObject {
         setLifetimeEnd(Float.MAX_VALUE);
     }
 
+    /**
+     * Returns the direction of the first slider path segment in radians.
+     * Mirrors danser-go's start angle metadata used by the autoplay movers.
+     */
+    public float getSliderStartAngleRad() {
+        if (path == null || path.anchorCount < 2) {
+            return 0f;
+        }
+
+        float dx = path.getX(1) - path.getX(0);
+        float dy = path.getY(1) - path.getY(0);
+
+        return Utils.direction(dx, dy);
+    }
+
+    /**
+     * Returns the direction of the last slider path segment in radians.
+     * Mirrors danser-go's end angle metadata used by the autoplay movers.
+     */
+    public float getSliderEndAngleRad() {
+        if (path == null || path.anchorCount < 2) {
+            return 0f;
+        }
+
+        int last = path.anchorCount - 1;
+
+        float dx = path.getX(last) - path.getX(last - 1);
+        float dy = path.getY(last) - path.getY(last - 1);
+
+        return Utils.direction(dx, dy);
+    }
+
+    /**
+     * Returns the stacked position of the slider head at the given absolute time in milliseconds.
+     * Times outside the slider duration are clamped to its start/end. Mirrors danser-go's
+     * {@code GetStackedPositionAtMod}.
+     */
+    public PointF getStackedPositionAtTime(float timeMs) {
+        if (path == null || path.anchorCount < 2) {
+            return new PointF(position.x, position.y);
+        }
+
+        double durationMs = beatmapSlider.getDuration();
+        if (durationMs <= 0) {
+            return new PointF(position.x, position.y);
+        }
+
+        float t = (float) ((timeMs - beatmapSlider.startTime) / durationMs);
+        t = Math.max(0f, Math.min(1f, t));
+
+        float currentLength = t * path.getLength(path.anchorCount - 1);
+
+        int left = 0;
+        int right = path.anchorCount - 2;
+
+        while (left <= right) {
+            int pivot = left + ((right - left) >> 1);
+            float length = path.getLength(pivot);
+
+            if (length < currentLength) {
+                left = pivot + 1;
+            } else if (length > currentLength) {
+                right = pivot - 1;
+            } else {
+                break;
+            }
+        }
+
+        int index = Math.max(0, Math.min(left - 1, path.anchorCount - 2));
+        float segmentLength = path.getLength(index + 1) - path.getLength(index);
+
+        if (segmentLength <= 0) {
+            return new PointF(position.x + path.getX(index), position.y + path.getY(index));
+        }
+
+        float progress = (currentLength - path.getLength(index)) / segmentLength;
+        progress = Math.max(0f, Math.min(1f, progress));
+
+        float x = path.getX(index) + (path.getX(index + 1) - path.getX(index)) * progress;
+        float y = path.getY(index) + (path.getY(index + 1) - path.getY(index)) * progress;
+
+        return new PointF(position.x + x, position.y + y);
+    }
+
     private PointF getPositionAt(final float percentage, final boolean updateBallAngle, final boolean updateEndArrowRotation) {
         int index = path.positionAt(tmpPoint, percentage);
         tmpPoint.offset(position.x, position.y);
@@ -557,6 +735,16 @@ public class GameplaySlider extends GameObject {
             // When animating, the head circle will detach after the animation ends.
             headCirclePiece.detachSelf();
         }
+
+        // Clearing modifiers may interrupt a notelock shake. Reset translations so
+        // they do not leak into the next use of this pooled slider.
+        headCirclePiece.setTranslationX(0f);
+        tailCirclePiece.setTranslationX(0f);
+        approachCircle.setTranslationX(0f);
+        startArrow.setTranslationX(0f);
+        endArrow.setTranslationX(0f);
+        sliderBody.setTranslationX(0f);
+        tickContainer.setTranslationX(0f);
 
         tailCirclePiece.detachSelf();
         approachCircle.detachSelf();
@@ -874,12 +1062,15 @@ public class GameplaySlider extends GameObject {
             if (replayObjectData == null) {
                 if (!autoPlay) {
                     if (elapsedTime <= getLateHitThreshold()) {
-                        if (listener.isObjectHittable(this)) {
-                            var hittingCursor = getHittingCursor(listener, beatmapSlider.getHead(), elapsedTime);
+                        var press = checkPresses(listener, beatmapSlider.getHead(), elapsedTime);
 
-                            if (hittingCursor != null) {
-                                onSliderHeadHit((hittingCursor.getHitTime() - beatmapSlider.startTime) / 1000);
-                            }
+                        if (press instanceof PressResult.Hit hit) {
+                            // osudroid!relax uses the current elapsed time for the slider head.
+                            onSliderHeadHit(GameHelper.isRelax()
+                                    ? elapsedTime
+                                    : (hit.getEvent().getHitTime() - beatmapSlider.startTime) / 1000);
+                        } else if (press == PressResult.Shake.INSTANCE) {
+                            startShake();
                         }
                     } else {
                         // If it's too late, mark this hit missing.
@@ -889,6 +1080,10 @@ public class GameplaySlider extends GameObject {
                     onSliderHeadHit(0);
                 }
             } else {
+                if (checkReplayNotelockShake(listener, beatmapSlider.getHead())) {
+                    startShake();
+                }
+
                 double accuracy = replayObjectData.accuracy / 1000d;
 
                 if (elapsedTime + dt / 2 > accuracy) {
@@ -905,8 +1100,17 @@ public class GameplaySlider extends GameObject {
                 var b = Math.min(1, circleColor.getBlue() + (1 - circleColor.getBlue()) * kiaiModifier);
                 kiai = true;
                 headCirclePiece.setCircleColor(r, g, b);
+
+                if (Config.getBoolean("hitCirclePulse", true)) {
+                    headCirclePiece.setPulseScale(1f + kiaiModifier * 0.4f);
+                }
             } else if (kiai) {
                 headCirclePiece.setCircleColor(circleColor);
+
+                if (Config.getBoolean("hitCirclePulse", true)) {
+                    headCirclePiece.setPulseScale(1f);
+                }
+
                 kiai = false;
             }
         }
@@ -919,6 +1123,20 @@ public class GameplaySlider extends GameObject {
                 approachCircle.setAlpha(0);
             }
 
+            // Gravity mod: the whole slider slides in from the configured direction,
+            // so every visual is offset by the same amount while it approaches.
+            float gx = 0f, gy = 0f;
+            if (GameHelper.isGravity()) {
+                float[] off = gravityOffset();
+                gx = off[0];
+                gy = off[1];
+            }
+
+            getPositionAt(1, false, true);
+
+            float tailX = pathEndPosition.x;
+            float tailY = pathEndPosition.y;
+
             if (Config.isSnakingInSliders()) {
                 float percentage = FMath.clamp((float) (timePreempt + elapsedSpanTime) / (timePreempt / 3), 0, 1);
 
@@ -930,20 +1148,19 @@ public class GameplaySlider extends GameObject {
 
                     var position = getPositionAt(percentage, false, true);
 
-                    tailCirclePiece.setPosition(position.x, position.y);
-                    endArrow.setPosition(position.x, position.y);
-                } else {
-                    if (!preStageFinish && superPath != null && sliderBody != null) {
-                        applySnakeBodyLength(false, superPathMaxLength, true);
-                        preStageFinish = true;
-                    }
-
-                    getPositionAt(1, false, true);
-
-                    tailCirclePiece.setPosition(pathEndPosition.x, pathEndPosition.y);
-                    endArrow.setPosition(pathEndPosition.x, pathEndPosition.y);
+                    tailX = position.x;
+                    tailY = position.y;
+                } else if (!preStageFinish && superPath != null && sliderBody != null) {
+                    applySnakeBodyLength(false, superPathMaxLength, true);
+                    preStageFinish = true;
                 }
             }
+
+            tailCirclePiece.setPosition(tailX + gx, tailY + gy);
+            endArrow.setPosition(tailX + gx, tailY + gy);
+
+            applyGravityToStaticParts(gx, gy);
+            animateEndArrow();
             return;
         }
 
@@ -1013,18 +1230,115 @@ public class GameplaySlider extends GameObject {
         judgeSliderTicks();
         updateSlidingSamplesVolume();
 
+        // Gravity mod: the ball and every static part of the slider are offset by the
+        // same slide-in amount, exactly like the legacy implementation.
+        float gravityX = 0f, gravityY = 0f;
+        if (GameHelper.isGravity()) {
+            float[] off = gravityOffset();
+            gravityX = off[0];
+            gravityY = off[1];
+        }
+
         // Setting position of ball and follow circle
-        followCircle.setPosition(ballPos.x, ballPos.y);
-        ball.setPosition(ballPos.x, ballPos.y);
+        followCircle.setPosition(ballPos.x + gravityX, ballPos.y + gravityY);
+        ball.setPosition(ballPos.x + gravityX, ballPos.y + gravityY);
         ball.setRotation(ballAngle);
 
-        if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
-            listener.updateAutoBasedPos(ballPos.x, ballPos.y);
-        }
+        applyGravityToStaticParts(gravityX, gravityY);
+        animateEndArrow();
+
+        // Slider Dance is handled by AutoCursor itself (it follows the pre-sampled
+        // slider path), so the slider must not move the auto cursor: game objects
+        // owning the cursor was a known source of frozen/jumping cursors.
 
         // If we got 100% time, finishing slider
         if (percentage >= 1) {
             onSpanFinish();
+        }
+    }
+
+    /**
+     * Danser-go's reverse arrow animation: while the slider is alive the arrow
+     * pulses from 1.3× down to its normal size in 300 ms cycles, so the repeat
+     * point keeps drawing the eye instead of sitting still. The pulse is aligned
+     * with the moment this repeat point appears: the first tail starts at the
+     * object's approach time, later tails two spans before their bounce.
+     */
+    private void startShake() {
+        if (!Config.isNotelockShake()) {
+            return;
+        }
+
+        float magnitude = getShakeMagnitude(beatmapSlider);
+
+        ShakeKt.shake(approachCircle, magnitude);
+        ShakeKt.shake(headCirclePiece, magnitude);
+        ShakeKt.shake(tailCirclePiece, magnitude);
+        ShakeKt.shake(startArrow, magnitude);
+        ShakeKt.shake(endArrow, magnitude);
+        ShakeKt.shake(sliderBody, magnitude);
+        ShakeKt.shake(tickContainer, magnitude);
+    }
+
+    private void animateEndArrow() {
+        if (beatmapSlider == null || beatmapSlider.getSpanCount() <= 1) {
+            return;
+        }
+
+        if (!Config.isAnimateReverseArrows()) {
+            startArrow.setScale(startArrowBaseScale);
+            endArrow.setScale(endArrowBaseScale);
+            return;
+        }
+
+        double t = elapsedSpanTime + (completedSpanCount == 0 ? timePreempt : spanDuration);
+
+        if (t < 0) {
+            return;
+        }
+
+        // Both arrows alternate as the active repeat point (the visible one moves
+        // between the head and the tail on every reversal), so animating only the
+        // tail arrow made the pulse stop after the first repeat.
+        float pulse = 1.3f - 0.3f * (float) ((t % ARROW_PULSE_PERIOD) / ARROW_PULSE_PERIOD);
+        startArrow.setScale(startArrowBaseScale * pulse);
+        endArrow.setScale(endArrowBaseScale * pulse);
+    }
+
+    /**
+     * Current slide-in offset of the Gravity mod for this slider. The value shrinks
+     * from [ModGravity.RISE_DISTANCE] at the moment the object appears to zero at its
+     * hit time, so the slider arrives at its real position exactly on the beat.
+     */
+    private float[] gravityOffset() {
+        double t = elapsedSpanTime + timePreempt;
+
+        if (t < 0) t = 0;
+        if (t > timePreempt) t = timePreempt;
+
+        return ModGravity.getOffset((float) t, timePreempt,
+                GameHelper.getGravity().getAnimationDirection());
+    }
+
+    /**
+     * Offsets the parts of the slider that are not repositioned every frame: head
+     * circle, approach circle, track and start arrow. Their base position is the
+     * slider position, so the offset is applied from there each time.
+     */
+    private void applyGravityToStaticParts(float gx, float gy) {
+        if (!GameHelper.isGravity()) {
+            return;
+        }
+
+        headCirclePiece.setPosition(position.x + gx, position.y + gy);
+        approachCircle.setPosition(position.x + gx, position.y + gy);
+
+        if (sliderBody != null) {
+            sliderBody.setPosition(position.x + gx, position.y + gy);
+        }
+
+        if (startArrow.hasParent()) {
+            startArrow.setPosition(position.x + gx, position.y + gy);
         }
     }
 
@@ -1043,6 +1357,26 @@ public class GameplaySlider extends GameObject {
         }
 
         return distanceThresholdSquared;
+    }
+
+    /**
+     * Arms the snake-out and records where in the current span it starts (danser-go's
+     * ArmStart) so the contraction can use the eased mid-slider branch.
+     */
+    private void markSnakeOutArmed() {
+        shouldSnakeOut = true;
+
+        if (Config.isSnakingOutSliders() && spanDuration > 0) {
+            snakeArmPct = FMath.clamp((float) (elapsedSpanTime / spanDuration), 0f, 1f);
+            snakeArmSpan = completedSpanCount;
+
+            if (reverse) {
+                snakeArmPct = 1f - snakeArmPct;
+            }
+        } else {
+            snakeArmPct = Float.NaN;
+            snakeArmSpan = -1;
+        }
     }
 
     private void onSliderHeadHit(double hitOffset) {
@@ -1067,7 +1401,7 @@ public class GameplaySlider extends GameObject {
                     playCurrentNestedObjectHitSound();
                 }
                 ticksGot++;
-                shouldSnakeOut = true;
+                markSnakeOutArmed();
                 listener.onSliderHit(id, 30, position,
                         false, bodyColor, GameObjectListener.SLIDER_START, true);
             } else {
@@ -1084,7 +1418,7 @@ public class GameplaySlider extends GameObject {
                 playCurrentNestedObjectHitSound();
             }
             ticksGot++;
-            shouldSnakeOut = true;
+            markSnakeOutArmed();
             listener.onSliderHit(id, 30, position,
                     false, bodyColor, GameObjectListener.SLIDER_START, true);
         }
