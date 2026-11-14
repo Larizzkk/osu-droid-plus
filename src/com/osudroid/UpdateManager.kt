@@ -12,7 +12,7 @@ import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.helper.*
 import ru.nsu.ccfit.zuev.osu.online.*
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
 import java.io.*
 
 object UpdateManager: IFileRequestObserver
@@ -41,7 +41,7 @@ object UpdateManager: IFileRequestObserver
                 .addButton("Yes") {
                     it.dismiss()
 
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://osudroid.moe/changelog/latest"))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://osu-droid-plus-server-v2.larizrkpee.workers.dev/changelog"))
                     GlobalManager.getInstance().mainActivity.startActivity(intent)
                 }
                 .addButton("No", clickListener = MessageDialog::dismiss)

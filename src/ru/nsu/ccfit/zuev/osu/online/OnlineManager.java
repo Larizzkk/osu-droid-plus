@@ -4,7 +4,6 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 
-import com.google.firebase.analytics.FirebaseAnalytics;
 
 import com.osudroid.data.BeatmapInfo;
 import okhttp3.MediaType;
@@ -30,12 +29,19 @@ import ru.nsu.ccfit.zuev.osu.online.PostBuilder.RequestException;
 import ru.nsu.ccfit.zuev.osu.scoring.BeatmapLeaderboardScoringMode;
 
 public class OnlineManager {
-    public static final String hostname = "osudroid.moe";
+    public static final String hostname = "osu-droid-plus-server-v2.larizrkpee.workers.dev";
     public static final String endpoint = "https://" + hostname + "/api/";
     public static final String updateEndpoint = endpoint + "update.php?lang=";
-    public static final String defaultAvatarURL = getAvatarURL(0);
+    public static final String defaultAvatarURL = "https://" + hostname + "/user/avatar/0.png";
     public static final String profileBannerEndpoint = "https://" + hostname + "/user/banner/";
-    private static final String onlineVersion = "65";
+    // Protocol version the osu!droid+ server implements (same as the legacy client).
+    private static final String onlineVersion = "60";
+
+    /**
+     * Pepper used before the server moved to the current one. Hashes produced with it are still
+     * stored for accounts that never logged in after the change.
+     */
+    private static final String LEGACY_PASSWORD_PEPPER = "239dde358bc836f4ebd09758f492ba14";
 
     public static final OkHttpClient client = new OkHttpClient();
 
@@ -53,6 +59,7 @@ public class OnlineManager {
     private long score = 0;
     private float accuracy = 0;
     private float pp = 0;
+    private float totalDpp = 0;
     private String avatarURL = "";
     private String profileBannerURL = "";
     private int mapRank;
@@ -84,6 +91,20 @@ public class OnlineManager {
         this.username = Config.getOnlineUsername();
         this.password = Config.getOnlinePassword();
         this.deviceID = Config.getOnlineDeviceID();
+    }
+
+    private boolean isInvalidCredentials(ArrayList<String> response) {
+        return response == null && failMessage != null
+                && failMessage.toLowerCase(java.util.Locale.ROOT).contains("invalid credential");
+    }
+
+    /** True when the last request was rejected by the server's rate limiter. */
+    private boolean isRateLimited() {
+        if (failMessage == null) {
+            return false;
+        }
+        final String message = failMessage.toLowerCase(java.util.Locale.ROOT);
+        return message.contains("429") || message.contains("too many requests");
     }
 
     private ArrayList<String> sendRequest(PostBuilder post, String url) throws OnlineManagerException {
@@ -141,12 +162,73 @@ public class OnlineManager {
             return false;
         }
 
+        // The server looks the account up by username_safe = lowercase(trimmed name), so a
+        // stray leading/trailing space in the saved name would otherwise be reported as
+        // "Invalid credentials" even with the correct password.
+        final String loginName = username.trim();
+
+        // The current server stores sha256(md5(raw password + "taikotaiko")) and expects the
+        // client to send that md5, exactly like the original osu!droid client does, so the raw
+        // form is tried first.
+        //
+        // All legacy hash variants are sent in the SAME request (password2..password5):
+        // the server accepts any of them, so an old account logs in on the first try
+        // instead of burning 5 requests (and the per-IP rate limit) on a retry chain.
+        // The RAW password is never sent: the server stores hashes, so it could not
+        // validate it anyway, and sending it would expose the plaintext password.
+        final String raw = password.trim();
+        final String md5Pepper = MD5Calculator.getStringMD5(raw + "taikotaiko");
+        final String md5EscapedPepper = MD5Calculator.getStringMD5(
+                escapeHTMLSpecialCharacters(addSlashes(raw)) + "taikotaiko");
+        final String md5LegacyPepper = MD5Calculator.getStringMD5(raw + LEGACY_PASSWORD_PEPPER);
+        final String md5EscapedLegacyPepper = MD5Calculator.getStringMD5(
+                escapeHTMLSpecialCharacters(addSlashes(raw)) + LEGACY_PASSWORD_PEPPER);
+        final String md5NoPepper = MD5Calculator.getStringMD5(raw);
+
         PostBuilder post = new URLEncodedPostBuilder();
-        post.addParam("username", username);
-        post.addParam("password", MD5Calculator.getStringMD5(password.trim() + "taikotaiko"));
+        post.addParam("username", loginName);
+        post.addParam("password", md5Pepper);
+        post.addParam("password2", md5EscapedPepper);
+        post.addParam("password3", md5LegacyPepper);
+        post.addParam("password4", md5EscapedLegacyPepper);
+        post.addParam("password5", md5NoPepper);
         post.addParam("version", onlineVersion);
 
         ArrayList<String> response = sendRequest(post, endpoint + "login.php");
+
+        // A rate-limited or otherwise failed request is not a credential problem; retrying
+        // the same login with other hashes would only make it worse.
+        if (isRateLimited()) {
+            return false;
+        }
+
+        // Accounts that were created by the old PHP server have their password hashed over the
+        // escaped form (md5(htmlspecialchars(addslashes(password)) + pepper)), and a stored hash
+        // may also have been produced with a different pepper. Instead of showing
+        // "Invalid credentials" for them, the rejected login is retried with those variants.
+        // Servers that predate the multi-hash login ignore password2..password5 and
+        // only check the primary hash. Retry the remaining variants one by one so
+        // those servers keep working too (a single extra request per variant).
+        if (isInvalidCredentials(response)) {
+            for (String candidate : new String[]{md5LegacyPepper, md5NoPepper}) {
+                if (isInvalidCredentials(response)) {
+                    Debug.i("Login rejected, retrying with a legacy password hash");
+
+                    PostBuilder retry = new URLEncodedPostBuilder();
+                    retry.addParam("username", loginName);
+                    retry.addParam("password", candidate);
+                    retry.addParam("version", onlineVersion);
+
+                    response = sendRequest(retry, endpoint + "login.php");
+
+                    // Rate limiting is not a credential problem: stop instead of
+                    // burning the remaining attempts and the per-IP budget.
+                    if (response == null && isRateLimited()) {
+                        break;
+                    }
+                }
+            }
+        }
 
         if (response == null) {
             return false;
@@ -166,6 +248,8 @@ public class OnlineManager {
         rank = Integer.parseInt(params[2]);
         score = Long.parseLong(params[3]);
         pp = Float.parseFloat(params[4]);
+        // login.php returns the cumulative overall PP in params[4].
+        totalDpp = pp;
         accuracy = Float.parseFloat(params[5]);
         this.username = params[6];
         if (params.length >= 8) {
@@ -174,10 +258,6 @@ public class OnlineManager {
             avatarURL = "";
         }
         profileBannerURL = getProfileBannerURL(userId);
-
-        Bundle bParams = new Bundle();
-        bParams.putString(FirebaseAnalytics.Param.METHOD, "ingame");
-        GlobalManager.getInstance().getMainActivity().getAnalytics().logEvent(FirebaseAnalytics.Event.LOGIN, bParams);
 
         return true;
     }
@@ -244,6 +324,8 @@ public class OnlineManager {
         accuracy = Float.parseFloat(resp[2]);
         mapRank = Integer.parseInt(resp[3]);
         pp = Float.parseFloat(resp[4]);
+        // submit.php sends the cumulative overall PP as the optional sixth value.
+        totalDpp = resp.length >= 6 ? Float.parseFloat(resp[5]) : pp;
 
         return true;
     }
@@ -423,6 +505,10 @@ public class OnlineManager {
         return pp;
     }
 
+    public float getTotalDpp() {
+        return totalDpp;
+    }
+
     public float getAccuracy() {
         return accuracy;
     }
@@ -465,6 +551,27 @@ public class OnlineManager {
 
     public int getMapRank() {
         return mapRank;
+    }
+
+    /**
+     * Equivalent to PHP's htmlspecialchars() with the default flags, which is what
+     * the server applies to the password before hashing.
+     */
+    private static String escapeHTMLSpecialCharacters(String str) {
+        return str
+                .replace("&", "&amp;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
+    }
+
+    /** Equivalent to PHP's addslashes(). */
+    private static String addSlashes(String str) {
+        return str
+                .replace("'", "\\'")
+                .replace("\"", "\\\"")
+                .replace("\\", "\\\\");
     }
 
     public static class OnlineManagerException extends Exception {

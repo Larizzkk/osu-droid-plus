@@ -49,8 +49,14 @@ public abstract class PostBuilder {
                 response = null;
             }
 
+            // "FAILED" is the fail token the droid+ server uses ("FAIL" is the old one).
+            // Treating it as an invalid answer made every rejected login repeat the
+            // same request three times, which burns the server's per-minute limit and
+            // ends in an empty (rate limited) response.
             if (response == null || response.isEmpty() || response.get(0).isEmpty()
-                    || !(response.get(0).equals("FAIL") || response.get(0).equals("SUCCESS"))) {
+                    || !(response.get(0).equals("FAIL")
+                        || response.get(0).equals("FAILED")
+                        || response.get(0).equals("SUCCESS"))) {
                 try {
                     Thread.sleep(3000);
                 } catch (InterruptedException ignored) {
@@ -89,6 +95,19 @@ public abstract class PostBuilder {
                 }
                 Debug.i("request url=" + scriptUrl);
                 Debug.i("request -----End of content-----");
+            } else if (!resp.isSuccessful()) {
+                // Surface the HTTP status instead of a blank answer: an empty body is
+                // otherwise reported as "Got empty response" with no way to tell a
+                // rate limit or a Cloudflare error apart from a real network failure.
+                Debug.e("request " + scriptUrl + " failed with HTTP " + resp.code());
+                response.add("FAILED");
+                if (resp.code() == 429) {
+                    // Rate limited: retrying the login with other hashes only makes it
+                    // worse, so surface a message the login screen can show as-is.
+                    response.add("Too many requests (HTTP 429). Please wait a minute and try again.");
+                } else {
+                    response.add("Server error " + resp.code());
+                }
             }
         } catch(Exception e) {
             Debug.e(e.getMessage(), e);

@@ -5,6 +5,7 @@ import org.anddev.andengine.util.Debug;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 public class MD5Calculator {
@@ -34,7 +35,8 @@ public class MD5Calculator {
     public static String getStringMD5(final String str) {
         try {
             MessageDigest digester = MessageDigest.getInstance("MD5");
-            digester.update(str.getBytes());
+            // The server hashes UTF-8 bytes; the platform default charset must not be used.
+            digester.update(str.getBytes(StandardCharsets.UTF_8));
 
             final BigInteger hash = new BigInteger(1, digester.digest());
             StringBuilder md5 = new StringBuilder(hash.toString(16));
