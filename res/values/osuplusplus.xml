@@ -105,7 +105,7 @@
     <string name="droidplus_cat_cursor">Cursor &amp; trail</string>
 
     <string name="droidplus_trail_implementation_title">Trail style</string>
-    <string name="droidplus_trail_implementation_summary">Legacy (stable dots) or long (danser-go ribbon)</string>
+    <string name="droidplus_trail_implementation_summary">Legacy (stable dots), long (danser-go ribbon) or the original osu!droid particle trail</string>
     <string name="droidplus_trail_length_title">Trail length</string>
     <string name="droidplus_trail_length_summary">Length of the long trail, in hundredths of a second</string>
     <string name="droidplus_trail_size_title">Trail size</string>
@@ -122,10 +122,12 @@
     <string-array name="trail_implementation_names">
         <item>Legacy (dots)</item>
         <item>Long (ribbon)</item>
+        <item>osu!droid (classic)</item>
     </string-array>
     <string-array name="trail_implementation_values">
         <item>0</item>
         <item>1</item>
+        <item>2</item>
     </string-array>
 
     <string name="droidplus_server_title">osu!droid+ server</string>
