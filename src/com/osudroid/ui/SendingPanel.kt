@@ -139,13 +139,14 @@ class SendingPanel(
 
         updateColumn(
             ppColumn,
-            // For PP, we only want to show significant changes.
+            // The server sends the player's new overall PP and the PP this play
+            // earned. Show the overall value as the headline and the play PP as
+            // the gain, rather than deriving a weighted delta locally.
             when {
-                round(newPP) - round(pp) < 1 -> String.format("%.0fpp", round(newPP))
-                round(newPP) - round(pp) < 0 -> String.format("%.0fpp\n(%.0fpp)", round(newPP), round(newPP) - round(pp))
-                else -> String.format("%.0fpp\n(+%.0fpp)", round(newPP), round(newPP) - round(pp))
+                round(earnedPP) < 1 -> String.format("%.0fpp", round(newPP))
+                else -> String.format("%.0fpp\n(+%.0fpp)", round(newPP), round(earnedPP))
             },
-            round(newPP - pp),
+            round(earnedPP),
             scoreColumn
         )
 
