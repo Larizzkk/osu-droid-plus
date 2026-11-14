@@ -1,0 +1,177 @@
+package ru.nsu.ccfit.zuev.osu.game.cursor.mover;
+
+import android.graphics.PointF;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.BaseMover;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.animation.easing.Easing;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.curves.Curve;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.curves.MultiCurve;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.mutils.MUtils;
+import ru.nsu.ccfit.zuev.osu.game.cursor.mover.danser.framework.math.vector.Vector2f;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Exact port of danser-go PippiMover
+ * Based on https://github.com/wieku/danser-go/blob/master/app/dance/movers/pippi.go
+ */
+public class PippiMover extends BaseMover implements CursorMover {
+
+    private static final float SIXTY_TIME = 1000f / 60f;
+    private Curve curve;
+
+    // Wobble configuration (defaults matching danser-go config)
+    private float rotationSpeed = 1.6f;
+    private float radiusMultiplier = 0.98f;
+    private float spinnerRadius = 100f;
+
+    // circleRadius, preempt and speed are inherited from BaseMover (set via setDifficulty);
+    // defaults match danser-go (64, 450, 1.0) and are overridden by map difficulty when wired.
+
+    // Double-click and spinner state (set by scheduler before setMovement)
+    private boolean startDoubleClick = false;
+    private boolean endDoubleClick = false;
+    private boolean startIsSpinner = false;
+    private boolean endIsSpinner = false;
+
+    public PippiMover() {
+    }
+
+    public PippiMover(int id) {
+        this.id = id;
+    }
+
+    /**
+     * Set double-click and spinner info for the current segment.
+     * Called by the scheduler before setMovement, matching danser-go's
+     * GenericScheduler which detects double-clicks during preprocessing.
+     */
+    public void setDoubleClickInfo(boolean startDC, boolean endDC, boolean startSpin, boolean endSpin) {
+        this.startDoubleClick = startDC;
+        this.endDoubleClick = endDC;
+        this.startIsSpinner = startSpin;
+        this.endIsSpinner = endSpin;
+    }
+
+    private Vector2f modifyPos(float time, boolean spinner, Vector2f pos) {
+        // danser-go pippi settings (dance.go: pippi)
+        rotationSpeed = MoverSettings.getPippiRotationSpeed();
+        radiusMultiplier = MoverSettings.getPippiRadiusMultiplier();
+        spinnerRadius = MoverSettings.getPippiSpinnerRadius();
+
+        // rad = math.Mod(time/1000 * config.RotationSpeed, 1) * 2 * math.Pi
+        double rad = ((time / 1000.0 * rotationSpeed) % 1.0) * 2.0 * Math.PI;
+
+        float radius;
+        if (spinner) {
+            radius = spinnerRadius;
+        } else {
+            radius = circleRadius * MUtils.clamp(radiusMultiplier, 0, 1);
+        }
+
+        Vector2f mVec = Vector2f.NewVec2fRad((float) rad, radius);
+        return pos.add(mVec);
+    }
+
+    @Override
+    public void setMovement(PointF startPos, PointF endPos, float startTime, float endTime) {
+        // Danser-go: mover.startTime = max(start.GetEndTime(), end.GetStartTime()-(preempt-100*speed))
+        // This makes the cursor start BEFORE the current object ends, for smooth transition
+        float adjustedStartTime = Math.max(startTime, endTime - (preempt - 100f * speed));
+
+        this.startTime = adjustedStartTime;
+        this.endTime = endTime;
+
+        Vector2f startV = new Vector2f(startPos);
+        Vector2f endV = new Vector2f(endPos);
+
+        float timeDifference = endTime - adjustedStartTime;
+
+        // Danser-go pre-allocates: points = make([]vector.Vector2f, 0, int(math.Ceil(timeDifference/sixtyTime)))
+        List<Vector2f> points = new ArrayList<>((int) Math.ceil(timeDifference / SIXTY_TIME) + 2);
+
+        // Double-click and spinner info is set by setDoubleClickInfo() before this call
+        if (startDoubleClick) {
+            points.add(startV);
+        } else {
+            points.add(modifyPos(startTime, startIsSpinner, startV));
+        }
+
+        // Intermediate points every 60fps frame
+        // danser-go order: lerp → modifyPos(wobble) → double-click blending
+        for (float t = SIXTY_TIME; t < timeDifference; t += SIXTY_TIME) {
+            float f = t / timeDifference;
+
+            Vector2f basePos = startV.lerp(endV, f);
+
+            // Wobble is applied to the base lerp FIRST (before double-click)
+            basePos = modifyPos(adjustedStartTime + t, false, basePos);
+
+            if (startDoubleClick) {
+                basePos = startV.lerp(basePos, f);
+            }
+
+            if (endDoubleClick) {
+                basePos = basePos.lerp(endV, f);
+            }
+
+            points.add(basePos);
+        }
+
+        // Last point
+        if (endDoubleClick) {
+            points.add(endV);
+        } else {
+            points.add(modifyPos(endTime, endIsSpinner, endV));
+        }
+
+        // Danser-go creates MultiCurve with a single CLine segment containing all points
+        Vector2f[] pointsArray = points.toArray(new Vector2f[0]);
+        curve = new MultiCurve(pointsArray);
+    }
+
+    @Override
+    public PointF getPositionAt(float time) {
+        if (curve == null) return null;
+
+        // Danser-go uses OutQuad easing on t
+        float denom = Math.max(endTime - startTime, 1f);
+        float t = (time - startTime) / denom;
+        t = MUtils.clamp(t, 0, 1);
+        return curve.pointAt((float) Easing.outQuad(t)).toPointF();
+    }
+
+    @Override
+    public PointF getObjectsPosition(float time, PointF objectPos) {
+        // Danser-go PippiMover.GetObjectsPosition:
+        // if object is a double-click Circle → return stacked start position (no wobble)
+        // otherwise → apply modifyPos(time, isSpinner, basicMover.GetObjectsPosition(time, object))
+        if (startDoubleClick) {
+            // Double-click: return start position without wobble
+            return objectPos;
+        }
+        // Apply wobble to the actual object position at this time
+        Vector2f pos = new Vector2f(objectPos);
+        return modifyPos(time, startIsSpinner, pos).toPointF();
+    }
+
+    @Override
+    public void reset() {
+        curve = null;
+    }
+
+    @Override
+    public boolean isFinished(float time) {
+        return time >= endTime;
+    }
+
+    @Override
+    public boolean supportsMultiPoint() {
+        return false;
+    }
+
+    @Override
+    public void setMultiPointMovement(PointF[] positions, float[] times, float startTime) {
+        // Handled by scheduler with consecutive setMovement calls
+    }
+}
