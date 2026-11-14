@@ -30,6 +30,7 @@ import com.osudroid.beatmaps.timings.EffectControlPoint;
 import com.osudroid.beatmaps.timings.TimingControlPoint;
 
 import org.anddev.andengine.engine.handler.IUpdateHandler;
+import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.IEntity;
 import org.anddev.andengine.entity.modifier.IEntityModifier;
 import org.anddev.andengine.entity.modifier.MoveXModifier;
@@ -57,6 +58,8 @@ import org.anddev.andengine.util.HorizontalAlign;
 import org.anddev.andengine.util.modifier.IModifier;
 import org.anddev.andengine.util.modifier.ease.EaseBounceOut;
 import org.anddev.andengine.util.modifier.ease.EaseExponentialOut;
+import org.anddev.andengine.util.modifier.ease.EaseQuadIn;
+import ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -77,23 +80,79 @@ import ru.nsu.ccfit.zuev.osu.online.OnlineScoring;
 import ru.nsu.ccfit.zuev.osu.scoring.Replay;
 import ru.nsu.ccfit.zuev.osu.scoring.ScoringScene;
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 
 /**
  * Created by Fuuko on 2015/4/24.
  */
 public class MainScene implements IUpdateHandler {
+
+    // Legacy osu!droid+ main-menu visualiser: 120 bars / 5 arms of 24 bars each,
+    // one arm every 72 degrees, all rotating as one star. Values and update order
+    // are copied 1:1 from the legacy osuplusplus MainScene.
+    private static final int SPECTRUM_BAR_COUNT = 120;
+    private static final double SPECTRUM_DECAY_BASE = 0.949999988079071;
+    private static final float SPECTRUM_ATTACK_MULTIPLIER = 3f;
+    private static final float SPECTRUM_SCALE_DEAD_ZONE = 0.01f;
+    private static final float SPECTRUM_BAR_LENGTH = 600f;
+    private static final int SPECTRUM_INDEX_CHANGE = 3;
+    private static final long SPECTRUM_UPDATE_INTERVAL = 50;
+
+    // osu!stable main-menu dim bars: black strips 86.4 design units tall (768-height
+    // design space) at 40% opacity, flush to the top and bottom edges.
+    private static final float MENU_DIM_BAR_HEIGHT = 86.4f;
+    private static final float MENU_DIM_BAR_ALPHA = 0.4f;
+
     public LinearSongProgress progressBar;
     public BeatmapInfo beatmapInfo;
     private Context context;
     private Sprite logo, logoOverlay, background, lastBackground;
+
+    // ── Parallax (osu!droid+ "parallaxEnabled"/"parallaxStrength") ──────────
+    // The background is slightly overscanned and shifted against the finger, so
+    // the shift never exposes an edge. Cost per frame: two setPosition calls.
+    private boolean parallaxEnabled = false;
+    private float parallaxStrength = 0.1f;
+    /** Raw target in [-1..1] on both axes, from the last touch position. */
+    private float parallaxTargetX = 0f, parallaxTargetY = 0f;
+    /** Smoothed value actually applied, avoids jitter on fast finger moves. */
+    private float parallaxOffsetX = 0f, parallaxOffsetY = 0f;
+    /** Seconds since the settings were last re-read (prefs are not polled per frame). */
+    private float parallaxSettingsAge = 999f;
+    private boolean parallaxApplied = false;
+    /** The scene background sprite ("menu-background"); owned by SpriteBackground. */
+    private Sprite menuBgSprite = null;
+    private float menuBgBaseY = 0f;
     private Sprite music_nowplay;
+    // Music repeat toggle, 1:1 with the legacy main menu.
+    private boolean musicRepeat = false;
+    private Sprite musicRepeatBtn;
     private UIScene scene;
     private ChangeableText musicInfoText;
-    private final Rectangle[] spectrum = new Rectangle[120];
-    private final float[] peakLevel = new float[120];
-    private final float[] peakDownRate = new float[120];
-    private final float[] peakAlpha = new float[120];
+    private final Rectangle[] spectrum = new Rectangle[SPECTRUM_BAR_COUNT];
+    /**
+     * Orbit point of the visualiser. The whole star lives here instead of at the screen
+     * centre, so it travels with the osu!cookie (the menu logo) when the logo slides
+     * aside and comes back.
+     */
+    private Entity spectrumAnchor;
+    private final float[] frequencyAmplitudes = new float[SPECTRUM_BAR_COUNT];
+    private int spectrumIndexOffset = 0;
+    private long lastSpectrumUpdate = 0L;
+    /**
+     * Visualiser settings snapshot. Config is backed by SharedPreferences, so the
+     * keys are re-read twice a second instead of on every frame (this code runs at
+     * full frame rate while music plays).
+     */
+    private float visualizerSettingsAge = 999f;
+    private boolean visualizerEnabled = true;
+    private int visualizerIntensityPct = 100;
+    private int visualizerUpdateRate = (int) SPECTRUM_UPDATE_INTERVAL;
+    private boolean visualizerKiaiDim = true;
+    private int visualizerRotationSpeed = SPECTRUM_INDEX_CHANGE;
+    private int visualizerDecaySpeedPct = 100;
+    /** True while the bars are already collapsed, so a disabled visualiser costs nothing. */
+    private boolean spectrumCleared = false;
     private LinkedList<TimingControlPoint> timingControlPoints;
     private LinkedList<EffectControlPoint> effectControlPoints;
     private TimingControlPoint currentTimingPoint;
@@ -107,6 +166,46 @@ public class MainScene implements IUpdateHandler {
 
     private boolean musicStarted;
     private BassSoundProvider hitsound;
+    private BassSoundProvider heartbeatSound;
+
+    // ── osu!PC (lazer) main-menu effects ────────────────────────────────────
+    // MenuSideFlashes: two 200px white boxes hugging the left/right screen edges,
+    // pulsed on every beat with the live channel amplitude. Kiai alternates the
+    // sides; a normal downbeat flashes both.
+    // Legacy osu!droid MenuSideFlashes: two white boxes hugging the screen edges,
+    // pulsing with the live channel level on every beat / kiai beat.
+    private Rectangle leftFlash, rightFlash;
+    private boolean leftFlashActive = false;
+    private static final float AMPLITUDE_DEAD_ZONE = 0.25f;
+    private static final float ALPHA_MULTIPLIER = (1 - AMPLITUDE_DEAD_ZONE) / 0.55f;
+    private static final float KIAI_MULTIPLIER = (1 - AMPLITUDE_DEAD_ZONE * 0.95f) / 0.8f;
+    private static final float BOX_FADE_IN_TIME = 65f / 1000f;
+
+    // KiaiFlash: one white full-screen flash on every kiai section entry,
+    // fade-in 150ms to 20% alpha, fade-out 400ms (osu!stable KiaiFlash).
+    private Rectangle kiaiFlashOverlay;
+    private float kiaiFlashAlpha = 0f;
+    private boolean kiaiFlashTriggered = false;
+    private boolean wasKiai = false;
+    private float kiaiFlashTimer = 0f;
+    private static final float KIAI_FLASH_PEAK_ALPHA = 0.2f;
+    private static final float KIAI_FLASH_FADE_IN_TIME = 0.15f;
+    private static final float KIAI_FLASH_FADE_OUT_TIME = 0.4f;
+    private static final float KIAI_FLASH_TOTAL_TIME = KIAI_FLASH_FADE_IN_TIME + KIAI_FLASH_FADE_OUT_TIME;
+
+    /** Beat counter since the current timing point, used for flash alternation. */
+    private long beatIndex = 0;
+
+    /** osu!droid+ floating triangle/shape background behind the menu UI. */
+    private TriangleBackground triangleBg;
+
+    /** Clock and session time, draggable around the bottom of the menu. */
+    private ChangeableText clockText;
+    private ChangeableText sessionTimeText;
+    private long sessionStartTime = System.currentTimeMillis();
+    public long lastTouchTime = System.currentTimeMillis();
+    private float clockDragOffsetX;
+    private float clockDragOffsetY;
 
     private double bpmLength = 1000;
     private double beatPassTime = 0;
@@ -139,6 +238,8 @@ public class MainScene implements IUpdateHandler {
                     (Config.getRES_HEIGHT() - height) / 2,
                     Config.getRES_WIDTH(),
                     height, tex);
+            menuBgSprite = menuBg;
+            menuBgBaseY = (Config.getRES_HEIGHT() - height) / 2f;
             scene.setBackground(new SpriteBackground(menuBg));
         } else {
             scene.setBackground(new ColorBackground(70 / 255f, 129 / 255f,
@@ -146,7 +247,30 @@ public class MainScene implements IUpdateHandler {
         }
         lastBackground = new Sprite(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT(), ResourceManager.getInstance().getTexture("emptyavatar"));
 
-        addSnowfallWithPeriod(scene, context);
+        refreshParallaxSettings();
+        scene.setOnSceneTouchListener((pScene, pTouchEvent) -> {
+            if (!parallaxEnabled) {
+                return false;
+            }
+
+            // Only the menu background moves: never swallow the event (touch areas
+            // and the menu still need it), so always return false.
+            if (pTouchEvent.getAction() != TouchEvent.ACTION_UP) {
+                float cx = Config.getRES_WIDTH() / 2f;
+                float cy = Config.getRES_HEIGHT() / 2f;
+
+                if (cx > 0f && cy > 0f) {
+                    parallaxTargetX = Math.max(-1f, Math.min(1f, (pTouchEvent.getX() - cx) / cx));
+                    parallaxTargetY = Math.max(-1f, Math.min(1f, (pTouchEvent.getY() - cy) / cy));
+                }
+            }
+
+            return false;
+        });
+
+        if (Config.getBoolean("snowfallEnabled", true)) {
+            addSnowfallWithPeriod(scene, context);
+        }
         addFireworksWithPeriod(scene, context);
 
         final TextureRegion logotex = ResourceManager.getInstance().getTexture("logo");
@@ -237,6 +361,52 @@ public class MainScene implements IUpdateHandler {
             }
         };
         scene.attachChild(box);
+
+        musicRepeat = Config.getBoolean("musicRepeat", false);
+
+        // Texture may be missing (old skins / partially built assets); the button is
+        // then skipped instead of crashing the whole menu on a null texture region.
+        final TextureRegion repeatTexture = ResourceManager.getInstance().getTexture("music_list");
+
+        if (repeatTexture != null) {
+            musicRepeatBtn = new Sprite(Config.getRES_WIDTH() - 50 * 7 + 35,
+                    47, 40, 40, repeatTexture) {
+
+                @Override
+                public boolean onAreaTouched(final TouchEvent pSceneTouchEvent,
+                                             final float pTouchAreaLocalX, final float pTouchAreaLocalY) {
+                    if (pSceneTouchEvent.isActionDown()) {
+                        setColor(0.7f, 0.7f, 0.7f);
+                        return true;
+                    }
+                    if (pSceneTouchEvent.isActionUp()) {
+                        musicRepeat = !musicRepeat;
+                        if (musicRepeat) {
+                            setColor(0.3f, 0.8f, 1f);
+                        } else {
+                            setColor(1f, 1f, 1f);
+                        }
+                        Config.setBoolean("musicRepeat", musicRepeat);
+
+                        if (GlobalManager.getInstance().getSongService() != null) {
+                            GlobalManager.getInstance().getSongService().setLoop(musicRepeat);
+                        }
+                        return true;
+                    }
+                    return super.onAreaTouched(pSceneTouchEvent, pTouchAreaLocalX,
+                            pTouchAreaLocalY);
+                }
+            };
+        }
+
+        if (musicRepeat) {
+            if (musicRepeatBtn != null) {
+                musicRepeatBtn.setColor(0.3f, 0.8f, 1f);
+            }
+            if (GlobalManager.getInstance().getSongService() != null) {
+                GlobalManager.getInstance().getSongService().setLoop(true);
+            }
+        }
 
         final Sprite music_prev = new Sprite(Config.getRES_WIDTH() - 50 * 6 + 35,
                 47, 40, 40, ResourceManager.getInstance().getTexture(
@@ -367,17 +537,22 @@ public class MainScene implements IUpdateHandler {
         final TextureRegion nptex = ResourceManager.getInstance().getTexture("music_np");
         music_nowplay = new Sprite(Utils.toRes(Config.getRES_WIDTH() - 500), 0, (float) (40 * nptex.getWidth()) / nptex.getHeight(), 40, nptex);
 
-        for (int i = 0; i < 120; i++) {
-            final float pX = (float) Config.getRES_WIDTH() / 2;
-            final float pY = (float) Config.getRES_HEIGHT() / 2;
+        // Legacy visualiser: 120 bars arranged around the osu!cookie (menu logo).
+        // The bars are children of an anchor placed at the logo centre, so the star
+        // moves and rotates with the cookie instead of staying at the screen centre.
+        spectrumAnchor = new Entity((float) Config.getRES_WIDTH() / 2, (float) Config.getRES_HEIGHT() / 2);
+        scene.attachChild(spectrumAnchor);
 
-            spectrum[i] = new Rectangle(pX, pY, 260, 10);
+        for (int i = 0; i < SPECTRUM_BAR_COUNT; i++) {
+            spectrum[i] = new Rectangle(0, 0, 260, 10);
             spectrum[i].setRotationCenter(0, 5);
             spectrum[i].setScaleCenter(0, 5);
-            spectrum[i].setRotation(-220 + i * 3f);
-            spectrum[i].setAlpha(0.0f);
+            // 5 overlapping arms (osu! PC star visualiser): 24 bars per arm,
+            // arms offset by 72 degrees.
+            spectrum[i].setRotation((i % 24) * 15f + (i / 24) * 72f - 220f);
+            spectrum[i].setAlpha(0f);
 
-            scene.attachChild(spectrum[i]);
+            spectrumAnchor.attachChild(spectrum[i]);
         }
 
         TextureRegion starRegion = ResourceManager.getInstance().getTexture("star");
@@ -453,10 +628,32 @@ public class MainScene implements IUpdateHandler {
         menuBarX = menu.getFirst().getX();
 
         scene.attachChild(lastBackground, 0);
+
+        // Stable main-menu dim bars: they belong directly above the background and
+        // below every piece of UI (logo, menu buttons, visualiser), so they are
+        // inserted right after the background sprite.
+        float dimBarHeight = MENU_DIM_BAR_HEIGHT * Config.getRES_HEIGHT() / 768f;
+
+        Rectangle topDimBar = new Rectangle(0, 0, Config.getRES_WIDTH(), dimBarHeight);
+        topDimBar.setColor(0f, 0f, 0f, MENU_DIM_BAR_ALPHA);
+        scene.attachChild(topDimBar, 1);
+
+        Rectangle bottomDimBar = new Rectangle(
+            0,
+            Config.getRES_HEIGHT() - dimBarHeight,
+            Config.getRES_WIDTH(),
+            dimBarHeight
+        );
+        bottomDimBar.setColor(0f, 0f, 0f, MENU_DIM_BAR_ALPHA);
+        scene.attachChild(bottomDimBar, 2);
+
         scene.attachChild(logo);
         scene.attachChild(logoOverlay);
         scene.attachChild(music_nowplay);
         scene.attachChild(musicInfoText);
+        if (musicRepeatBtn != null) {
+            scene.attachChild(musicRepeatBtn);
+        }
         scene.attachChild(music_prev);
         scene.attachChild(music_play);
         scene.attachChild(music_pause);
@@ -467,6 +664,9 @@ public class MainScene implements IUpdateHandler {
         scene.registerTouchArea(logo);
         scene.registerTouchArea(box);
         scene.registerTouchArea(beatmapDownloader);
+        if (musicRepeatBtn != null) {
+            scene.registerTouchArea(musicRepeatBtn);
+        }
         scene.registerTouchArea(music_prev);
         scene.registerTouchArea(music_play);
         scene.registerTouchArea(music_pause);
@@ -496,11 +696,167 @@ public class MainScene implements IUpdateHandler {
         progressBar = new LinearSongProgress(scene, 0, 0, new PointF(Utils.toRes(Config.getRES_WIDTH() - 320), Utils.toRes(100)));
         progressBar.setProgressRectColor(new Color4(0.9f, 0.9f, 0.9f));
         progressBar.setProgressRectAlpha(0.8f);
+        progressBar.setSeekListener(time -> {
+            var songService = GlobalManager.getInstance().getSongService();
+            if (songService != null) {
+                songService.seekTo((int) time);
+            }
+        });
+
+        // Kiai flash overlay: full-screen white rectangle, kept at alpha 0 until
+        // a kiai section starts.
+        kiaiFlashOverlay = new Rectangle(0, 0, Config.getRES_WIDTH(), Config.getRES_HEIGHT());
+        kiaiFlashOverlay.setColor(1f, 1f, 1f, 0f);
+        scene.attachChild(kiaiFlashOverlay);
+
+        initSideFlashes();
 
         createOnlinePanel(scene);
         scene.registerUpdateHandler(this);
 
         hitsound = ResourceManager.getInstance().loadSound("menuhit", "sfx/menuhit.ogg", false);
+        heartbeatSound = ResourceManager.getInstance().loadSound("heartbeat", "sfx/heartbeat.ogg", false);
+
+        // Floating shapes sit above the dim bars (index 1/2) but below every UI
+        // element created later; they are deliberately very faint (alpha 0.04-0.12).
+        triangleBg = new TriangleBackground();
+        scene.attachChild(triangleBg, Math.min(3, scene.getChildCount()));
+
+        createClock(scene);
+    }
+
+    /**
+     * Clock and session time in the bottom area, exactly like the legacy menu:
+     * white text with an invisible drag handle that saves its position.
+     */
+    private void createClock(UIScene scene) {
+        float clockX = Config.getFloat("clockPosX", Config.getRES_WIDTH() / 2f - 30);
+        float clockY = Config.getFloat("clockPosY", Config.getRES_HEIGHT() - 55);
+        float sessionY = Config.getFloat("sessionPosY", clockY + 24);
+
+        Rectangle clockDragHandle = new Rectangle(clockX - 10, clockY - 10, 140, 52) {
+            @Override
+            public boolean onAreaTouched(final TouchEvent pEvent, final float pLocalX, final float pLocalY) {
+                switch (pEvent.getAction()) {
+                    case TouchEvent.ACTION_DOWN:
+                        lastTouchTime = System.currentTimeMillis();
+                        clockDragOffsetX = pEvent.getX() - clockText.getX();
+                        clockDragOffsetY = pEvent.getY() - clockText.getY();
+                        clockText.setAlpha(0.7f);
+                        sessionTimeText.setAlpha(0.7f);
+                        return true;
+                    case TouchEvent.ACTION_MOVE:
+                        float newX = pEvent.getX() - clockDragOffsetX;
+                        float newY = pEvent.getY() - clockDragOffsetY;
+                        clockText.setPosition(newX, newY);
+                        sessionTimeText.setPosition(newX, newY + 24);
+                        return true;
+                    case TouchEvent.ACTION_UP:
+                    case TouchEvent.ACTION_CANCEL:
+                        clockText.setAlpha(1f);
+                        sessionTimeText.setAlpha(1f);
+                        Config.setFloat("clockPosX", clockText.getX());
+                        Config.setFloat("clockPosY", clockText.getY());
+                        Config.setFloat("sessionPosY", clockText.getY() + 24);
+                        return true;
+                }
+                return super.onAreaTouched(pEvent, pLocalX, pLocalY);
+            }
+        };
+        clockDragHandle.setColor(0, 0, 0);
+        clockDragHandle.setAlpha(0f);
+        scene.attachChild(clockDragHandle);
+        scene.registerTouchArea(clockDragHandle);
+
+        clockText = new ChangeableText(clockX, clockY,
+                ResourceManager.getInstance().getFont("font"), "00:00", HorizontalAlign.LEFT, 20);
+        clockText.setColor(1f, 1f, 1f);
+        clockText.setAlpha(1f);
+        scene.attachChild(clockText);
+
+        sessionTimeText = new ChangeableText(clockX, sessionY,
+                ResourceManager.getInstance().getFont("font"), "00:00:00", HorizontalAlign.LEFT, 12);
+        sessionTimeText.setColor(1f, 1f, 1f);
+        sessionTimeText.setAlpha(1f);
+        scene.attachChild(sessionTimeText);
+    }
+
+    /** Legacy initSideFlashes(): two 200 px white boxes hugging the screen edges. */
+    private void initSideFlashes() {
+        final float boxWidth = 200f;
+
+        leftFlash = new Rectangle(-boxWidth + 50f, 0, boxWidth, Config.getRES_HEIGHT());
+        leftFlash.setColor(1f, 1f, 1f, 0f);
+        scene.attachChild(leftFlash, 0);
+
+        rightFlash = new Rectangle(Config.getRES_WIDTH() - 50f, 0, boxWidth, Config.getRES_HEIGHT());
+        rightFlash.setColor(1f, 1f, 1f, 0f);
+        scene.attachChild(rightFlash, 0);
+    }
+
+    /**
+     * Legacy flashSide(): fade in over 65 ms to a peak derived from the channel's
+     * live audio level, then fade out over one beat with quadratic easing.
+     */
+    private void flashSide(Rectangle flash, double beatLength, boolean kiai) {
+        if (flash == null) {
+            return;
+        }
+
+        var songService = GlobalManager.getInstance().getSongService();
+        float[] levels = songService != null ? songService.getChannelLevel() : null;
+        float channelLevel = levels != null
+                ? (flash == leftFlash ? levels[0] : levels[1])
+                : 0f;
+
+        float multiplier = kiai ? KIAI_MULTIPLIER : ALPHA_MULTIPLIER;
+        float targetAlpha = 0.1f + (channelLevel - AMPLITUDE_DEAD_ZONE) / multiplier;
+        if (targetAlpha < 0.1f) targetAlpha = 0.1f;
+        if (targetAlpha > 1f) targetAlpha = 1f;
+
+        flash.clearEntityModifiers();
+        flash.registerEntityModifier(new SequenceEntityModifier(
+                new org.anddev.andengine.entity.modifier.AlphaModifier(BOX_FADE_IN_TIME, 0f, targetAlpha),
+                new org.anddev.andengine.entity.modifier.AlphaModifier((float) (beatLength / 1000), targetAlpha, 0f,
+                        EaseQuadIn.getInstance())
+        ));
+    }
+
+    /**
+     * One white flash per kiai entry (osu!stable KiaiFlash): 150ms fade-in to 20%
+     * then 400ms fade-out. Runs independently of the beat pulse.
+     */
+    private void updateKiaiFlash(float dt, boolean kiai) {
+        if (kiaiFlashOverlay == null) {
+            return;
+        }
+
+        if (kiai && !wasKiai && !kiaiFlashTriggered) {
+            kiaiFlashTriggered = true;
+            kiaiFlashTimer = 0f;
+            kiaiFlashAlpha = 0f;
+        }
+        if (!kiai && wasKiai) {
+            kiaiFlashTriggered = false;
+        }
+        wasKiai = kiai;
+
+        if (kiaiFlashTriggered) {
+            kiaiFlashTimer += dt;
+
+            if (kiaiFlashTimer < KIAI_FLASH_FADE_IN_TIME) {
+                kiaiFlashAlpha = (kiaiFlashTimer / KIAI_FLASH_FADE_IN_TIME) * KIAI_FLASH_PEAK_ALPHA;
+            } else if (kiaiFlashTimer < KIAI_FLASH_TOTAL_TIME) {
+                float progress = (kiaiFlashTimer - KIAI_FLASH_FADE_IN_TIME) / KIAI_FLASH_FADE_OUT_TIME;
+                kiaiFlashAlpha = KIAI_FLASH_PEAK_ALPHA * (1f - progress);
+            } else {
+                kiaiFlashAlpha = 0f;
+            }
+        } else {
+            kiaiFlashAlpha = 0f;
+        }
+
+        kiaiFlashOverlay.setAlpha(kiaiFlashAlpha);
     }
 
     public void loadBannerSprite() {
@@ -562,7 +918,8 @@ public class MainScene implements IUpdateHandler {
                 if (GlobalManager.getInstance().getSongService().getStatus() == Status.PAUSED || GlobalManager.getInstance().getSongService().getStatus() == Status.STOPPED) {
                     if (GlobalManager.getInstance().getSongService().getStatus() == Status.STOPPED) {
                         loadTimingPoints(false);
-                        GlobalManager.getInstance().getSongService().preLoad(beatmapInfo.getAudioPath());
+                        GlobalManager.getInstance().getSongService().preLoad(beatmapInfo.getAudioPath(),
+                                1f, false, musicRepeat);
 
                         if (currentTimingPoint != null) {
                             bpmLength = currentTimingPoint.msPerBeat;
@@ -617,16 +974,97 @@ public class MainScene implements IUpdateHandler {
         }
     }
 
-    @Override
-    public void onUpdate(final float pSecondsElapsed) {
-        beatPassTime += pSecondsElapsed * 1000;
-        if (isOnExitAnim) {
-            for (Rectangle specRectangle : spectrum) {
-                specRectangle.setWidth(0);
-                specRectangle.setAlpha(0);
+    /**
+     * Re-reads the parallax preferences. Called on scene load and then at most
+     * twice a second from {@link #updateParallax(float)} — SharedPreferences must
+     * not be hit every frame.
+     */
+    private void refreshParallaxSettings() {
+        // Config holds the live value (replay panel can flip it mid-game); it is loaded
+        // from the same preference, so both surfaces always agree.
+        parallaxEnabled = Config.isParallaxEnabled();
+        parallaxStrength = Math.max(0f, Math.min(1f, Config.getInt("parallaxStrength", 10) / 100f));
+    }
+
+    /**
+     * Shifts the overscanned menu/beatmap background against the finger position.
+     * Two setPosition calls per frame while enabled and moving, nothing when idle.
+     */
+    private void updateParallax(float dt) {
+        parallaxSettingsAge += dt;
+        if (parallaxSettingsAge > 0.5f) {
+            parallaxSettingsAge = 0f;
+            refreshParallaxSettings();
+        }
+
+        if (!parallaxEnabled || parallaxStrength <= 0f) {
+            if (parallaxApplied) {
+                parallaxApplied = false;
+                parallaxOffsetX = 0f;
+                parallaxOffsetY = 0f;
+                resetParallaxSprite(background, 0f, 0f);
+                resetParallaxSprite(lastBackground, 0f, 0f);
+                resetParallaxSprite(menuBgSprite, 0f, menuBgBaseY);
             }
             return;
         }
+
+        float lerp = Math.min(1f, dt * 8f);
+        parallaxOffsetX += (parallaxTargetX - parallaxOffsetX) * lerp;
+        parallaxOffsetY += (parallaxTargetY - parallaxOffsetY) * lerp;
+
+        // 6% overscan is enough for the maximum shift of this strength.
+        float scale = 1f + 0.06f * parallaxStrength;
+        float halfW = Config.getRES_WIDTH() * (scale - 1f) * 0.5f;
+        float halfH = Config.getRES_HEIGHT() * (scale - 1f) * 0.5f;
+
+        float dx = parallaxOffsetX * halfW;
+        float dy = parallaxOffsetY * halfH;
+        applyParallaxSprite(background, scale, dx, dy, 0f, 0f);
+        applyParallaxSprite(lastBackground, scale, dx, dy, 0f, 0f);
+        applyParallaxSprite(menuBgSprite, scale, dx, dy, 0f, menuBgBaseY);
+        parallaxApplied = true;
+    }
+
+    private void applyParallaxSprite(Sprite sprite, float scale, float offsetX, float offsetY,
+                                     float baseX, float baseY) {
+        if (sprite == null) {
+            return;
+        }
+
+        if (sprite.getScaleX() != scale) {
+            sprite.setScaleCenter(Config.getRES_WIDTH() / 2f, Config.getRES_HEIGHT() / 2f);
+            sprite.setScale(scale);
+        }
+
+        sprite.setPosition(baseX + offsetX, baseY + offsetY);
+    }
+
+    private void resetParallaxSprite(Sprite sprite, float baseX, float baseY) {
+        if (sprite == null) {
+            return;
+        }
+
+        if (sprite.getScaleX() != 1f) {
+            sprite.setScaleCenter(Config.getRES_WIDTH() / 2f, Config.getRES_HEIGHT() / 2f);
+            sprite.setScale(1f);
+        }
+
+        sprite.setPosition(baseX, baseY);
+    }
+
+    @Override
+    public void onUpdate(final float pSecondsElapsed) {
+        updateParallax(pSecondsElapsed);
+        beatPassTime += pSecondsElapsed * 1000;
+        if (isOnExitAnim) {
+            return;
+        }
+
+        // Kiai flash runs every frame (not just while playing) so a flash that
+        // started right before a pause still fades out instead of sticking.
+        updateKiaiFlash(pSecondsElapsed,
+                (currentEffectPoint != null && currentEffectPoint.isKiai) || isContinuousKiai);
 
         if (GlobalManager.getInstance().getSongService() == null || !musicStarted || GlobalManager.getInstance().getSongService().getStatus() == Status.STOPPED) {
             bpmLength = 1000;
@@ -635,9 +1073,6 @@ public class MainScene implements IUpdateHandler {
         if (doMenuShow && !isMenuShowed) {
             logo.registerEntityModifier(new MoveXModifier(0.3f, (float) Config.getRES_WIDTH() / 2 - logo.getWidth() / 2, (float) Config.getRES_WIDTH() / 3 - logo.getWidth() / 2, EaseExponentialOut.getInstance()));
             logoOverlay.registerEntityModifier(new MoveXModifier(0.3f, (float) Config.getRES_WIDTH() / 2 - logo.getWidth() / 2, (float) Config.getRES_WIDTH() / 3 - logo.getWidth() / 2, EaseExponentialOut.getInstance()));
-            for (Rectangle rectangle : spectrum) {
-                rectangle.registerEntityModifier(new MoveXModifier(0.3f, (float) Config.getRES_WIDTH() / 2, (float) Config.getRES_WIDTH() / 3, EaseExponentialOut.getInstance()));
-            }
 
             menu.attachButtons();
             menu.showFirstMenu();
@@ -678,9 +1113,6 @@ public class MainScene implements IUpdateHandler {
                         EaseBounceOut.getInstance()));
                 logoOverlay.registerEntityModifier(new MoveXModifier(1f, (float) Config.getRES_WIDTH() / 3 - logo.getWidth() / 2, (float) Config.getRES_WIDTH() / 2 - logo.getWidth() / 2, EaseBounceOut.getInstance()));
 
-                for (Rectangle rectangle : spectrum) {
-                    rectangle.registerEntityModifier(new MoveXModifier(1f, (float) Config.getRES_WIDTH() / 3, (float) Config.getRES_WIDTH() / 2, EaseBounceOut.getInstance()));
-                }
                 isMenuShowed = false;
                 doMenuShow = false;
                 showPassTime = 0;
@@ -695,6 +1127,34 @@ public class MainScene implements IUpdateHandler {
             if (logo != null) {
                 logo.registerEntityModifier(new SequenceEntityModifier(new org.anddev.andengine.entity.modifier.ScaleModifier((float) (bpmLength / 1000 * 0.9f), 1f, 1.07f),
                         new org.anddev.andengine.entity.modifier.ScaleModifier((float) (bpmLength / 1000 * 0.07f), 1.07f, 1f)));
+
+                if (heartbeatSound != null) {
+                    heartbeatSound.play(Config.getInt("heartbeatVolume", 100) / 100f);
+                }
+            }
+
+            if (currentTimingPoint != null) {
+                boolean kiai = (currentEffectPoint != null && currentEffectPoint.isKiai) || isContinuousKiai;
+
+                // Legacy behaviour: kiai alternates the sides every beat, a normal
+                // downbeat (beat 0 of the measure) lights both sides.
+                if (kiai) {
+                    if (beatIndex % 2 == 0) {
+                        flashSide(leftFlash, bpmLength, true);
+                    } else {
+                        flashSide(rightFlash, bpmLength, true);
+                    }
+                } else if (currentTimingPoint.timeSignature > 0
+                        && beatIndex % currentTimingPoint.timeSignature == 0) {
+                    flashSide(leftFlash, bpmLength, false);
+                    flashSide(rightFlash, bpmLength, false);
+                }
+
+                beatIndex++;
+            }
+
+            if (triangleBg != null) {
+                triangleBg.onBeat();
             }
         }
 
@@ -706,6 +1166,7 @@ public class MainScene implements IUpdateHandler {
 
                 bpmLength = currentTimingPoint.msPerBeat;
                 beatPassTime = 0;
+                beatIndex = 0;
                 progressBar.setStartTime(0);
                 GlobalManager.getInstance().getSongService().play();
                 GlobalManager.getInstance().getSongService().setVolume(Config.getBgmVolume());
@@ -729,6 +1190,23 @@ public class MainScene implements IUpdateHandler {
                     beatPassTime = (position - currentTimingPoint.time) % bpmLength;
                 }
 
+                // The looping channel jumps back to the start, so rewind the timing
+                // and effect point queues, 1:1 with the legacy menu.
+                if (musicRepeat && position < 1000 && timingControlPoints.isEmpty()) {
+                    try {
+                        var beatmap = BeatmapCache.getBeatmap(beatmapInfo, false);
+                        timingControlPoints = new LinkedList<>(beatmap.getControlPoints().timing.controlPoints);
+                        effectControlPoints = new LinkedList<>(beatmap.getControlPoints().effect.controlPoints);
+                        currentTimingPoint = beatmap.getControlPoints().timing.defaultControlPoint;
+                        currentEffectPoint = beatmap.getControlPoints().effect.defaultControlPoint;
+                        bpmLength = currentTimingPoint.msPerBeat;
+                        beatPassTime = (position - currentTimingPoint.time) % bpmLength;
+                        beatIndex = 0;
+                    } catch (Exception e) {
+                        Debug.e("Failed to reload timing points on repeat loop: " + e);
+                    }
+                }
+
                 if (!effectControlPoints.isEmpty() && position > effectControlPoints.peek().time) {
                     while (!effectControlPoints.isEmpty() && position > effectControlPoints.peek().time) {
                         currentEffectPoint = effectControlPoints.pop();
@@ -740,6 +1218,10 @@ public class MainScene implements IUpdateHandler {
                         }
                         particleBeginTime = position;
                         particleEnabled = true;
+
+                        if (triangleBg != null) {
+                            triangleBg.setKiai(true);
+                        }
                     }
 
                     isContinuousKiai = currentEffectPoint.isKiai;
@@ -752,47 +1234,142 @@ public class MainScene implements IUpdateHandler {
                     particleEnabled = false;
                 }
 
-                int windowSize = 240;
-                int spectrumWidth = 120;
-                float[] fft = GlobalManager.getInstance().getSongService().getSpectrum();
-                if (fft == null) return;
-                for (int i = 0, leftBound = 0; i < spectrumWidth; i++) {
-                    float peak = 0;
-                    int rightBound = (int) Math.pow(2., i * 9. / (windowSize - 1));
-                    if (rightBound <= leftBound) rightBound = leftBound + 1;
-                    if (rightBound > 511) rightBound = 511;
+                // Anchor the visualiser to the osu!cookie for this frame. The logo
+                // slides to the left while the menu is open and bounces back on its
+                // own, and it rotates during the exit animation.
+                if (spectrumAnchor != null && logo != null) {
+                    spectrumAnchor.setPosition(
+                            logo.getX() + logo.getWidth() / 2f,
+                            logo.getY() + logo.getHeight() / 2f);
+                    spectrumAnchor.setRotation(logo.getRotation());
+                }
 
-                    for (; leftBound < rightBound; leftBound++) {
-                        if (peak < fft[1 + leftBound])
-                            peak = fft[1 + leftBound];
+                visualizerSettingsAge += pSecondsElapsed;
+                if (visualizerSettingsAge >= 0.5f) {
+                    visualizerSettingsAge = 0f;
+                    visualizerEnabled = Config.getBoolean("visualizerEnabled", true);
+                    visualizerIntensityPct = Config.getInt("visualizerIntensity", 100);
+                    visualizerUpdateRate = Config.getInt("visualizerUpdateRate", (int) SPECTRUM_UPDATE_INTERVAL);
+                    visualizerKiaiDim = Config.getBoolean("visualizerKiaiDim", true);
+                    visualizerRotationSpeed = Config.getInt("visualizerRotationSpeed", SPECTRUM_INDEX_CHANGE);
+                    visualizerDecaySpeedPct = Config.getInt("visualizerDecaySpeed", 100);
+                }
+
+                if (!visualizerEnabled) {
+                    if (!spectrumCleared) {
+                        spectrumCleared = true;
+                        for (Rectangle specRectangle : spectrum) {
+                            specRectangle.setWidth(0);
+                            specRectangle.setAlpha(0);
+                        }
+                    }
+                } else {
+                    spectrumCleared = false;
+                    // 1:1 with the legacy osuplusplus MainScene visualiser.
+                    float[] fft = GlobalManager.getInstance().getSongService().getSpectrum();
+                    long nowMs = System.currentTimeMillis();
+
+                    float visualizerIntensity = visualizerIntensityPct / 100f;
+
+                    if (fft != null
+                            && nowMs - lastSpectrumUpdate >= visualizerUpdateRate) {
+                        lastSpectrumUpdate = nowMs;
+
+                        boolean isKiaiTime = (currentEffectPoint != null && currentEffectPoint.isKiai) || isContinuousKiai;
+                        float kiaiMultiplier = (isKiaiTime || !visualizerKiaiDim) ? 1f : 0.5f;
+
+                        final int windowSize = 240;
+                        for (int i = 0, leftBound = 0; i < SPECTRUM_BAR_COUNT; i++) {
+                            float peak = 0f;
+                            int rightBound = (int) Math.pow(2., (i * 9.) / (windowSize - 1));
+                            if (rightBound <= leftBound) rightBound = leftBound + 1;
+                            if (rightBound > 511) rightBound = 511;
+                            for (; leftBound < rightBound && 1 + leftBound < fft.length; leftBound++) {
+                                float value = fft[1 + leftBound];
+                                if (value > peak) peak = value;
+                            }
+
+                            float targetAmplitude = peak
+                                    * SPECTRUM_ATTACK_MULTIPLIER
+                                    * kiaiMultiplier
+                                    * visualizerIntensity;
+
+                            int idx = (i + spectrumIndexOffset) % SPECTRUM_BAR_COUNT;
+                            if (targetAmplitude > frequencyAmplitudes[idx]) {
+                                frequencyAmplitudes[idx] = targetAmplitude;
+                            }
+                        }
+
+                        spectrumIndexOffset = (spectrumIndexOffset + visualizerRotationSpeed) % SPECTRUM_BAR_COUNT;
                     }
 
-                    float initialAlpha = 0.4f;
-                    float gradient = 20;
-                    float currPeakLevel = peak * 500;
+                    float decaySpeed = visualizerDecaySpeedPct / 100f;
+                    float decayFactor = (float) Math.pow(
+                            SPECTRUM_DECAY_BASE,
+                            (pSecondsElapsed * 1000f * decaySpeed) / 16.666666666666668);
 
-                    if (currPeakLevel > peakLevel[i]) {
-                        peakLevel[i] = currPeakLevel;
-                        peakDownRate[i] = peakLevel[i] / gradient;
-                        peakAlpha[i] = initialAlpha;
+                    for (int i = 0; i < SPECTRUM_BAR_COUNT; i++) {
+                        float scale = frequencyAmplitudes[i] * decayFactor;
 
-                    } else {
-                        peakLevel[i] = Math.max(peakLevel[i] - peakDownRate[i], 0f);
-                        peakAlpha[i] = Math.max(peakAlpha[i] - initialAlpha / gradient, 0f);
+                        if (scale < SPECTRUM_SCALE_DEAD_ZONE) {
+                            frequencyAmplitudes[i] = 0f;
+                            spectrum[i].setWidth(250f);
+                            spectrum[i].setAlpha(0f);
+                            continue;
+                        }
+
+                        frequencyAmplitudes[i] = scale;
+                        spectrum[i].setWidth(250f + scale * SPECTRUM_BAR_LENGTH);
+                        spectrum[i].setAlpha(Math.max(0f, 0.4f * Math.min(1f, (scale - 0.04f) / 0.08f)));
                     }
-
-                    spectrum[i].setWidth(250f + peakLevel[i]);
-                    spectrum[i].setAlpha(peakAlpha[i]);
                 }
             } else {
-                for (Rectangle specRectangle : spectrum) {
-                    specRectangle.setWidth(0);
-                    specRectangle.setAlpha(0);
+                if (!spectrumCleared) {
+                    spectrumCleared = true;
+                    for (Rectangle specRectangle : spectrum) {
+                        specRectangle.setWidth(0);
+                        specRectangle.setAlpha(0);
+                    }
                 }
-                if (!doChange && !doStop && GlobalManager.getInstance().getSongService() != null && GlobalManager.getInstance().getSongService().getPosition() >= GlobalManager.getInstance().getSongService().getLength()) {
+
+                final var songService = GlobalManager.getInstance().getSongService();
+
+                if (musicRepeat) {
+                    // Fallback for players whose loop flag is not honoured by the
+                    // audio backend: restart the track manually when it ends.
+                    if (!doChange && !doStop && songService != null
+                            && songService.getStatus() == Status.STOPPED) {
+                        songService.seekTo(1);
+                        songService.play();
+                    }
+                } else if (!doChange && !doStop && songService != null
+                        && songService.getPosition() >= songService.getLength()) {
                     musicControl(MusicOption.NEXT);
                 }
             }
+        }
+
+        // Clock and session time, updated every frame like in the legacy menu.
+        if (clockText != null) {
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            String min = String.valueOf(cal.get(java.util.Calendar.MINUTE));
+            if (min.length() < 2) min = "0" + min;
+            int hour = cal.get(java.util.Calendar.HOUR_OF_DAY);
+            String hourStr = String.valueOf(hour);
+            if (hourStr.length() < 2) hourStr = "0" + hourStr;
+            clockText.setText(hourStr + ":" + min);
+        }
+
+        if (sessionTimeText != null) {
+            long elapsed = System.currentTimeMillis() - sessionStartTime;
+            long sec = (elapsed / 1000) % 60;
+            long min = (elapsed / 60000) % 60;
+            long hrs = elapsed / 3600000;
+            String secStr = String.valueOf(sec);
+            if (secStr.length() < 2) secStr = "0" + secStr;
+            String minStr = String.valueOf(min);
+            if (minStr.length() < 2) minStr = "0" + minStr;
+            sessionTimeText.setText(hrs + ":" + minStr + ":" + secStr);
         }
     }
 
@@ -826,7 +1403,44 @@ public class MainScene implements IUpdateHandler {
                 musicInfoText.setPosition(Utils.toRes(Config.getRES_WIDTH() - 500 + 470 - 200), 5);
                 music_nowplay.setPosition(Utils.toRes(Config.getRES_WIDTH() - 500 + 470 - 200 - 130), 0);
             }
+
+            animateNowPlaying();
         }
+    }
+
+    /**
+     * NOW PLAYING transition: the label and the track title slide in from the
+     * right while fading up, so a track change reads as one smooth move.
+     */
+    private void animateNowPlaying() {
+        if (musicInfoText == null || music_nowplay == null) {
+            return;
+        }
+
+        float slide = 40f;
+        float textX = musicInfoText.getX();
+        float labelX = music_nowplay.getX();
+
+        musicInfoText.clearEntityModifiers();
+        music_nowplay.clearEntityModifiers();
+
+        musicInfoText.setAlpha(0f);
+        music_nowplay.setAlpha(0f);
+        musicInfoText.setPosition(textX + slide, musicInfoText.getY());
+        music_nowplay.setPosition(labelX + slide, music_nowplay.getY());
+
+        musicInfoText.registerEntityModifier(
+            new ParallelEntityModifier(
+                new org.anddev.andengine.entity.modifier.AlphaModifier(0.35f, 0f, 1f),
+                new MoveXModifier(0.35f, textX + slide, textX)
+            )
+        );
+        music_nowplay.registerEntityModifier(
+            new ParallelEntityModifier(
+                new org.anddev.andengine.entity.modifier.AlphaModifier(0.35f, 0f, 1f),
+                new MoveXModifier(0.35f, labelX + slide, labelX)
+            )
+        );
     }
 
     public void loadTimingPoints(boolean reloadMusic) {
@@ -875,16 +1489,17 @@ public class MainScene implements IUpdateHandler {
 
         if (reloadMusic) {
             if (GlobalManager.getInstance().getSongService() != null) {
-                GlobalManager.getInstance().getSongService().preLoad(beatmapInfo.getAudioPath());
+                GlobalManager.getInstance().getSongService().preLoad(beatmapInfo.getAudioPath(),
+                        1f, false, musicRepeat);
                 musicStarted = false;
             } else {
                 Log.w("nullpoint", "GlobalManager.getInstance().getSongService() is null while reload music (MainScene.loadTimeingPoints)");
             }
         }
 
-        Arrays.fill(peakLevel, 0f);
-        Arrays.fill(peakDownRate, 1f);
-        Arrays.fill(peakAlpha, 0f);
+        Arrays.fill(frequencyAmplitudes, 0f);
+        spectrumIndexOffset = 0;
+        lastSpectrumUpdate = 0L;
 
         try {
             var beatmap = BeatmapCache.getBeatmap(beatmapInfo, false);

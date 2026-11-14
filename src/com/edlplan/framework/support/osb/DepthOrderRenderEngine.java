@@ -25,6 +25,14 @@ public class DepthOrderRenderEngine {
         first.insertToNext(new LinkedNode<>(sprite));
     }
 
+    public int size() {
+        int n = 0;
+        for (LinkedNode<EGFStoryboardSprite> s = first.next; s != end; s = s.next) {
+            n++;
+        }
+        return n;
+    }
+
     public void remove(EGFStoryboardSprite sprite) {
         for (LinkedNode<EGFStoryboardSprite> s = first.next; s != end; s = s.next) {
             if (s.value == sprite) {
