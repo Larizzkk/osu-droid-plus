@@ -1,6 +1,6 @@
 package ru.nsu.ccfit.zuev.osu;
 
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 
 public class BuildType {
     public static boolean hasOnlineAccess() {
