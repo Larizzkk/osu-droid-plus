@@ -1,5 +1,10 @@
 package ru.nsu.ccfit.zuev.osu;
 
+import ru.nsu.ccfit.zuev.osu.GlobalManager;
+import ru.nsu.ccfit.zuev.osu.MainActivity;
+import ru.nsu.ccfit.zuev.osu.ToastLogger;
+import ru.nsu.ccfit.zuev.osu.Config;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -22,7 +27,6 @@ import org.apache.http.HttpException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import com.google.firebase.crashlytics.FirebaseCrashlytics;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -219,7 +223,6 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
             //如果用户没有处理则让系统默认的异常处理器来处理
             mDefaultHandler.uncaughtException(thread, ex);
         }
-        FirebaseCrashlytics.getInstance().recordException(ex);
     }
 
     /**
@@ -244,6 +247,21 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
 
         final String crashReport = getCrashReport(context, ex);
 
+        // Auto-copy logs and crash report to clipboard
+        try {
+            StringBuilder fullLog = new StringBuilder();
+            fullLog.append(crashReport);
+            String toastLog = ToastLogger.getLogText();
+            if (!toastLog.isEmpty()) {
+                fullLog.append("\n\n--- ToastLogger Log ---\n").append(toastLog);
+            }
+            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) context.getSystemService(Activity.CLIPBOARD_SERVICE);
+            android.content.ClipData clip = android.content.ClipData.newPlainText("osu!droid+ Crash Log", fullLog.toString());
+            clipboard.setPrimaryClip(clip);
+        } catch (Exception e) {
+            Log.e("AppException", "Failed to copy log to clipboard", e);
+        }
+
         new Thread() {
             public void run() {
                 Looper.prepare();
@@ -251,7 +269,23 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
                 AlertDialog alert = new AlertDialog.Builder(context)
                     .setTitle(com.osudroid.resources.R.string.crash)
                     .setMessage(Log.getStackTraceString(ex))
-                    .setPositiveButton("Restart game", (dialog, which) -> {
+                    .setPositiveButton("Copy Log", (dialog, which) -> {
+                        try {
+                            StringBuilder fullLog = new StringBuilder();
+                            fullLog.append(Log.getStackTraceString(ex));
+                            String toastLog = ToastLogger.getLogText();
+                            if (!toastLog.isEmpty()) {
+                                fullLog.append("\n\n--- ToastLogger Log ---\n").append(toastLog);
+                            }
+                            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) context.getSystemService(Activity.CLIPBOARD_SERVICE);
+                            android.content.ClipData clip = android.content.ClipData.newPlainText("osu!droid+ Crash Log", fullLog.toString());
+                            clipboard.setPrimaryClip(clip);
+                            ToastLogger.showText("Log copied to clipboard.", false);
+                        } catch (Exception e) {
+                            ToastLogger.showText("Failed to copy log.", true);
+                        }
+                    })
+                    .setNeutralButton("Restart game", (dialog, which) -> {
                         Intent intent = new Intent(context, MainActivity.class);
                         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                         context.startActivity(intent);
@@ -290,7 +324,8 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
             exceptionStr.append("Version: ").append(pinfo.versionName).append("(").append(pinfo.versionCode).append(")\n").append("\n");
             exceptionStr.append("Android: ").append(Build.VERSION.RELEASE).append("(").append(Build.MODEL).append(")\n").append("\n");
             exceptionStr.append("System Package Info:").append(collectDeviceInfo(context)).append("\n").append("\n");
-            exceptionStr.append("System Screen Info:").append(getScreenInfo(context)).append("\n").append("\n");
+
+exceptionStr.append("System Screen Info:").append(getScreenInfo(context)).append("\n").append("\n");
             exceptionStr.append("System OS Info:").append(getMobileInfo()).append("\n").append("\n");
             exceptionStr.append("Exception: ").append(ex.getMessage()).append("\n").append("\n");
             exceptionStr.append("Exception stack：").append(getTraceInfo((Activity) context, ex)).append("\n").append("\n");
@@ -322,6 +357,7 @@ public class AppException extends Exception implements Thread.UncaughtExceptionH
             }
         } catch (NameNotFoundException e) {
             Log.e("AppException", "an error occured when collect package info", e);
+
         } catch (JSONException e) {
             Log.e("AppException", "jsonException", e);
         }
