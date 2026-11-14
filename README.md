@@ -4,9 +4,13 @@
 [![Official International Discord](https://discordapp.com/api/guilds/316545691545501706/widget.png?style=shield)](https://discord.gg/nyD92cE)
 [![Android](https://github.com/osudroid/osu-droid/workflows/Android/badge.svg?branch=master)](https://github.com/osudroid/osu-droid/actions?query=workflow%3A"Android")
 [![CodeFactor](https://www.codefactor.io/repository/github/osudroid/osu-droid/badge)](https://www.codefactor.io/repository/github/osudroid/osu-droid)
+# osu-droid+
+[![Official discord server](https://discord.com/api/guilds/1569004912539340872/widget.png?style=shield)](https://discord.gg/NeKQmXAme6)
 
 osu!droid is a free-to-play circle clicking rhythm game for Android devices. It was a game hatched many years ago by the
 [osu!](https://osu.ppy.sh/home) community. This project is now being developed by a small group of fans and also with the help of foreign friends.
+
+osu!droid+ is fork of osu!droid but with fun functions and features. Client has some bugs and some features created with AI.
 
 ## Status
 
@@ -18,7 +22,7 @@ it's playable and fun!
 Clone the repository:
 
 ```sh
-git clone https://github.com/osudroid/osu-droid.git
+git clone https://github.com/osudroid/osu-droid-plus.git
 ```
 Open the folder in Android Studio.
 
