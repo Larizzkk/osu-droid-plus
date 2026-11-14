@@ -18,7 +18,7 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager
 import ru.nsu.ccfit.zuev.osu.menu.IPropsMenu
 import ru.nsu.ccfit.zuev.osu.menu.BeatmapSetItem
 import ru.nsu.ccfit.zuev.osu.menu.SongMenu
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import kotlin.math.abs
 
 /// Converted to Kotlin ///

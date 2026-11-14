@@ -21,7 +21,7 @@ import com.reco1l.framework.android.dp
 import com.reco1l.framework.android.toAlpha
 import com.reco1l.framework.android.toScaleX
 import com.reco1l.framework.android.toScaleY
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 
 /**

@@ -16,7 +16,7 @@ import com.reco1l.framework.android.drawableLeft
 import com.reco1l.framework.android.drawableRight
 import com.reco1l.framework.android.layoutHeight
 import com.reco1l.framework.android.layoutWidth
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 
 /**

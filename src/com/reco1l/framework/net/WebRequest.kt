@@ -6,7 +6,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
 import java.io.IOException
 
 open class WebRequest(private var url: HttpUrl) : AutoCloseable {

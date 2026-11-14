@@ -1,5 +1,7 @@
 package ru.nsu.ccfit.zuev.osu;
 
+import ru.nsu.ccfit.zuev.osu.GlobalManager;
+
 import static com.osudroid.data.BeatmapsKt.BeatmapInfo;
 
 import android.util.Log;
@@ -66,7 +68,7 @@ public class LibraryManager {
 
         library = new ArrayList<>();
 
-        if (!FileUtils.canUseSD() || !checkDirectory(Config.getScorePath()) && !checkDirectory(Config.getBeatmapPath())) {
+        if (!FileUtils.canUseSD() || !checkDirectory(Config.getScorePath()) || !checkDirectory(Config.getBeatmapPath())) {
             return;
         }
 
@@ -318,3 +320,4 @@ public class LibraryManager {
 
     }
 }
+

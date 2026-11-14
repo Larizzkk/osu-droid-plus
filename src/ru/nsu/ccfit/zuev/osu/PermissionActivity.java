@@ -22,7 +22,7 @@ import java.util.List;
 
 import pub.devrel.easypermissions.AppSettingsDialog;
 import pub.devrel.easypermissions.EasyPermissions;
-import ru.nsu.ccfit.zuev.osuplus.R;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 
 public class PermissionActivity extends AppCompatActivity implements EasyPermissions.PermissionCallbacks {
 

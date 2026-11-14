@@ -11,7 +11,7 @@ import com.edlplan.ui.fragment.BaseFragment
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.reco1l.framework.android.dp
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import kotlin.math.roundToInt
 
 class LoadingBadgeFragment : BaseFragment() {

@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.List;
 
 import ru.nsu.ccfit.zuev.osu.helper.StringTable;
-import ru.nsu.ccfit.zuev.osuplus.R;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 
 public class CollectionsManagerFragment extends BaseFragment {
 

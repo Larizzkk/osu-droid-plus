@@ -9,7 +9,7 @@ import androidx.preference.PreferenceFragmentCompat
 import com.edlplan.framework.easing.Easing
 import com.edlplan.ui.ActivityOverlay
 import com.edlplan.ui.EasingHelper
-import ru.nsu.ccfit.zuev.osuplus.R
+import ru.nsu.ccfit.zuev.osuplusplus.R
 
 abstract class SettingsFragment : PreferenceFragmentCompat(), BackPressListener {
     var root: View? = null
