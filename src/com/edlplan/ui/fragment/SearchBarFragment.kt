@@ -15,10 +15,13 @@ import androidx.core.content.*
 import androidx.preference.PreferenceManager
 import com.edlplan.framework.easing.Easing
 import com.edlplan.framework.support.util.Updater
+import com.osudroid.data.DatabaseManager
 import com.osudroid.resources.R.*
 import com.edlplan.ui.BaseAnimationListener
 import com.edlplan.ui.EasingHelper
+import com.osudroid.utils.async
 import com.osudroid.utils.mainThread
+import com.osudroid.utils.updateThread
 import com.reco1l.framework.android.cornerRadius
 import com.reco1l.framework.android.dp
 import org.anddev.andengine.entity.scene.Scene
@@ -161,6 +164,37 @@ class SearchBarFragment : BaseFragment(), IFilterMenu {
                     savedFolder = it
                     favoriteFolder.text = it ?: StringTable.get(string.favorite_default)
                     updateUpdater()
+                }
+            }
+
+            findViewById<Button>(R.id.legacyDbButton)?.setOnClickListener { button ->
+                filter.clearFocus()
+                context?.getSystemService<InputMethodManager>()?.hideSoftInputFromWindow(filter.windowToken, 0)
+                button.isEnabled = false
+
+                async {
+                    val beatmapSets = DatabaseManager.importFromUpstreamDatabase()
+
+                    // Views must be touched on the Android main thread; the
+                    // AndEngine update thread is not the view hierarchy thread.
+                    mainThread {
+                        button.isEnabled = true
+                        val message = if (beatmapSets >= 0) {
+                            context?.getString(
+                                ru.nsu.ccfit.zuev.osuplusplus.R.string.legacy_db_imported,
+                                beatmapSets
+                            )
+                        } else {
+                            context?.getString(ru.nsu.ccfit.zuev.osuplusplus.R.string.legacy_db_missing)
+                        }
+                        if (message != null) {
+                            ToastLogger.showText(message, true)
+                        }
+                    }
+
+                    updateThread {
+                        getGlobal().songMenu?.reloadCurrentSelection()
+                    }
                 }
             }
 
