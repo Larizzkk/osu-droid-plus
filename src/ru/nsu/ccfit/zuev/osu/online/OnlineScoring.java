@@ -169,7 +169,10 @@ public class OnlineScoring {
                     } else if (success) {
                         Execution.updateThread(this::updatePanels);
                         OnlineManager mgr = OnlineManager.getInstance();
-                        panel.show(mgr.getMapRank(), mgr.getRank(), mgr.getScore(), mgr.getAccuracy(), mgr.getTotalDpp());
+                        // The submit panel shows the player's overall PP and the
+                        // PP that this play earned.
+                        panel.show(mgr.getMapRank(), mgr.getRank(), mgr.getScore(), mgr.getAccuracy(),
+                                mgr.getTotalDpp(), mgr.getPP());
                         break;
                     }
 

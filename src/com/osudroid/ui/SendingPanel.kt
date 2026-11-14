@@ -87,7 +87,14 @@ class SendingPanel(
         resetPosition()
     }
 
-    fun show(newMapRank: Long, newOverallRank: Long, newScore: Long, newAccuracy: Float, newPP: Float) {
+    fun show(
+        newMapRank: Long,
+        newOverallRank: Long,
+        newScore: Long,
+        newAccuracy: Float,
+        newPP: Float,
+        earnedPP: Float
+    ) {
         dismissButton.canBeDismissed = true
         isCollapsed = false
 
