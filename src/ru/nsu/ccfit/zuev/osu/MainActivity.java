@@ -4,7 +4,6 @@ import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -35,16 +34,17 @@ import android.widget.RelativeLayout.LayoutParams;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.core.content.PermissionChecker;
 import androidx.preference.PreferenceManager;
 
 import com.edlplan.ui.ActivityOverlay;
-import com.google.firebase.analytics.FirebaseAnalytics;
-import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.osudroid.BuildSettings;
 import com.osudroid.beatmaps.BeatmapCache;
 import com.osudroid.data.DatabaseManager;
 import com.osudroid.debug.DebugPlaygroundScene;
+import com.osudroid.plugin.PluginManager;
+import com.osudroid.plugin.PluginPauseHandler;
 import com.osudroid.resources.R;
 import com.osudroid.ui.FPSCounter;
 import com.osudroid.ui.v2.GameLoaderScene;
@@ -98,7 +98,7 @@ import ru.nsu.ccfit.zuev.osu.helper.StringTable;
 import ru.nsu.ccfit.zuev.osu.menu.LoadingScreen;
 import ru.nsu.ccfit.zuev.osu.menu.SplashScene;
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
 
 public class MainActivity extends BaseGameActivity implements
         IAccelerometerListener {
@@ -109,8 +109,6 @@ public class MainActivity extends BaseGameActivity implements
     private String fileToAdd = null;
     private Uri contentUriToAdd = null;
     private SaveServiceObject saveServiceObject;
-    private FirebaseAnalytics analytics;
-    private FirebaseCrashlytics crashlytics;
     /** Held while an activity instance loads the game, see onLoadComplete. */
     private static final Object LOAD_LOCK = new Object();
     private boolean willReplay = false;
@@ -137,13 +135,6 @@ public class MainActivity extends BaseGameActivity implements
         if (!checkPermissions()) {
             return null;
         }
-        analytics = FirebaseAnalytics.getInstance(this);
-        crashlytics = FirebaseCrashlytics.getInstance();
-
-        // Detect the device's maximum supported OpenGL ES version and report it to Firebase
-        // so we can see the GLES capability distribution across users.
-        reportGlesVersion();
-
         Config.loadConfig(this);
         StringTable.setContext(this);
         ToastLogger.init(this);
@@ -151,7 +142,6 @@ public class MainActivity extends BaseGameActivity implements
         Multiplayer.initLog();
         //Debug.setDebugLevel(Debug.DebugLevel.NONE);
         OnlineManager.getInstance().init();
-        crashlytics.setUserId(Config.getOnlineDeviceID());
 
         final DisplayMetrics dm = new DisplayMetrics();
         display = getWindowManager().getDefaultDisplay();
@@ -304,6 +294,7 @@ public class MainActivity extends BaseGameActivity implements
         ResourceManager.getInstance().loadHighQualityAsset("music_stop", "music_stop.png");
         ResourceManager.getInstance().loadHighQualityAsset("music_next", "music_next.png");
         ResourceManager.getInstance().loadHighQualityAsset("music_prev", "music_prev.png");
+        ResourceManager.getInstance().loadHighQualityAsset("music_list", "music_list.png");
         ResourceManager.getInstance().loadHighQualityAsset("music_np", "music_np.png");
         ResourceManager.getInstance().loadHighQualityAsset("songselect-top", "songselect-top.png");
         ResourceManager.getInstance().loadHighQualityAsset("back-arrow", "back-arrow.png");
@@ -348,7 +339,6 @@ public class MainActivity extends BaseGameActivity implements
 
                 GlobalManager.getInstance().init();
                 Execution.updateThread(() -> UIEngine.getCurrent().getOverlay().attachChild(new FPSCounter()));
-                analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN, null);
                 GlobalManager.getInstance().setLoadingProgress(50);
                 checkNewSkins();
                 Config.loadSkins();
@@ -595,47 +585,6 @@ public class MainActivity extends BaseGameActivity implements
         }
     }
 
-    /**
-     * Detects the device's maximum supported OpenGL ES version via
-     * {@link ActivityManager#getDeviceConfigurationInfo()} and reports it to Firebase Analytics
-     * both as a persistent user property (for audience segmentation) and inside the APP_OPEN
-     * event bundle (for per-session inspection).
-     *
-     * <p>The version string format is {@code "<major>.<minor>"}, e.g. {@code "3.2"} or
-     * {@code "3.0"}.  Firebase user-property values are capped at 36 characters, so the short
-     * string is well within limits.
-     */
-    private void reportGlesVersion() {
-        try {
-            ActivityManager am = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
-            // Use var so we never need to name the inner class ActivityManager.DeviceConfigurationInfo.
-            var configInfo = am.getDeviceConfigurationInfo();
-
-            // reqGlEsVersion encodes the version as (major << 16 | minor).
-            // Example: 0x00030002 → OpenGL ES 3.2
-            int reqGlEsVersion = configInfo.reqGlEsVersion;
-            int glesMajor = reqGlEsVersion >> 16;
-            int glesMinor = reqGlEsVersion & 0xFFFF;
-            String glesVersionStr = glesMajor + "." + glesMinor;
-
-            // Persist as a user property so the Firebase console can segment audiences
-            // by GLES version (e.g. "gles_version = 3.2" vs "3.0").
-            analytics.setUserProperty("gles_version", glesVersionStr);
-
-            // Also attach to Crashlytics so crash reports include the GLES capability.
-            crashlytics.setCustomKey("gles_version", glesVersionStr);
-
-            Debug.i("Device max GLES version: " + glesVersionStr
-                    + " (raw=0x" + Integer.toHexString(reqGlEsVersion) + ")");
-        } catch (Exception e) {
-            Debug.e("Failed to detect GLES version: " + e.getMessage(), e);
-        }
-    }
-
-    public FirebaseAnalytics getAnalytics() {
-        return analytics;
-    }
-
     public static boolean isActivityVisible() {
         return activityVisible;
     }
@@ -669,6 +618,8 @@ public class MainActivity extends BaseGameActivity implements
             }
         }
         onBeginBindService();
+
+        PluginManager.getInstance().loadPlugins(this);
     }
 
     public void onBeginBindService() {
@@ -815,6 +766,8 @@ public class MainActivity extends BaseGameActivity implements
         super.onResume();
         activityVisible = true;
 
+        PluginPauseHandler.dispatchResume();
+
         logFlushFuture = scheduledExecutor.scheduleAtFixedRate(Multiplayer::flushLog, 0, 5, TimeUnit.SECONDS);
 
         if (mEngine == null) {
@@ -843,6 +796,8 @@ public class MainActivity extends BaseGameActivity implements
     public void onPause() {
         super.onPause();
         activityVisible = false;
+
+        PluginPauseHandler.dispatchPause();
 
         if (logFlushFuture != null && !logFlushFuture.isCancelled()) {
             logFlushFuture.cancel(false);
@@ -888,6 +843,8 @@ public class MainActivity extends BaseGameActivity implements
     protected void onDestroy() {
         super.onDestroy();
 
+        PluginManager.getInstance().unloadAll();
+
         Multiplayer.flushLog();
         AccessibilityDetector.unregister(this);
 
@@ -929,9 +886,22 @@ public class MainActivity extends BaseGameActivity implements
     }
 
     @Override
+    @SuppressWarnings("deprecation")
+    public void onMultiWindowModeChanged(boolean isInMultiWindowMode) {
+        super.onMultiWindowModeChanged(isInMultiWindowMode);
+
+        handleMultiWindowModeChanged(isInMultiWindowMode);
+    }
+
+    @Override
+    @RequiresApi(Build.VERSION_CODES.O)
     public void onMultiWindowModeChanged(boolean isInMultiWindowMode, @NonNull Configuration newConfig) {
         super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
 
+        handleMultiWindowModeChanged(isInMultiWindowMode);
+    }
+
+    private void handleMultiWindowModeChanged(boolean isInMultiWindowMode) {
         if (isInMultiWindowMode) {
             showMultiModeWindowAlert();
         } else {
@@ -1188,7 +1158,7 @@ public class MainActivity extends BaseGameActivity implements
         } else {
             Intent grantPermission = new Intent(this, PermissionActivity.class);
             startActivity(grantPermission);
-            overridePendingTransition(ru.nsu.ccfit.zuev.osuplus.R.anim.fast_activity_swap, ru.nsu.ccfit.zuev.osuplus.R.anim.fast_activity_swap);
+            overridePendingTransition(ru.nsu.ccfit.zuev.osuplusplus.R.anim.fast_activity_swap, ru.nsu.ccfit.zuev.osuplusplus.R.anim.fast_activity_swap);
             finish();
             return false;
         }
