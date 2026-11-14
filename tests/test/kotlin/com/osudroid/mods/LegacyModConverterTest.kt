@@ -87,9 +87,11 @@ class LegacyModConverterTest {
             Assert.assertTrue(ModDoubleTime::class in this)
             Assert.assertTrue(ModHidden::class in this)
 
-            val difficultyAdjust = ofType<ModDifficultyAdjust>()
-            Assert.assertNotNull(difficultyAdjust)
-            Assert.assertEquals(8f, difficultyAdjust!!.cs)
+            // Small Circle is a regular user-playable mod now, so it no longer
+            // migrates into a Difficulty Adjust instance.
+            val smallCircle = ofType<ModSmallCircle>()
+            Assert.assertNotNull(smallCircle)
+            Assert.assertNull(ofType<ModDifficultyAdjust>())
         }
     }
 }
