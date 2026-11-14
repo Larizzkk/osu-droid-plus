@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import androidx.room.*
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.osudroid.mods.LegacyModConverter
 import com.osudroid.mods.ModDifficultyAdjust
 import com.osudroid.mods.ModReplayV6
@@ -88,6 +89,24 @@ object DatabaseManager {
     private lateinit var database: DroidDatabase
 
     /**
+     * Room databases written by the legacy osu!droid+ client. Its file name was
+     * `room-plus-<build type>.db` (release/debug/pre-release) or
+     * `plus-release.db`; the `-wal`/`-shm` sidecars belong to the same file.
+     */
+    private val upstreamDatabaseNames = arrayOf(
+        "room-plus-${BuildConfig.BUILD_TYPE}.db",
+        "room-plus-release.db",
+        "room-plus-debug.db",
+        "room-plus-pre-release.db",
+        "room-plus-prerelease.db",
+        "room-plus.db",
+        "plus-release.db",
+        "plus-debug.db",
+        "plus-pre-release.db",
+        "client.db",
+    )
+
+    /**
      * `true` if the database was created by a newer, incompatible version of the app and had to be reset.
      *
      * When this happens, the previous database file is kept as a backup alongside the new one.
@@ -113,6 +132,282 @@ object DatabaseManager {
 
         if (!BuildConfig.DEBUG) {
             loadLegacyMigrations(context)
+        }
+
+        // Legacy osu!droid+ stored its library in room-plus-*.db. A fresh
+        // install re-imports everything; otherwise only changed files are read.
+        try {
+            val hasLibrary = try {
+                beatmapInfoTable.getBeatmapSetList().isNotEmpty()
+            } catch (_: Exception) {
+                false
+            }
+            importFromUpstreamDatabase(loadLibrary = false, force = !hasLibrary)
+        } catch (e: Exception) {
+            Log.e("DatabaseManager", "Automatic upstream import failed", e)
+        }
+    }
+
+    /**
+     * Imports beatmaps, options, collections and scores from a database left by
+     * the legacy osu!droid client or an older osu!droid+ build.
+     *
+     * Tables are copied by the intersection of their columns, so databases from
+     * different schema versions can be read without a destructive migration.
+     * The upstream file is never modified.
+     *
+     * @param loadLibrary whether to reload the in-memory library after importing.
+     * @param force import even when the legacy files were already imported before.
+     * @return the number of beatmap sets in this database, or -1 when no legacy file was imported.
+     */
+    @JvmStatic
+    @JvmOverloads
+    fun importFromUpstreamDatabase(loadLibrary: Boolean = true, force: Boolean = false): Int {
+        val dbDir = File(Config.getCorePath(), "databases")
+        if (!dbDir.isDirectory) {
+            return -1
+        }
+
+        val current = try {
+            File(databasePath).canonicalFile
+        } catch (_: IOException) {
+            File(databasePath).absoluteFile
+        }
+
+        val candidates = (upstreamDatabaseNames.map { File(dbDir, it) } + dbDir.listFiles { file ->
+            file.isFile && file.name.endsWith(".db") &&
+                (file.name.startsWith("room-plus") || file.name.startsWith("plus-"))
+        }.orEmpty().sortedBy { it.name })
+            .filter { it.isFile && it.length() > 0 }
+            .distinctBy {
+                try {
+                    it.canonicalPath
+                } catch (_: IOException) {
+                    it.absolutePath
+                }
+            }
+            .filter {
+                try {
+                    it.canonicalFile != current
+                } catch (_: IOException) {
+                    it.absoluteFile != current
+                }
+            }
+
+        val marker = File(dbDir, ".room-plus-imported")
+        val previous = try {
+            marker.readLines().filter { it.isNotBlank() }.toSet()
+        } catch (_: Exception) {
+            emptySet()
+        }
+        val pending = if (force) candidates else candidates.filter { legacySignature(it) !in previous }
+        if (pending.isEmpty()) {
+            return -1
+        }
+
+        val writableDb = database.openHelper.writableDatabase
+        var importedAny = false
+        val importedSignatures = mutableSetOf<String>()
+
+        for (candidate in pending) {
+            // Legacy room-plus databases are in WAL mode. Snapshot the database
+            // together with its -wal/-shm/-journal files so committed rows that
+            // are still in the WAL are visible to ATTACH.
+            val snapshot = if (hasSidecars(candidate)) snapshotDatabase(candidate) else null
+            val source = snapshot ?: candidate
+            val escapedPath = source.absolutePath.replace("'", "''")
+
+            try {
+                try {
+                    // Inline the path because ATTACH accepts a filename, not a bind
+                    // value on every Android SQLite build.
+                    writableDb.execSQL("ATTACH DATABASE '$escapedPath' AS upstream")
+                } catch (e: Exception) {
+                    Log.w("DatabaseManager", "Cannot attach legacy database $candidate", e)
+                    continue
+                }
+
+                try {
+                    if (!hasTable(writableDb, "BeatmapInfo")) {
+                        continue
+                    }
+                    copySharedColumns(writableDb, "BeatmapInfo")
+                    copySharedColumns(writableDb, "BeatmapOptions")
+                    copySharedColumns(writableDb, "BeatmapSetCollection")
+                    copySharedColumns(writableDb, "BeatmapSetCollection_BeatmapSetInfo")
+                    copySharedColumns(writableDb, "BlockArea")
+                    copySharedColumns(writableDb, "ModPreset")
+                    copySharedColumns(writableDb, "ScoreInfo")
+                    importedAny = true
+                    importedSignatures += legacySignature(candidate)
+                    Log.i("DatabaseManager", "Imported legacy library from ${candidate.absolutePath}")
+                } catch (e: Exception) {
+                    Log.e("DatabaseManager", "Failed to import legacy database $candidate", e)
+                } finally {
+                    try {
+                        writableDb.execSQL("DETACH DATABASE upstream")
+                    } catch (e: Exception) {
+                        Log.w("DatabaseManager", "Failed to detach legacy database", e)
+                    }
+                }
+            } finally {
+                snapshot?.let(::deleteSnapshot)
+            }
+        }
+
+        if (!importedAny) {
+            return -1
+        }
+
+        try {
+            marker.writeText((previous + importedSignatures).joinToString("\n"))
+        } catch (e: Exception) {
+            Log.w("DatabaseManager", "Could not write legacy import marker", e)
+        }
+
+        if (loadLibrary) {
+            LibraryManager.loadLibrary()
+        }
+        return beatmapInfoTable.getBeatmapSetList().size
+    }
+
+    private fun legacySignature(file: File): String =
+        arrayOf("", "-wal", "-shm", "-journal").joinToString("|") { suffix ->
+            val part = if (suffix.isEmpty()) file else File(file.parentFile, file.name + suffix)
+            "${part.name}:${part.length()}:${part.lastModified()}"
+        }
+
+    private fun hasSidecars(file: File): Boolean =
+        sequenceOf("-wal", "-shm", "-journal")
+            .map { File(file.parentFile, file.name + it) }
+            .any { it.isFile }
+
+    /** Copies a WAL database and its sidecars to a temporary, consistent snapshot. */
+    private fun snapshotDatabase(source: File): File? {
+        var snapshot: File? = null
+        try {
+            snapshot = File.createTempFile("legacy-import-", "-${source.name}", source.parentFile)
+            source.copyTo(snapshot, overwrite = true)
+
+            for (suffix in arrayOf("-wal", "-shm", "-journal")) {
+                val sidecar = File(source.parentFile, source.name + suffix)
+                if (sidecar.isFile) {
+                    sidecar.copyTo(File(snapshot.parentFile, snapshot.name + suffix), overwrite = true)
+                }
+            }
+            return snapshot
+        } catch (e: Exception) {
+            Log.w("DatabaseManager", "Could not snapshot legacy database $source", e)
+            snapshot?.let(::deleteSnapshot)
+            return null
+        }
+    }
+
+    private fun deleteSnapshot(snapshot: File) {
+        for (suffix in arrayOf("", "-wal", "-shm", "-journal")) {
+            try {
+                File(snapshot.parentFile, snapshot.name + suffix).delete()
+            } catch (_: Exception) {
+                // Best-effort cleanup.
+            }
+        }
+    }
+
+    private data class ColumnInfo(
+        val name: String,
+        val type: String,
+        val notNull: Boolean,
+        val defaultValue: String?,
+        val primaryKey: Int,
+    )
+
+    /** Column names and constraints of a table in the main or attached database. */
+    private fun tableColumns(
+        db: SupportSQLiteDatabase,
+        schema: String,
+        table: String,
+    ): Map<String, ColumnInfo> {
+        val columns = linkedMapOf<String, ColumnInfo>()
+        db.query("PRAGMA $schema.table_info(`$table`)").use { cursor ->
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            val typeIndex = cursor.getColumnIndexOrThrow("type")
+            val notNullIndex = cursor.getColumnIndexOrThrow("notnull")
+            val defaultIndex = cursor.getColumnIndexOrThrow("dflt_value")
+            val primaryKeyIndex = cursor.getColumnIndexOrThrow("pk")
+
+            while (cursor.moveToNext()) {
+                val name = cursor.getString(nameIndex)
+                columns[name] = ColumnInfo(
+                    name = name,
+                    type = cursor.getString(typeIndex).orEmpty(),
+                    notNull = cursor.getInt(notNullIndex) != 0,
+                    defaultValue = cursor.getString(defaultIndex),
+                    primaryKey = cursor.getInt(primaryKeyIndex),
+                )
+            }
+        }
+        return columns
+    }
+
+    private fun hasTable(db: SupportSQLiteDatabase, table: String): Boolean =
+        db.query(
+            "SELECT 1 FROM upstream.sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+            arrayOf(table),
+        ).use { it.moveToFirst() }
+
+    /**
+     * Copies only columns present in both schemas. Newly added NOT NULL columns
+     * without a SQL default receive a sensible value (older Room scores are
+     * flagged for score migration, new beatmap flags default to false).
+     */
+    private fun copySharedColumns(db: SupportSQLiteDatabase, table: String) {
+        val destination = tableColumns(db, "main", table)
+        val source = tableColumns(db, "upstream", table)
+        if (destination.isEmpty() || source.isEmpty()) {
+            return
+        }
+
+        // A primary key cannot be generated for rows copied from an old table.
+        if (destination.values.any { it.primaryKey > 0 && it.name !in source }) {
+            Log.w("DatabaseManager", "Skipping $table: source has no primary key")
+            return
+        }
+
+        val targetColumns = mutableListOf<String>()
+        val expressions = mutableListOf<String>()
+
+        for (column in destination.values) {
+            if (column.name in source) {
+                targetColumns += "`${column.name}`"
+                expressions += "`${column.name}`"
+            } else if (column.notNull && column.defaultValue == null) {
+                targetColumns += "`${column.name}`"
+                expressions += missingColumnValue(table, column)
+            }
+        }
+
+        if (targetColumns.isEmpty()) {
+            return
+        }
+
+        db.execSQL(
+            "INSERT OR IGNORE INTO `$table` (${targetColumns.joinToString(", ")}) " +
+                "SELECT ${expressions.joinToString(", ")} FROM upstream.`$table`"
+        )
+    }
+
+    private fun missingColumnValue(table: String, column: ColumnInfo): String {
+        if (table == "ScoreInfo" && column.name == "needsScoreMigration") {
+            // Scores from schemas before v5 still contain the multiplied score.
+            return "1"
+        }
+        return when {
+            column.type.contains("INT", ignoreCase = true) -> "0"
+            column.type.contains("REAL", ignoreCase = true) ||
+                column.type.contains("FLOA", ignoreCase = true) ||
+                column.type.contains("DOUB", ignoreCase = true) -> "0.0"
+            column.type.contains("BLOB", ignoreCase = true) -> "X''"
+            else -> "''"
         }
     }
 
