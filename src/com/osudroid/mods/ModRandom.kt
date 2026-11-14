@@ -75,50 +75,32 @@ class ModRandom : Mod(), IModApplicableToBeatmap {
         random = Random(seed!!)
 
         val positionInfos = HitObjectGenerationUtils.generatePositionInfos(beatmap.hitObjects.objects, scope)
+        val sharpness = getModSettingDelegate<FloatModSetting>(::angleSharpness).value
+        val intensity = getModSettingDelegate<FloatModSetting>(::aggressive).value
 
-        // Offsets the angles of all hit objects in a "section" by the same amount.
-        var sectionOffset = 0f
-        // Whether the angles are positive or negative (clockwise or counter-clockwise flow).
-        var flowDirection = false
+        val minDistance = (30f + sharpness * 12f + intensity * 25f).coerceAtMost(190f)
+        val maxDistance = (100f + intensity * 220f).coerceAtMost(500f)
+        val flipChance = (0.12f * intensity).coerceAtMost(0.7f)
 
         for (i in positionInfos.indices) {
             scope?.ensureActive()
 
             val positionInfo = positionInfos[i]
+            val hitObject = positionInfo.hitObject
 
-            if (shouldStartNewSection(beatmap, positionInfos, i)) {
-                sectionOffset = getRandomOffset(0.0008f)
-                flowDirection = !flowDirection
-            }
+            // Every object gets a new distance and a fully random angle.
+            positionInfo.distanceFromPrevious =
+                minDistance + random!!.nextDouble().toFloat() * (maxDistance - minDistance)
+            positionInfo.relativeAngle = random!!.nextDouble().toFloat() * (Math.PI * 2).toFloat()
 
-            if (positionInfo.hitObject is Slider && random!!.nextDouble() < 0.5) {
-                HitObjectGenerationUtils.flipSliderInPlaceHorizontally(positionInfo.hitObject, scope)
-            }
+            if (hitObject is Slider) {
+                // Rotate the slider and sometimes flip it, so slider paths do
+                // not stay aligned with the original map.
+                positionInfo.rotation = random!!.nextDouble().toFloat() * (Math.PI * 2).toFloat()
 
-            if (i == 0) {
-                positionInfo.distanceFromPrevious =
-                    (random!!.nextDouble() * HitObjectGenerationUtils.playfieldCenter.y).toFloat()
-
-                positionInfo.relativeAngle = (random!!.nextDouble() * 2 * Math.PI - Math.PI).toFloat()
-            } else {
-                // Offsets only the angle of the current hit object if a flow change occurs.
-                var flowChangeOffset = 0f
-                // Offsets only the angle of the current hit object.
-                val oneTimeOffset = getRandomOffset(0.002f)
-
-                if (shouldApplyFlowChange(positionInfos, i)) {
-                    flowChangeOffset = getRandomOffset(0.002f)
-                    flowDirection = !flowDirection
+                if (random!!.nextDouble() < flipChance) {
+                    HitObjectGenerationUtils.flipSliderInPlaceHorizontally(hitObject, scope)
                 }
-
-                val totalOffset =
-                    // sectionOffset and oneTimeOffset should mainly affect patterns with large spacing.
-                    (sectionOffset + oneTimeOffset) * positionInfo.distanceFromPrevious +
-                    // flowChangeOffset should mainly affect streams.
-                    flowChangeOffset * (playfieldDiagonal - positionInfo.distanceFromPrevious)
-
-                positionInfo.relativeAngle =
-                    getRelativeTargetAngle(positionInfo.distanceFromPrevious, totalOffset, flowDirection)
             }
         }
 
