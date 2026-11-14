@@ -444,6 +444,15 @@ public class CursorEntity extends UIComponent {
                     ((CursorTrailOptimized) trail).refreshTexture(newTrailTex, cursorSprite);
                     ((CursorTrailOptimized) trail).markDiscontinuity();
                     ((CursorTrailOptimized) trail).syncToPosition(x, y);
+                } else if (trail instanceof CursorTrailClassic) {
+                    // The particle system's texture is final; recreate it in place.
+                    ((CursorTrailClassic) trail).setParticlesSpawnEnabled(false);
+                    ((CursorTrailClassic) trail).detachSelf();
+                    createTrail(newTrailTex);
+                    if (getParent() instanceof Scene && trail instanceof Entity) {
+                        ((Scene) getParent()).attachChild((Entity) trail);
+                    }
+                    setPosition(x, y);
                 } else {
                     // Legacy trail rebinds in place too: live points keep fading with
                     // the new texture instead of being wiped by a full recreate, and the
@@ -452,6 +461,14 @@ public class CursorEntity extends UIComponent {
                 }
             }
         }
+    }
+
+    @Override
+    public void setPosition(float pX, float pY) {
+        if (classicEmitter != null) {
+            classicEmitter.setCenter(pX + classicOffsetX, pY + classicOffsetY);
+        }
+        super.setPosition(pX, pY);
     }
 
     public void cleanupTrail() {
