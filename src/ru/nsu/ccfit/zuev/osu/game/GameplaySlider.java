@@ -1563,7 +1563,10 @@ public class GameplaySlider extends GameObject {
             return Math.min(mehWindow, duration);
         }
 
-        return mehWindow;
+        // Keep the pre-1.8 grace period after the 50 hit window. Without it, a head
+        // tapped a few milliseconds late is judged as a miss, which feels stricter
+        // than the gameplay this client is based on.
+        return getLateHitOffset();
     }
 
     private double getLateHitOffset() {
