@@ -104,6 +104,12 @@ public abstract class GameObject {
             return PressResult.Ignore.INSTANCE;
         }
 
+        // No Notelock removes the start-time ordered gate: each active object checks the
+        // current presses independently, so a later circle can be hit before an earlier one.
+        if (GameHelper.isNoNotelock() && !GameHelper.isAutopilot()) {
+            return checkNoNotelockPresses(listener, hitObject);
+        }
+
         if (!listener.isObjectHittable(this)) {
             return checkNotelockedPresses(listener, hitObject);
         }
@@ -194,12 +200,43 @@ public abstract class GameObject {
     }
 
     /**
+     * Checks presses without the start-time ordered gate. A press is claimed by the first
+     * object it physically hits, but a press that misses this object stays available for the
+     * other active objects in the same frame.
+     */
+    @NonNull
+    private PressResult checkNoNotelockPresses(GameObjectListener listener, HitObject hitObject) {
+        if (autoPlay || hitObject.hitWindow == null) {
+            return PressResult.Ignore.INSTANCE;
+        }
+
+        int cursorCount = listener.getCursorsCount();
+
+        for (int i = 0; i < cursorCount; i++) {
+            var cursor = listener.getCursor(i);
+            var downEvents = cursor.downEvents;
+
+            for (int index = 0, size = downEvents.size(); index < size; index++) {
+                var event = downEvents.get(index);
+
+                if (!cursor.isDownEventClaimed(index) && canHit(event, hitObject.hitWindow)
+                    && isPressOnObject(listener, hitObject, i, event, cursorCount)) {
+                    cursor.claimDownEvent(index);
+                    return hitResult.withEvent(event);
+                }
+            }
+        }
+
+        return PressResult.Ignore.INSTANCE;
+    }
+
+    /**
      * Replay counterpart of the notelock shake: a recorded press that landed on an object which
      * was still locked behind an earlier object must shake it, even though replay hits themselves
      * come from {@link Replay.ReplayObjectData} rather than from live presses.
      */
     public boolean checkReplayNotelockShake(GameObjectListener listener, HitObject hitObject) {
-        if (autoPlay || GameHelper.isRelax() || GameHelper.isAutopilot() || hitObject.hitWindow == null) {
+        if (autoPlay || GameHelper.isNoNotelock() || GameHelper.isRelax() || GameHelper.isAutopilot() || hitObject.hitWindow == null) {
             return false;
         }
 

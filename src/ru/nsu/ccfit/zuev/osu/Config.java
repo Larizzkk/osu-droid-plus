@@ -343,7 +343,7 @@ public class Config {
     }
 
     public static boolean isRemoveSliderLock() {
-        if (GameHelper.isTwoButtons()) {
+        if (GameHelper.isTwoButtons() || GameHelper.isNoNotelock()) {
             return true;
         }
 

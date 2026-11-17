@@ -1286,6 +1286,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setPerfect(lastMods.ofType(ModPerfect.class));
         GameHelper.setSynesthesia(lastMods.ofType(ModSynesthesia.class));
         GameHelper.setScoreV2(lastMods.ofType(ModScoreV2.class));
+        GameHelper.setNoNotelock(lastMods.ofType(ModNoNotelock.class));
         GameHelper.setEasy(lastMods.ofType(ModEasy.class));
         GameHelper.setMuted(lastMods.ofType(ModMuted.class));
         GameHelper.setFreezeFrame(lastMods.ofType(ModFreezeFrame.class));
@@ -1391,7 +1392,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         boolean hasUnrankedMod = SmartIterator.wrap(lastMods.values().iterator()).applyFilter(m -> !m.isRanked()).hasNext();
-        if (hasUnrankedMod || (Config.isRemoveSliderLock() && !GameHelper.isTwoButtons())) {
+        if (hasUnrankedMod || (Config.isRemoveSliderLock() && !GameHelper.isTwoButtons() && !GameHelper.isNoNotelock())) {
             unrankedSprite = new UISprite(ResourceManager.getInstance().getTexture("play-unranked"));
             unrankedSprite.setAnchor(Anchor.TopCenter);
             unrankedSprite.setOrigin(Anchor.Center);

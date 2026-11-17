@@ -41,6 +41,7 @@ public class GameHelper {
     private static ModPerfect perfect;
     private static ModSynesthesia synesthesia;
     private static ModScoreV2 scoreV2;
+    private static ModNoNotelock noNotelock;
     private static ModEasy easy;
     private static ModMuted muted;
     private static ModFreezeFrame freezeFrame;
@@ -391,6 +392,14 @@ public class GameHelper {
 
     public static void setScoreV2(final ModScoreV2 scoreV2) {
         GameHelper.scoreV2 = scoreV2;
+    }
+
+    public static boolean isNoNotelock() {
+        return noNotelock != null;
+    }
+
+    public static void setNoNotelock(final ModNoNotelock noNotelock) {
+        GameHelper.noNotelock = noNotelock;
     }
 
     public static boolean isKiai() {
