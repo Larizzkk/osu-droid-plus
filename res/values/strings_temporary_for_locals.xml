@@ -43,6 +43,21 @@
     <string name="cheats_single_player_title">Single-player only</string>
     <string name="cheats_single_player_summary">Cheat plays are submitted to a separate cheat PP leaderboard</string>
 
+    <string name="plugins_title">Plugins</string>
+    <string name="plugins_category_installed">Installed plugins</string>
+    <string name="plugins_category_actions">Actions</string>
+    <string name="plugins_empty_title">No plugins found</string>
+    <string name="plugins_empty_summary">Put .lua plugins in the folder below, then reload.</string>
+    <string name="plugins_reload_title">Reload plugins</string>
+    <string name="plugins_reload_summary">Rescan plugin folders and apply enabled/disabled changes</string>
+    <string name="plugins_open_folder_title">Open plugins folder</string>
+    <string name="plugins_open_folder_summary">Open the folder where .lua plugins are stored</string>
+    <string name="plugins_enabled">Enabled</string>
+    <string name="plugins_disabled">Disabled</string>
+    <string name="plugins_author">by %1$s</string>
+    <string name="plugins_reloaded">Plugins reloaded</string>
+    <string name="plugins_folder_error">Could not open the plugins folder</string>
+
     <string name="replay_analysis_title">Analysis</string>
     <string name="replay_analysis_show_tap_markers">Show tap markers</string>
     <string name="replay_analysis_show_frame_markers">Show frame markers</string>

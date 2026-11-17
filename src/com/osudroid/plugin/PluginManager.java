@@ -42,6 +42,7 @@ public class PluginManager {
 
     private static PluginManager instance;
     private final List<LuaPlugin> plugins = new ArrayList<>();
+    private final List<LuaPlugin> discoveredPlugins = new ArrayList<>();
     private boolean loaded = false;
     private boolean suppressDialog = false;
 
@@ -169,7 +170,7 @@ public class PluginManager {
      * Get the external plugin directory: osu!droid/Plugins/
      * Returns null if external storage is not available.
      */
-    private File getExternalPluginDir(Context context) {
+    public File getExternalPluginDir(Context context) {
         try {
             // Primary: osu!droid/Plugins (shared with other osu!droid tools)
             File extStorage = android.os.Environment.getExternalStorageDirectory();
@@ -248,6 +249,7 @@ public class PluginManager {
 
             // 5. Create plugin wrapper
             LuaPlugin plugin = new LuaPlugin(name, version, author, description, sandbox, file);
+            discoveredPlugins.add(plugin);
             logToFile("  Plugin wrapper created");
 
             // 6. Check if plugin is enabled (default: true)
@@ -432,6 +434,15 @@ public class PluginManager {
         return Collections.unmodifiableList(plugins);
     }
 
+    /**
+     * Returns every plugin found on disk, including plugins that are disabled.
+     * Disabled plugins are not loaded and do not receive gameplay events, but
+     * they remain visible in settings so they can be enabled again.
+     */
+    public List<LuaPlugin> getDiscoveredPlugins() {
+        return Collections.unmodifiableList(discoveredPlugins);
+    }
+
     public boolean hasPlugins() {
         return !plugins.isEmpty();
     }
@@ -455,6 +466,7 @@ public class PluginManager {
             }
         }
         plugins.clear();
+        discoveredPlugins.clear();
         PluginRegistry.getInstance().clear();
         PluginEventBus.clear();
         PluginPauseHandler.clear();

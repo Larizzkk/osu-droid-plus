@@ -20,6 +20,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.XmlRes
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.FileProvider
 import androidx.core.content.getSystemService
 import androidx.core.os.LocaleListCompat
 import androidx.core.view.forEach
@@ -28,6 +29,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.preference.CheckBoxPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceManager
 import androidx.preference.SeekBarPreference
 import com.acivev.VibratorManager
@@ -38,6 +40,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.osudroid.UpdateManager
 import com.osudroid.data.DatabaseManager
 import com.osudroid.multiplayer.api.LobbyAPI
+import com.osudroid.plugin.PluginManager
 import com.osudroid.multiplayer.api.RoomAPI
 import com.osudroid.multiplayer.api.data.RoomTeam
 import com.osudroid.multiplayer.api.data.TeamMode
@@ -227,6 +230,7 @@ class SettingsFragment : SettingsFragment() {
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
         createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
         createSectionButton("Cheats", R.drawable.videogame_asset_24px, Section.Cheats)
+        createSectionButton("Plugins", R.drawable.folder_24px, Section.Plugins)
 
 
         sectionSelector[0].topMargin = 32.dp
@@ -253,6 +257,7 @@ class SettingsFragment : SettingsFragment() {
         Section.Advanced -> handleAdvancedSectionPreferences()
         Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
         Section.Cheats -> handleCheatsSectionPreferences()
+        Section.Plugins -> handlePluginsSectionPreferences()
         Section.Movements -> handleMovementsSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
         Section.Player -> handlePlayerSectionPreferences()
@@ -504,6 +509,95 @@ class SettingsFragment : SettingsFragment() {
         findPreference<CheckBoxPreference>("cheatHdRemover")?.isEnabled = enabled
         findPreference<CheckBoxPreference>("cheatFlRemover")?.isEnabled = enabled
         findPreference<SeekBarPreference>("cheatTimewarpRate")?.isEnabled = enabled
+    }
+
+
+    private fun handlePluginsSectionPreferences() {
+        val context = requireContext()
+        val pluginManager = PluginManager.getInstance()
+        val pluginPrefs = context.getSharedPreferences("plugins", 0)
+        val category = findPreference<PreferenceCategory>("plugins_list")!!
+
+        val discoveredPlugins = pluginManager.discoveredPlugins
+        if (discoveredPlugins.isEmpty()) {
+            category.addPreference(Preference(context).apply {
+                title = context.getString(R.string.plugins_empty_title)
+                summary = context.getString(R.string.plugins_empty_summary)
+                isEnabled = false
+            })
+        } else {
+            for (plugin in discoveredPlugins) {
+                val enabled = pluginPrefs.getBoolean("enabled_${plugin.name}", true)
+
+                category.addPreference(CheckBoxPreference(context).apply {
+                    key = "plugin_enabled_${plugin.name}"
+                    isPersistent = false
+                    title = plugin.name
+                    summary = pluginSummary(plugin.author, plugin.version, enabled)
+                    isChecked = enabled
+
+                    setOnPreferenceChangeListener { _, newValue ->
+                        val isEnabled = newValue as Boolean
+                        pluginPrefs.edit()
+                            .putBoolean("enabled_${plugin.name}", isEnabled)
+                            .apply()
+
+                        summary = pluginSummary(plugin.author, plugin.version, isEnabled)
+
+                        pluginManager.reloadPlugins(context)
+                        ToastLogger.showText(R.string.plugins_reloaded, false)
+                        true
+                    }
+                })
+            }
+        }
+
+        findPreference<Preference>("reloadPlugins")?.setOnPreferenceClickListener {
+            pluginManager.reloadPlugins(context)
+            ToastLogger.showText(R.string.plugins_reloaded, false)
+            loadSection(Section.Plugins)
+            true
+        }
+
+        findPreference<Preference>("openPluginsFolder")?.apply {
+            val pluginDir = pluginManager.getExternalPluginDir(context)
+            if (pluginDir != null) {
+                summary = pluginDir.absolutePath
+            }
+
+            setOnPreferenceClickListener {
+                if (pluginDir == null) {
+                    ToastLogger.showText(R.string.plugins_folder_error, false)
+                    return@setOnPreferenceClickListener true
+                }
+
+                try {
+                    val uri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileProvider",
+                        pluginDir
+                    )
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, "resource/folder")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w("SettingsFragment", "Failed to open plugins folder", e)
+                    ToastLogger.showText(R.string.plugins_folder_error, false)
+                }
+                true
+            }
+        }
+    }
+
+
+    private fun pluginSummary(author: String, version: String, enabled: Boolean): String {
+        val status = requireContext().getString(
+            if (enabled) R.string.plugins_enabled else R.string.plugins_disabled
+        )
+        val authorText = if (author.isBlank()) "" else " · " + requireContext().getString(R.string.plugins_author, author)
+        return "v$version$authorText · $status"
     }
 
 
@@ -847,6 +941,7 @@ class SettingsFragment : SettingsFragment() {
         Movements(R.xml.settings_movements),
         OsuDroidPlus(R.xml.settings_osudroidplus),
         Cheats(R.xml.settings_cheats),
+        Plugins(R.xml.settings_plugins),
 
         // Multiplayer exclusive
         Room(R.xml.multiplayer_room_settings),

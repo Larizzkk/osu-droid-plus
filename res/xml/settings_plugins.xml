@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        android:key="plugins_list"
+        android:title="@string/plugins_category_installed" />
+
+    <PreferenceCategory android:title="@string/plugins_category_actions">
+
+        <Preference
+            android:key="reloadPlugins"
+            android:summary="@string/plugins_reload_summary"
+            android:title="@string/plugins_reload_title"
+            app:layout="@layout/settings_preference" />
+
+        <Preference
+            android:key="openPluginsFolder"
+            android:summary="@string/plugins_open_folder_summary"
+            android:title="@string/plugins_open_folder_title"
+            app:layout="@layout/settings_preference_bottom" />
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>
