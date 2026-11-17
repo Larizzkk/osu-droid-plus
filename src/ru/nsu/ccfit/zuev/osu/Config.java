@@ -162,6 +162,8 @@ public class Config {
         Map.entry("playfieldVerticalPosition", new int[] { 0, 100 }),
         Map.entry("back_button_press_time", new int[] { 0, 300 }),
         Map.entry("seekBarVibrateIntensity", new int[] { 1, 255 }),
+        Map.entry("danserTagCursors", new int[] { 1, 8 }),
+        Map.entry("danserMandalaMirrors", new int[] { 0, 8 }),
         Map.entry("room_max_players", new int[] { 2, 16 })
     );
 

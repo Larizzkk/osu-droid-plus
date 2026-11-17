@@ -13,6 +13,18 @@
     <string name="legacy_db_imported">Legacy room-plus library imported: %1$d beatmap sets</string>
     <string name="legacy_db_missing">Legacy room-plus database not found</string>
 
+    <string name="droidplus_cat_danser">Danser: Mandala / TAG</string>
+    <string name="droidplus_danser_tag_cursors_title">TAG cursors</string>
+    <string name="droidplus_danser_tag_cursors_summary">Split autoplay objects between this many cursors, like danser-go -tag</string>
+    <string name="droidplus_danser_tag_battle_title">Battle</string>
+    <string name="droidplus_danser_tag_battle_summary">Every TAG cursor plays the whole map with its own mover, like danser-go Battle</string>
+    <string name="droidplus_danser_tag_combo_title">TAG by combo set</string>
+    <string name="droidplus_danser_tag_combo_summary">Assign a cursor per combo set (danser-go ComboTag) instead of every Nth object</string>
+    <string name="droidplus_danser_tag_spinners_title">Spinners together</string>
+    <string name="droidplus_danser_tag_spinners_summary">Let every TAG cursor spin the same spinner (danser-go DoSpinnersTogether)</string>
+    <string name="droidplus_danser_mandala_title">Mandala copies</string>
+    <string name="droidplus_danser_mandala_summary">Rotated copies of hit objects and cursors around the playfield (2-8, 0 = off)</string>
+
     <string name="cheats_title">Cheats</string>
     <string name="cheats_category_tools">Tools</string>
     <string name="cheats_category_info">Info</string>

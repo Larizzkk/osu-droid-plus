@@ -1021,9 +1021,21 @@ public class AutoCursor extends CursorEntity implements ISliderListener {
      * @param currentGameTimeSeconds current gameplay time, used to resume from.
      */
     public void applyStyleLive(AutoplayStyle style, HitObject[] objects, GameObjectListener listener, float currentGameTimeSeconds) {
+        applyStyleLive(style, objects, listener, currentGameTimeSeconds, true);
+    }
+
+    /**
+     * Same as {@link #applyStyleLive(AutoplayStyle, HitObject[], GameObjectListener, float)},
+     * but optionally keeps {@code autoplayStyle} unchanged. Battle gives each cursor a
+     * different mover, so only the first one may write the shared preference.
+     */
+    public void applyStyleLive(AutoplayStyle style, HitObject[] objects, GameObjectListener listener,
+                               float currentGameTimeSeconds, boolean persistStyle) {
         if (style != null) {
-            // Persist so the next map load uses the new style.
-            ru.nsu.ccfit.zuev.osu.Config.setString("autoplayStyle", style.getValue());
+            if (persistStyle) {
+                // Persist so the next map load uses the new style.
+                ru.nsu.ccfit.zuev.osu.Config.setString("autoplayStyle", style.getValue());
+            }
             currentStyle = style;
             currentMover = MoverFactory.createMover(currentStyle);
         } else if (currentMover == null) {

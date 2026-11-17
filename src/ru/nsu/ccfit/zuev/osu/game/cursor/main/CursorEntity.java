@@ -204,6 +204,10 @@ public class CursorEntity extends UIComponent {
         }
     }
 
+    public boolean isShowing() {
+        return isShowing;
+    }
+
     public void setShowing(boolean showing) {
         if (!showing) {
             // Cursor hidden: reset timer and disable trail

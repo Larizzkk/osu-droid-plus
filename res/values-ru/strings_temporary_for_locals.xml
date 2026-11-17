@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="droidplus_danser_tag_cursors_title">Курсоры TAG</string>
+    <string name="droidplus_danser_tag_cursors_summary">Распределять объекты автоплея между этим числом курсоров, как danser-go -tag</string>
+    <string name="droidplus_danser_tag_battle_title">Battle</string>
+    <string name="droidplus_danser_tag_battle_summary">Каждый TAG-курсор играет всю карту своим мувером, как danser-go Battle</string>
+    <string name="droidplus_danser_tag_combo_title">TAG по сету комбо</string>
+    <string name="droidplus_danser_tag_combo_summary">Назначать курсор на сет комбо (danser-go ComboTag) вместо каждого N-го объекта</string>
+    <string name="droidplus_danser_tag_spinners_title">Спиннеры вместе</string>
+    <string name="droidplus_danser_tag_spinners_summary">Все TAG-курсоры крутят один и тот же спиннер (danser-go DoSpinnersTogether)</string>
+    <string name="droidplus_danser_mandala_title">Копии Mandala</string>
+    <string name="droidplus_danser_mandala_summary">Повёрнутые копии объектов и курсоров вокруг игрового поля (2–8, 0 = выкл.)</string>
+
     <string name="menu_legacy_db">Легаси БД</string>
     <string name="legacy_db_imported">База room-plus загружена: %1$d наборов карт</string>
     <string name="legacy_db_missing">Легаси-база room-plus не найдена</string>

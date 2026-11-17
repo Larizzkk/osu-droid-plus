@@ -92,6 +92,13 @@ class NumberedCirclePiece(circleTexture: String, overlayTexture: String) : Circl
         number.setTextureScale(value)
     }
 
+    /**
+     * Counter-rotates only the combo number so mandala copies keep it readable.
+     */
+    fun setNumberRotation(value: Float) {
+        number.rotation = value
+    }
+
     fun showNumber() {
         number.alpha = 1f
     }

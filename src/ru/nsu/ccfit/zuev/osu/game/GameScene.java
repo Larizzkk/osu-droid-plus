@@ -52,6 +52,7 @@ import com.reco1l.andengine.sprite.UIAnimatedSprite;
 import com.reco1l.andengine.sprite.UISprite;
 import com.reco1l.andengine.Anchor;
 import com.reco1l.andengine.sprite.UIVideoSprite;
+import com.osudroid.ui.v2.game.NumberedCirclePiece;
 import com.reco1l.andengine.UIScene;
 import com.osudroid.resources.R;
 import com.osudroid.ui.v2.game.FollowPointConnection;
@@ -98,6 +99,7 @@ import org.anddev.andengine.engine.camera.SmoothCamera;
 import org.anddev.andengine.engine.handler.IUpdateHandler;
 import org.anddev.andengine.engine.options.TouchOptions;
 import org.anddev.andengine.engine.options.WakeLockOptions;
+import org.anddev.andengine.entity.Entity;
 import org.anddev.andengine.entity.IEntity;
 import org.anddev.andengine.entity.modifier.LoopEntityModifier;
 import org.anddev.andengine.entity.modifier.MoveXModifier;
@@ -111,6 +113,7 @@ import org.anddev.andengine.entity.sprite.Sprite;
 import org.anddev.andengine.entity.text.ChangeableText;
 import org.anddev.andengine.input.touch.TouchEvent;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
+import org.anddev.andengine.opengl.util.GLHelper;
 import org.anddev.andengine.util.Debug;
 
 import java.io.File;
@@ -177,7 +180,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private Cursor[] cursors = new Cursor[CursorCount];
     public String audioFilePath = null;
     private GameUIScene scene;
-    private UIScene bgScene, mgScene, fgScene;
+    private UIScene bgScene, mgScene, fgScene, cursorScene;
     private Scene oldScene;
     private UIBox sceneBorder;
     private Shape beatmapBackground;
@@ -219,6 +222,13 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private CursorEntity[] cursorSprites;
 
     private AutoCursor autoCursor;
+    // Danser-go TAG: every cursor owns a slice of the object queue.
+    private final List<AutoCursor> tagCursors = new ArrayList<>();
+    private final List<HitObject[]> tagQueues = new ArrayList<>();
+    // Danser-go Battle: every cursor plays the whole map instead of a slice.
+    private boolean tagBattle;
+    // Danser-go mandala: the gameplay layers are rendered into mirrored panes.
+    private MandalaLayer mandalaLayer;
     private FlashLightEntity flashlightSprite;
     private int mainCursorId = -1;
     private Replay replay;
@@ -383,9 +393,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         bgScene = new UIScene();
         fgScene = new UIScene();
         mgScene = new UIScene();
+        cursorScene = new UIScene();
         scene.attachChild(bgScene);
         scene.attachChild(mgScene);
         scene.attachChild(fgScene);
+        scene.attachChild(cursorScene);
     }
 
     public void setScoringScene(final ScoringScene sc) {
@@ -1077,18 +1089,24 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         startedFromHUDEditor = isHUDEditor;
         resetPlayfieldSizeScale();
 
+
         scene = new GameUIScene();
         bgScene = new UIScene();
         mgScene = new UIScene();
         mgScene.setClipToBounds(true);
         fgScene = new UIScene();
+        cursorScene = new UIScene();
         scene.attachChild(bgScene);
         scene.attachChild(mgScene);
         scene.attachChild(fgScene);
+        scene.attachChild(cursorScene);
+        mandalaLayer = new MandalaLayer();
+        scene.attachChild(mandalaLayer);
         scene.setBackground(new ColorBackground(0, 0, 0));
         bgScene.setBackgroundEnabled(false);
         mgScene.setBackgroundEnabled(false);
         fgScene.setBackgroundEnabled(false);
+        cursorScene.setBackgroundEnabled(false);
 
         PluginManager.getInstance().initGameplay(GlobalManager.getInstance().getMainActivity(), fgScene);
 
@@ -1255,6 +1273,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             return;
         }
 
+        clearCursorVisuals();
+
         stat = new StatisticV2();
         stat.setMod(lastMods);
         stat.migrateLegacyMods(parsedBeatmap.getDifficulty());
@@ -1349,7 +1369,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             cursorSprites = new CursorEntity[cursorCount];
             for (int i = 0; i < cursorCount; i++) {
                 cursorSprites[i] = new CursorEntity();
-                cursorSprites[i].attachToScene(fgScene);
+                cursorSprites[i].attachToScene(cursorScene);
             }
         } else {
             cursorSprites = null;
@@ -1358,22 +1378,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
             // Mover settings are read on the hot path, so refresh the cached values once per session.
             MoverSettings.clearCache();
-
-            autoCursor = new AutoCursor();
-
-            var autoplayObjects = playableBeatmap.getHitObjects().objects;
-            if (!autoplayObjects.isEmpty()) {
-                var firstAutoplayObject = autoplayObjects.get(0);
-                autoCursor.setDifficulty(
-                    (float) firstAutoplayObject.timePreempt,
-                    GameHelper.getSpeedMultiplier(),
-                    (float) firstAutoplayObject.getScreenSpaceGameplayRadius()
-                );
-            }
-
-            autoCursor.attachToScene(fgScene);
-            autoCursor.initQueue(autoplayObjects.toArray(new HitObject[0]), this);
+            createAutoplayCursors(playableBeatmap.getHitObjects().objects);
         }
+
+        configureMandalaLayer();
 
         final var countdown = playableBeatmap.getGeneral().countdown;
         if (Config.isCorovans() && countdown != BeatmapCountdown.NoCountdown) {
@@ -1871,8 +1879,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
-            autoCursor.update(dt);
-            autoCursor.updateMovement(dt, (float) gameplayClock.getCurrentTime());
+            for (var cursor : tagCursors) {
+                cursor.update(dt);
+                cursor.updateMovement(dt, (float) gameplayClock.getCurrentTime());
+            }
         } else if (cursorSprites != null) {
             for (int i = 0; i < cursorSprites.length; i++) {
                 var sprite = cursorSprites[i];
@@ -2235,9 +2245,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 applyBackground();
                 stat.reset();
                 skip(true);
-                if (autoCursor != null) {
-                    autoCursor.seekTo((float) gameplayClock.getCurrentTime());
-                }
+                seekAutoplayCursors((float) gameplayClock.getCurrentTime());
                 return;
             }
 
@@ -3014,7 +3022,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
      * @param styleValue the new autoplayStyle value (null/empty = keep the current style).
      */
     public void onReplayMovementStyleChanged(String styleValue) {
-        if (autoCursor == null) {
+        if (tagCursors.isEmpty() && autoCursor == null) {
             return;
         }
 
@@ -3023,17 +3031,174 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             : AutoplayStyle.fromValue(styleValue);
 
         // Re-baking the movement queue touches the cursor position, so it has to run on the update thread.
-        Execution.updateThread(() ->
-            autoCursor.applyStyleLive(
-                style,
-                playableBeatmap != null
-                    ? playableBeatmap.getHitObjects().objects.toArray(new HitObject[0])
-                    : null,
-                this,
-                (float) gameplayClock.getCurrentTime()
-            )
-        );
+        Execution.updateThread(() -> {
+            final float time = (float) gameplayClock.getCurrentTime();
+
+            if (tagCursors.isEmpty()) {
+                if (autoCursor != null) {
+                    autoCursor.applyStyleLive(style, currentAutoplayObjects(), this, time);
+                }
+                return;
+            }
+
+            for (int i = 0; i < tagCursors.size(); i++) {
+                final AutoplayStyle cursorStyle = tagBattle && style != null
+                    ? battleStyle(style, i)
+                    : style;
+                tagCursors.get(i).applyStyleLive(
+                    cursorStyle,
+                    tagQueues.get(i),
+                    this,
+                    time,
+                    i == 0 || !tagBattle
+                );
+            }
+        });
     }
+
+    private HitObject[] currentAutoplayObjects() {
+        return playableBeatmap != null
+            ? playableBeatmap.getHitObjects().objects.toArray(new HitObject[0])
+            : null;
+    }
+
+    /**
+     * Builds the danser-go TAG cursor set: each cursor gets every Nth object, or
+     * every object of one combo set when ComboTag is enabled. Spinners can be
+     * shared by all cursors (DoSpinnersTogether).
+     */
+    private void createAutoplayCursors(List<HitObject> autoplayObjects) {
+        for (var cursor : tagCursors) {
+            cursor.detachSelf();
+        }
+        tagCursors.clear();
+        tagQueues.clear();
+
+        final int cursorCount = Math.max(1, Math.min(8, Config.getInt("danserTagCursors", 1)));
+        final boolean byCombo = Config.getBoolean("danserTagByCombo", false);
+        final boolean spinnersTogether = Config.getBoolean("danserTagSpinnersTogether", true);
+        tagBattle = Config.getBoolean("danserTagBattle", false);
+        final AutoplayStyle baseStyle = AutoplayStyle.fromValue(Config.getString("autoplayStyle", "linear"));
+
+        List<List<HitObject>> queues = new ArrayList<>(cursorCount);
+        for (int i = 0; i < cursorCount; i++) {
+            queues.add(new ArrayList<>());
+        }
+
+        for (int i = 0; i < autoplayObjects.size(); i++) {
+            var object = autoplayObjects.get(i);
+            final int comboSet = object.getComboIndexWithOffsets();
+
+            // danser-go Battle: ignore ComboTag and give every cursor the whole map.
+            if (tagBattle) {
+                for (var queue : queues) {
+                    queue.add(object);
+                }
+                continue;
+            }
+
+            if (object instanceof Spinner && spinnersTogether) {
+                for (var queue : queues) {
+                    queue.add(object);
+                }
+                continue;
+            }
+
+            final int index = byCombo
+                ? Math.floorMod(comboSet, cursorCount)
+                : i % cursorCount;
+            queues.get(index).add(object);
+        }
+
+        float preempt = 0f;
+        float radius = 0f;
+        if (!autoplayObjects.isEmpty()) {
+            var first = autoplayObjects.get(0);
+            preempt = (float) first.timePreempt;
+            radius = (float) first.getScreenSpaceGameplayRadius();
+        }
+
+        int cursorIndex = 0;
+        for (var queue : queues) {
+            var objects = queue.toArray(new HitObject[0]);
+            var cursor = new AutoCursor();
+
+            // Battle cursors need different movers, otherwise every cursor follows
+            // the exact same path and the mode looks like a single cursor.
+            if (tagBattle) {
+                cursor.setAutoplayStyle(battleStyle(baseStyle, cursorIndex));
+            }
+
+            cursor.setDifficulty(preempt, GameHelper.getSpeedMultiplier(), radius);
+            cursor.attachToScene(cursorScene);
+            cursor.initQueue(objects, this);
+
+            tagCursors.add(cursor);
+            tagQueues.add(objects);
+            cursorIndex++;
+        }
+
+        autoCursor = tagCursors.isEmpty() ? null : tagCursors.get(0);
+    }
+
+    /** Cycles the available movers so every Battle cursor races on its own path. */
+    private static AutoplayStyle battleStyle(AutoplayStyle base, int index) {
+        final AutoplayStyle[] styles = AutoplayStyle.values();
+        return styles[Math.floorMod(base.ordinal() + index, styles.length)];
+    }
+
+    /** Sets up danser-go mandala copies when the setting is enabled. */
+    private void configureMandalaLayer() {
+        if (mandalaLayer == null) {
+            return;
+        }
+
+        final int panes = Math.max(0, Math.min(8, Config.getInt("danserMandalaMirrors", 0)));
+        final boolean supported = replaying || GameHelper.isAutoplay() || GameHelper.isAutopilot();
+
+        if (panes < 2 || !supported) {
+            mandalaLayer.clear();
+            setMandalaSourcesVisible(true);
+            return;
+        }
+
+        mandalaLayer.configure(panes);
+        setMandalaSourcesVisible(false);
+    }
+
+    private void setMandalaSourcesVisible(boolean visible) {
+        // The background, foreground overlays and UI stay single normal layers.
+        // Only hit objects and cursors are redrawn for every mandala copy.
+        // The object scene's scissor uses axis-aligned screen bounds, which is
+        // invalid for rotated mandala cameras and clips every object away.
+        mgScene.setClipToBounds(visible);
+        mgScene.setVisible(visible);
+        cursorScene.setVisible(visible);
+    }
+
+    private void clearCursorVisuals() {
+        for (var cursor : tagCursors) {
+            cursor.detachSelf();
+        }
+        tagCursors.clear();
+        tagQueues.clear();
+
+        autoCursor = null;
+    }
+
+    private void seekAutoplayCursors(float timeSeconds) {
+        if (tagCursors.isEmpty()) {
+            if (autoCursor != null) {
+                autoCursor.seekTo(timeSeconds);
+            }
+            return;
+        }
+
+        for (var cursor : tagCursors) {
+            cursor.seekTo(timeSeconds);
+        }
+    }
+
 
 
     /**
@@ -4319,12 +4484,16 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         hasFailed = false;
 
         // Reset auto cursor modifiers.
-        if (autoCursor != null) {
+        // The auto cursor can only walk its segment queue forward, so after a backward seek it
+        // would sit frozen at its old position until playback reaches the time it was seeked
+        // from. Rewinding it here makes it continue moving from the seek target instead.
+        for (var cursor : tagCursors) {
+            cursor.clearEntityModifiers();
+            cursor.seekTo(clampedTime);
+            cursor.resetTrail();
+        }
+        if (tagCursors.isEmpty() && autoCursor != null) {
             autoCursor.clearEntityModifiers();
-
-            // The auto cursor can only walk its segment queue forward, so after a backward seek it
-            // would sit frozen at its old position until playback reaches the time it was seeked
-            // from. Rewinding it here makes it continue moving from the seek target instead.
             autoCursor.seekTo(clampedTime);
             autoCursor.resetTrail();
         }
@@ -4819,6 +4988,70 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     //endregion
+
+    /**
+     * Danser-go mandala renderer. It redraws the hit-object and cursor layers
+     * around the playfield centre at evenly spaced angles, so each object (with
+     * its slider parts/ticks) and each cursor (with its trail) gets its own
+     * rotated copy instead of duplicating the whole scene viewport.
+     */
+    private class MandalaLayer extends Entity {
+        private final List<Camera> cameras = new ArrayList<>();
+
+        private void setComboNumberRotation(float degrees) {
+            for (int i = 0; i < mgScene.getChildCount(); i++) {
+                if (mgScene.getChild(i) instanceof NumberedCirclePiece piece) {
+                    piece.setNumberRotation(degrees);
+                }
+            }
+        }
+
+        void configure(int count) {
+            cameras.clear();
+
+            final float width = Config.getRES_WIDTH();
+            final float height = Config.getRES_HEIGHT();
+            final float step = -360f / count;
+
+            for (int i = 0; i < count; i++) {
+                var camera = new Camera(0, 0, width, height);
+                camera.setRotation(step * i);
+                cameras.add(camera);
+            }
+        }
+
+        void clear() {
+            cameras.clear();
+        }
+
+        @Override
+        protected void onManagedDraw(GL10 gl, Camera camera) {
+            if (cameras.isEmpty()) {
+                return;
+            }
+
+            // These layers are hidden during the normal scene pass. Draw them
+            // once per mandala camera so objects and cursors are cloned with
+            // every visual part intact, while overlays stay single.
+            mgScene.setVisible(true);
+            cursorScene.setVisible(true);
+
+            for (var mandalaCamera : cameras) {
+                // The camera rotates the whole playfield, so cancel that rotation
+                // on combo numbers only; they must stay readable in every copy.
+                setComboNumberRotation(-mandalaCamera.getRotation());
+                mgScene.onDraw(gl, mandalaCamera);
+                cursorScene.onDraw(gl, mandalaCamera);
+            }
+
+            setComboNumberRotation(0f);
+            mgScene.setVisible(false);
+            cursorScene.setVisible(false);
+
+            camera.onApplySceneMatrix(gl);
+            GLHelper.setModelViewIdentityMatrix(gl);
+        }
+    }
 
     private class GameUIScene extends UIScene {
         private final Stopwatch stopwatch = new Stopwatch();

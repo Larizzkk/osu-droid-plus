@@ -394,6 +394,51 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/droidplus_cat_danser">
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="1"
+            android:key="danserTagCursors"
+            android:max="8"
+            android:summary="@string/droidplus_danser_tag_cursors_summary"
+            android:title="@string/droidplus_danser_tag_cursors_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="1"
+            app:showSeekBarValue="true" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="danserTagBattle"
+            android:summary="@string/droidplus_danser_tag_battle_summary"
+            android:title="@string/droidplus_danser_tag_battle_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="danserTagByCombo"
+            android:summary="@string/droidplus_danser_tag_combo_summary"
+            android:title="@string/droidplus_danser_tag_combo_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="danserTagSpinnersTogether"
+            android:summary="@string/droidplus_danser_tag_spinners_summary"
+            android:title="@string/droidplus_danser_tag_spinners_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="0"
+            android:key="danserMandalaMirrors"
+            android:max="8"
+            android:summary="@string/droidplus_danser_mandala_summary"
+            android:title="@string/droidplus_danser_mandala_title"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+            app:min="0"
+            app:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/movements_cat_reset">
 
         <Preference
