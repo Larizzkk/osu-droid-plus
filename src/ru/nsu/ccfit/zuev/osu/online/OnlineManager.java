@@ -26,7 +26,6 @@ import org.json.JSONObject;
 import ru.nsu.ccfit.zuev.osu.*;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.online.PostBuilder.RequestException;
-import ru.nsu.ccfit.zuev.osu.scoring.BeatmapLeaderboardScoringMode;
 
 public class OnlineManager {
     public static final String hostname = "osu-droid-plus-server-v2.larizrkpee.workers.dev";
@@ -74,7 +73,7 @@ public class OnlineManager {
     public static String getReplayURL(int playID) {
         return switch (Config.getBeatmapLeaderboardScoringMode()) {
             case SCORE -> endpoint + "upload/" + playID + ".odr";
-            case PP -> endpoint + "bestpp/" + playID + ".odr";
+            default -> endpoint + "bestpp/" + playID + ".odr";
         };
     }
 
@@ -338,11 +337,13 @@ public class OnlineManager {
         post.addParam("hash", hash);
         post.addParam("uid", String.valueOf(userId));
 
-        if (Config.getBeatmapLeaderboardScoringMode() == BeatmapLeaderboardScoringMode.PP) {
-            post.addParam("type", "pp");
-        } else {
-            post.addParam("type", "score");
-        }
+        post.addParam("type", Config.getBeatmapLeaderboardScoringMode().getApiType());
+        post.addParam(
+            "limit",
+            String.valueOf(Config.isBeatmapLeaderboardLimitEnabled()
+                ? Config.getBeatmapLeaderboardMaxPlayers()
+                : 100)
+        );
 
         ArrayList<String> response = sendRequest(post, endpoint + "getrank.php");
 
@@ -480,11 +481,7 @@ public class OnlineManager {
         PostBuilder post = new URLEncodedPostBuilder();
         post.addParam("playID", String.valueOf(playid));
 
-        if (Config.getBeatmapLeaderboardScoringMode() == BeatmapLeaderboardScoringMode.PP) {
-            post.addParam("type", "pp");
-        } else {
-            post.addParam("type", "score");
-        }
+        post.addParam("type", Config.getBeatmapLeaderboardScoringMode().getApiType());
 
         ArrayList<String> response = sendRequest(post, endpoint + "gettop.php");
 

@@ -1089,6 +1089,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         startedFromHUDEditor = isHUDEditor;
         resetPlayfieldSizeScale();
 
+        // The HUD board must follow the Leaderboard settings, not a mode the player
+        // happened to switch to manually in the song menu.
+        if (!isHUDEditorMode && !Multiplayer.isMultiplayer) {
+            GlobalManager.getInstance().getSongMenu().applyDefaultLeaderboardForGameplay();
+        }
 
         scene = new GameUIScene();
         bgScene = new UIScene();

@@ -275,6 +275,37 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="@string/droidplus_cat_leaderboard">
+
+        <ListPreference
+            android:defaultValue="local"
+            android:dialogTitle="@string/droidplus_leaderboard_default_title"
+            android:entries="@array/droidplus_leaderboard_default_names"
+            android:entryValues="@array/droidplus_leaderboard_default_values"
+            android:key="beatmapLeaderboardDefaultMode"
+            android:summary="@string/droidplus_leaderboard_default_summary"
+            android:title="@string/droidplus_leaderboard_default_title"
+            app:layout="@layout/settings_preference" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="beatmapLeaderboardLimitEnabled"
+            android:summary="@string/droidplus_leaderboard_limit_summary"
+            android:title="@string/droidplus_leaderboard_limit_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="50"
+            android:key="beatmapLeaderboardMaxPlayers"
+            android:max="100"
+            android:summary="@string/droidplus_leaderboard_max_players_summary"
+            android:title="@string/droidplus_leaderboard_max_players_title"
+            app:layout="@layout/settings_preference_seekbar_bottom"
+            app:min="1"
+            app:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="@string/droidplus_cat_server">
 
         <Preference

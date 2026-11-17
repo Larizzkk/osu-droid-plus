@@ -162,6 +162,7 @@ public class Config {
         Map.entry("playfieldVerticalPosition", new int[] { 0, 100 }),
         Map.entry("back_button_press_time", new int[] { 0, 300 }),
         Map.entry("seekBarVibrateIntensity", new int[] { 1, 255 }),
+        Map.entry("beatmapLeaderboardMaxPlayers", new int[] { 1, 100 }),
         Map.entry("danserTagCursors", new int[] { 1, 8 }),
         Map.entry("danserMandalaMirrors", new int[] { 0, 8 }),
         Map.entry("room_max_players", new int[] { 2, 16 })
@@ -624,6 +625,23 @@ public class Config {
 
     public static BeatmapLeaderboardScoringMode getBeatmapLeaderboardScoringMode() {
         return BeatmapLeaderboardScoringMode.parse(Integer.parseInt(getString("beatmapLeaderboardScoringMode", "0")));
+    }
+
+    /**
+     * Leaderboard opened by default in the song menu. {@code local} keeps the
+     * offline board, every other value maps to a {@link BeatmapLeaderboardScoringMode}.
+     */
+    public static String getBeatmapLeaderboardDefaultMode() {
+        return getString("beatmapLeaderboardDefaultMode", "local");
+    }
+
+    public static boolean isBeatmapLeaderboardLimitEnabled() {
+        return getBoolean("beatmapLeaderboardLimitEnabled", false);
+    }
+
+    /** Number of rows to show when the leaderboard limit is enabled (1-100). */
+    public static int getBeatmapLeaderboardMaxPlayers() {
+        return Math.max(1, Math.min(100, getInt("beatmapLeaderboardMaxPlayers", 50)));
     }
 
     public static void setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode beatmapLeaderboardScoringMode) {

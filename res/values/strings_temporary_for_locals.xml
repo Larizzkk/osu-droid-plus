@@ -25,6 +25,32 @@
     <string name="droidplus_danser_mandala_title">Mandala copies</string>
     <string name="droidplus_danser_mandala_summary">Rotated copies of hit objects and cursors around the playfield (2-8, 0 = off)</string>
 
+    <string name="droidplus_cat_leaderboard">Leaderboard</string>
+    <string name="droidplus_leaderboard_default_title">Default online leaderboard</string>
+    <string name="droidplus_leaderboard_default_summary">Which leaderboard opens with a beatmap. Manual switching still works.</string>
+    <string name="droidplus_leaderboard_limit_title">Limit leaderboard players</string>
+    <string name="droidplus_leaderboard_limit_summary">Off shows the full server leaderboard (up to 100 players)</string>
+    <string name="droidplus_leaderboard_max_players_title">Maximum players</string>
+    <string name="droidplus_leaderboard_max_players_summary">How many leaderboard rows to show when the limit is on</string>
+
+    <string-array name="droidplus_leaderboard_default_names">
+        <item>Local scores</item>
+        <item>Score</item>
+        <item>DPP</item>
+        <item>RX PP</item>
+        <item>AP PP</item>
+        <item>Cheat PP</item>
+    </string-array>
+
+    <string-array name="droidplus_leaderboard_default_values" translatable="false">
+        <item>local</item>
+        <item>score</item>
+        <item>dpp</item>
+        <item>rxpp</item>
+        <item>appp</item>
+        <item>cheat</item>
+    </string-array>
+
     <string name="cheats_title">Cheats</string>
     <string name="cheats_category_tools">Tools</string>
     <string name="cheats_category_info">Info</string>

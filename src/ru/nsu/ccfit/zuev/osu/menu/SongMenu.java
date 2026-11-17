@@ -112,6 +112,7 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
     private Sprite bg = null;
     private String backgroundPath = "";
     private ScoreBoard board;
+    private String appliedLeaderboardSettings;
     private Float touchY = null;
     private String filterText = "";
     private boolean favsOnly = false;
@@ -243,6 +244,7 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
         backLayer.attachChild(bgDimRect);
 
         board = new ScoreBoard(scene, backLayer, this);
+        applyDefaultLeaderboardMode();
 
 //        float oy = 10;
         for (final BeatmapSetInfo i : LibraryManager.getLibrary()) {
@@ -756,17 +758,79 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
         searchBar.loadConfig(context);
     }
 
+    /**
+     * Re-applies the Leaderboard settings before gameplay, so the HUD board always
+     * follows the saved defaults even after a manual switch in the song menu.
+     */
+    public void applyDefaultLeaderboardForGameplay() {
+        final boolean wasOnline = board.isShowOnlineScores();
+        final var previousMode = Config.getBeatmapLeaderboardScoringMode();
+        final String previousSettings = appliedLeaderboardSettings;
+
+        applyDefaultLeaderboardMode();
+
+        if (wasOnline != board.isShowOnlineScores()
+                || previousMode != Config.getBeatmapLeaderboardScoringMode()
+                || !Objects.equals(previousSettings, appliedLeaderboardSettings)) {
+            board.init(selectedBeatmap);
+        }
+    }
+
+    /** Applies the leaderboard selected in Settings when the song menu is loaded. */
+    private void applyDefaultLeaderboardMode() {
+        final String defaultMode = Config.getBeatmapLeaderboardDefaultMode();
+
+        if ("local".equals(defaultMode) || !OnlineManager.getInstance().isStayOnline()) {
+            board.setShowOnlineScores(false);
+            appliedLeaderboardSettings = leaderboardSettingsSignature();
+            return;
+        }
+
+        Config.setBeatmapLeaderboardScoringMode(parseOnlineMode(defaultMode));
+        board.setShowOnlineScores(true);
+        appliedLeaderboardSettings = leaderboardSettingsSignature();
+    }
+
+    /** Snapshot of every Leaderboard setting that changes the board contents. */
+    private String leaderboardSettingsSignature() {
+        return board.isShowOnlineScores()
+                + "|" + Config.getBeatmapLeaderboardScoringMode()
+                + "|" + Config.isBeatmapLeaderboardLimitEnabled()
+                + "|" + Config.getBeatmapLeaderboardMaxPlayers();
+    }
+
+    /** Preferred online board when the player turns the online label back on. */
+    private BeatmapLeaderboardScoringMode getPreferredOnlineMode() {
+        final String defaultMode = Config.getBeatmapLeaderboardDefaultMode();
+        return "local".equals(defaultMode)
+                ? BeatmapLeaderboardScoringMode.SCORE
+                : parseOnlineMode(defaultMode);
+    }
+
+    private static BeatmapLeaderboardScoringMode parseOnlineMode(final String value) {
+        return switch (value) {
+            case "score" -> BeatmapLeaderboardScoringMode.SCORE;
+            case "rxpp" -> BeatmapLeaderboardScoringMode.RXPP;
+            case "appp" -> BeatmapLeaderboardScoringMode.APPP;
+            case "cheat" -> BeatmapLeaderboardScoringMode.CHEATPP;
+            default -> BeatmapLeaderboardScoringMode.DPP;
+        };
+    }
+
     public void toggleScoringSwitcher() {
         if (board.isShowOnlineScores()) {
             switch (Config.getBeatmapLeaderboardScoringMode()) {
-                case SCORE -> Config.setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode.PP);
-                case PP -> board.setShowOnlineScores(false);
+                case SCORE -> Config.setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode.DPP);
+                case DPP -> Config.setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode.RXPP);
+                case RXPP -> Config.setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode.APPP);
+                case APPP -> Config.setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode.CHEATPP);
+                case CHEATPP -> board.setShowOnlineScores(false);
             }
 
             board.init(selectedBeatmap);
         } else if (OnlineManager.getInstance().isStayOnline()) {
             board.setShowOnlineScores(true);
-            Config.setBeatmapLeaderboardScoringMode(BeatmapLeaderboardScoringMode.SCORE);
+            Config.setBeatmapLeaderboardScoringMode(getPreferredOnlineMode());
             board.init(selectedBeatmap);
         }
 
@@ -2289,7 +2353,7 @@ public class SongMenu implements IUpdateHandler, MenuItemListener,
 
         var textureName = "ranking_enabled_" + switch (Config.getBeatmapLeaderboardScoringMode()) {
             case SCORE -> "score";
-            case PP -> "pp";
+            default -> "pp";
         };
 
         scoringSwitcher.setTextureRegion(ResourceManager.getInstance().getTexture(textureName));

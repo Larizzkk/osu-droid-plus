@@ -494,6 +494,14 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
+        val maxPlayers = findPreference<SeekBarPreference>("beatmapLeaderboardMaxPlayers")
+        findPreference<CheckBoxPreference>("beatmapLeaderboardLimitEnabled")?.apply {
+            maxPlayers?.isEnabled = isChecked
+            setOnPreferenceChangeListener { _, newValue ->
+                maxPlayers?.isEnabled = newValue as Boolean
+                true
+            }
+        }
     }
 
 

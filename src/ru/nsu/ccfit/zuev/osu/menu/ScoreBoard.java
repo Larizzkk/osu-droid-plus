@@ -94,10 +94,10 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
     private void initFromOnline(BeatmapInfo beatmapInfo) {
         currentScoringMode = Config.getBeatmapLeaderboardScoringMode();
 
-        if (currentScoringMode == BeatmapLeaderboardScoringMode.SCORE) {
+        if (currentScoringMode.isScore()) {
             loadingText.setText("Loading score leaderboard...");
         } else {
-            loadingText.setText("Loading pp leaderboard...");
+            loadingText.setText("Loading " + currentScoringMode.getLabel() + " leaderboard...");
         }
 
         currentTask = new LoadTask(true) {
@@ -127,7 +127,11 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
 
                 loadingText.setText(OnlineManager.getInstance().getFailMessage());
 
-                boolean isPPScoringMode = currentScoringMode == BeatmapLeaderboardScoringMode.PP;
+                boolean isPPScoringMode = !currentScoringMode.isScore();
+                int maxRows = Config.isBeatmapLeaderboardLimitEnabled()
+                        ? Config.getBeatmapLeaderboardMaxPlayers()
+                        : Integer.MAX_VALUE;
+                int shownRows = 0;
                 var username = OnlineManager.getInstance().getUsername();
                 var items = new ArrayList<ScoreBoardItem>(scores.size());
                 var rows = new ArrayList<ScoreBoardRow>(scores.size());
@@ -210,13 +214,14 @@ public class ScoreBoard extends Entity implements ScrollDetector.IScrollDetector
                         pinnedRows.add(new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, true, beatmapRank));
                     }
 
-                    if (isInLeaderboard) {
+                    if (isInLeaderboard && shownRows < maxRows) {
                         final var leaderboardItem = new ScoreItem(avatarExecutor, titleStr, accStr, mark, true, scoreID, avatarURL, playerName, false, beatmapRank);
                         rows.add(new ScoreBoardRow(beatmapRank, leaderboardItem));
 
                         var item = new ScoreBoardItem();
                         item.set(beatmapRank, playerName, combo, score, scoreID);
                         items.add(item);
+                        shownRows++;
                     }
                 }
 

@@ -26,7 +26,10 @@ class HUDLeaderboard : HUDElement() {
 
     private val isReplaying = replayId != -1
 
-    private val isGlobalLeaderboard = GlobalManager.getInstance().songMenu.isBoardOnline
+    // Re-read on every use: the board may switch to the Leaderboard defaults when a
+    // map starts, after this HUD element was created.
+    private val isGlobalLeaderboard: Boolean
+        get() = GlobalManager.getInstance().songMenu.isBoardOnline
 
 
     override fun onSizeChanged() {
