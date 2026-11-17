@@ -270,6 +270,11 @@ public class GameplayHitCircle extends GameObject {
                 hitOffset = GameHelper.isRelax()
                         ? passedTime
                         : (float) (hit.getEvent().getHitTime() - beatmapCircle.startTime) / 1000;
+
+                if (Config.isCheatTapAssist()) {
+                    hitOffset = 0;
+                }
+
                 listener.registerAccuracy(HitObjectType.Normal, hitOffset);
                 startHit = true;
                 successfulHit = Math.abs(hitOffset) <= mehWindow;

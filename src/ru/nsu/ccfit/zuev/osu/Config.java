@@ -84,7 +84,12 @@ public class Config {
         noChangeDimInBreaks,
         dimHitObjects,
         forceMaxRefreshRate,
-        shiftPitchInRateChange;
+        shiftPitchInRateChange,
+        cheatAimAssist,
+        cheatTapAssist,
+        cheatTimewarp,
+        cheatHdRemover,
+        cheatFlRemover;
 
     private static int RES_WIDTH,
         RES_HEIGHT,
@@ -96,6 +101,7 @@ public class Config {
     private static float soundVolume,
         bgmVolume,
         offset,
+        cheatTimewarpRate,
         backgroundBrightness,
         playfieldSize,
         playfieldHorizontalPosition,
@@ -274,6 +280,12 @@ public class Config {
         showCursor = prefs.getBoolean("showcursor", false);
         fixFrameOffset = prefs.getBoolean("fixFrameOffset", true);
         removeSliderLock = prefs.getBoolean("removeSliderLock", false);
+        cheatAimAssist = prefs.getBoolean("cheatAimAssist", false);
+        cheatTapAssist = prefs.getBoolean("cheatTapAssist", false);
+        cheatTimewarp = prefs.getBoolean("cheatTimewarp", false);
+        cheatHdRemover = prefs.getBoolean("cheatHdRemover", false);
+        cheatFlRemover = prefs.getBoolean("cheatFlRemover", false);
+        cheatTimewarpRate = prefs.getInt("cheatTimewarpRate", 100) / 100f;
         displayScoreStatistics = prefs.getBoolean("displayScoreStatistics", false);
         hideReplayMarquee = prefs.getBoolean("hideReplayMarquee", false);
         hideReplaySettingsPanel = prefs.getBoolean("hideReplaySettingsPanel", false);
@@ -349,6 +361,46 @@ public class Config {
 
         //noinspection DataFlowIssue
         return Multiplayer.isConnected() ? Multiplayer.room.getGameplaySettings().isRemoveSliderLock() : removeSliderLock;
+    }
+
+    /** Cheats are single-player only; multiplayer keeps its own rule set. */
+    private static boolean areCheatsAllowed() {
+        return !Multiplayer.isConnected();
+    }
+
+    public static boolean isCheatAimAssist() {
+        return areCheatsAllowed() && cheatAimAssist;
+    }
+
+    public static boolean isCheatTapAssist() {
+        return areCheatsAllowed() && cheatTapAssist;
+    }
+
+    public static boolean isCheatTimewarp() {
+        return areCheatsAllowed() && cheatTimewarp;
+    }
+
+    public static boolean isCheatHdRemover() {
+        return areCheatsAllowed() && cheatHdRemover;
+    }
+
+    public static boolean isCheatFlRemover() {
+        return areCheatsAllowed() && cheatFlRemover;
+    }
+
+    public static float getCheatTimewarpRate() {
+        return isCheatTimewarp() ? Math.max(0.5f, Math.min(2f, cheatTimewarpRate)) : 1f;
+    }
+
+    /** Whether any cheat is toggled on, regardless of the current game mode. */
+    public static boolean isAnyCheatEnabled() {
+        return cheatAimAssist || cheatTapAssist || cheatTimewarp
+                || cheatHdRemover || cheatFlRemover;
+    }
+
+    /** Whether the current play must be submitted to the separate cheat pool. */
+    public static boolean hasCheatsEnabled() {
+        return areCheatsAllowed() && isAnyCheatEnabled();
     }
 
     public static boolean isDisplayScoreStatistics() {

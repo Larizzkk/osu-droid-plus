@@ -287,6 +287,9 @@ public class OnlineManager {
         post.addParam("hash", beatmap.getMD5());
         post.addParam("data", scoreData);
         post.addParam("version", onlineVersion);
+        // Cheat plays still submit, but the server stores them in a separate
+        // leaderboard pool instead of the normal PP ladders.
+        post.addParam("cheat", Config.hasCheatsEnabled() ? "1" : "0");
 
         post.addParam("cs", String.valueOf(beatmap.getCircleSize()));
         post.addParam("ar", String.valueOf(beatmap.getApproachRate()));

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="@string/cheats_category_tools">
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="cheatAimAssist"
+            android:summary="@string/cheats_aim_assist_summary"
+            android:title="@string/cheats_aim_assist_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="cheatTapAssist"
+            android:summary="@string/cheats_tap_assist_summary"
+            android:title="@string/cheats_tap_assist_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="cheatTimewarp"
+            android:summary="@string/cheats_timewarp_summary"
+            android:title="@string/cheats_timewarp_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="cheatHdRemover"
+            android:summary="@string/cheats_hd_remover_summary"
+            android:title="@string/cheats_hd_remover_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="cheatFlRemover"
+            android:summary="@string/cheats_fl_remover_summary"
+            android:title="@string/cheats_fl_remover_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:dependency="cheatTimewarp"
+            android:key="cheatTimewarpRate"
+            android:max="200"
+            android:summary="@string/cheats_timewarp_rate_summary"
+            android:title="@string/cheats_timewarp_rate_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="50"
+            app:showSeekBarValue="true" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/cheats_category_info">
+
+        <Preference
+            android:enabled="false"
+            android:summary="@string/cheats_single_player_summary"
+            android:title="@string/cheats_single_player_title"
+            app:layout="@layout/settings_preference_bottom" />
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

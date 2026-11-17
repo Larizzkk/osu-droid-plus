@@ -1066,9 +1066,15 @@ public class GameplaySlider extends GameObject {
 
                         if (press instanceof PressResult.Hit hit) {
                             // osudroid!relax uses the current elapsed time for the slider head.
-                            onSliderHeadHit(GameHelper.isRelax()
+                            double headOffset = GameHelper.isRelax()
                                     ? elapsedTime
-                                    : (hit.getEvent().getHitTime() - beatmapSlider.startTime) / 1000);
+                                    : (hit.getEvent().getHitTime() - beatmapSlider.startTime) / 1000;
+
+                            if (Config.isCheatTapAssist()) {
+                                headOffset = 0;
+                            }
+
+                            onSliderHeadHit(headOffset);
                         } else if (press == PressResult.Shake.INSTANCE) {
                             startShake();
                         }
@@ -1354,6 +1360,10 @@ public class GameplaySlider extends GameObject {
         if (isTracking) {
             // Multiply by 4 as the follow circle radius is 2 times larger than the object radius.
             distanceThresholdSquared *= 4;
+        }
+
+        if (Config.isCheatAimAssist()) {
+            distanceThresholdSquared *= 2.5f * 2.5f;
         }
 
         return distanceThresholdSquared;

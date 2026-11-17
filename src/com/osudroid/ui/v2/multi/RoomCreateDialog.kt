@@ -1,6 +1,7 @@
 package com.osudroid.ui.v2.multi
 
 import com.osudroid.resources.R.string
+import com.osudroid.multiplayer.Multiplayer
 import com.osudroid.multiplayer.api.*
 import com.osudroid.multiplayer.api.data.*
 import com.osudroid.utils.async
@@ -27,7 +28,11 @@ class RoomCreateDialog(lobbyScene: LobbyScene) : UIDialog<UIScrollableContainer>
             width = FillParent
             orientation = Orientation.Vertical
 
-            onSubmit = { data ->
+            onSubmit = submit@ { data ->
+                if (Multiplayer.blockMultiplayerIfCheatsEnabled()) {
+                    return@submit
+                }
+
                 async {
                     LoadingScreen().show()
 

@@ -19,6 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
+import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.GlobalManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.menu.*
@@ -114,8 +115,28 @@ object Multiplayer {
 
     //region Connection
 
+    /**
+     * Blocks every multiplayer entry point while any cheat is enabled.
+     *
+     * Cheats are single-player only, so a player must disable them before joining
+     * or creating a room instead of silently losing the cheat effects mid-game.
+     */
+    @JvmStatic
+    fun blockMultiplayerIfCheatsEnabled(): Boolean {
+        if (!Config.isAnyCheatEnabled()) {
+            return false
+        }
+
+        ToastLogger.showText("Disable all cheats before entering multiplayer.", true)
+        return true
+    }
+
     @JvmStatic
     fun connectFromLink(link: Uri) {
+
+        if (blockMultiplayerIfCheatsEnabled()) {
+            return
+        }
 
         if (isConnected) {
             return

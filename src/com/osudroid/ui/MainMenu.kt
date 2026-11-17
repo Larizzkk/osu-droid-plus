@@ -128,6 +128,10 @@ class MainMenu(val main: MainScene) {
                     return true
                 }
 
+                if (Multiplayer.blockMultiplayerIfCheatsEnabled()) {
+                    return true
+                }
+
                 GlobalManager.getInstance().songService.isGaming = true
                 Multiplayer.isMultiplayer = true
 

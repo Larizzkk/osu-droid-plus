@@ -13,6 +13,24 @@
     <string name="legacy_db_imported">Legacy room-plus library imported: %1$d beatmap sets</string>
     <string name="legacy_db_missing">Legacy room-plus database not found</string>
 
+    <string name="cheats_title">Cheats</string>
+    <string name="cheats_category_tools">Tools</string>
+    <string name="cheats_category_info">Info</string>
+    <string name="cheats_aim_assist_title">Aim Assist</string>
+    <string name="cheats_aim_assist_summary">Expands the hit area around hit objects</string>
+    <string name="cheats_tap_assist_title">Tap Assist</string>
+    <string name="cheats_tap_assist_summary">Taps inside the hit window are scored with perfect timing</string>
+    <string name="cheats_timewarp_title">Timewarp</string>
+    <string name="cheats_timewarp_summary">Changes the gameplay and audio speed</string>
+    <string name="cheats_timewarp_rate_title">Timewarp rate</string>
+    <string name="cheats_timewarp_rate_summary" formatted="false">50% is slower and easier, 200% is faster</string>
+    <string name="cheats_hd_remover_title">HD Remover</string>
+    <string name="cheats_hd_remover_summary">Removes the Hidden visual effect while keeping the HD mod</string>
+    <string name="cheats_fl_remover_title">FL Remover</string>
+    <string name="cheats_fl_remover_summary">Removes the Flashlight visual effect while keeping the FL mod</string>
+    <string name="cheats_single_player_title">Single-player only</string>
+    <string name="cheats_single_player_summary">Cheat plays are submitted to a separate cheat PP leaderboard</string>
+
     <string name="replay_analysis_title">Analysis</string>
     <string name="replay_analysis_show_tap_markers">Show tap markers</string>
     <string name="replay_analysis_show_frame_markers">Show frame markers</string>

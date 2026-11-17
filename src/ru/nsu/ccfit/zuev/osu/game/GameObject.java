@@ -313,7 +313,12 @@ public abstract class GameObject {
             return false;
         }
 
-        return Utils.squaredDistance(position, cursorEvent.position) <= Utils.sqr((float) hitObject.getScreenSpaceGameplayRadius());
+        // Aim Assist is a meaningful hitbox expansion: a tap in the object's
+        // wider assist radius still counts, not just a tap directly on the circle.
+        float radius = (float) hitObject.getScreenSpaceGameplayRadius()
+                * (Config.isCheatAimAssist() ? 2.5f : 1f);
+
+        return Utils.squaredDistance(position, cursorEvent.position) <= Utils.sqr(radius);
     }
 
     /** Shake circle by 8 units inside the circle's local space, in which the circle is 128 units wide. */

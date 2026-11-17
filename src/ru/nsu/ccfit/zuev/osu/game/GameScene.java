@@ -831,7 +831,10 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         GameHelper.setOverallDifficulty(playableBeatmap.getDifficulty().od);
         GameHelper.setHealthDrain(playableBeatmap.getDifficulty().hp);
-        GameHelper.setSpeedMultiplier(ModUtils.calculateRate(mods.values(), Double.NEGATIVE_INFINITY));
+        // Timewarp is a standalone cheat, not the Custom Speed mod: it multiplies the
+        // normal mod rate and is submitted to the cheat pool instead.
+        GameHelper.setSpeedMultiplier(
+            ModUtils.calculateRate(mods.values(), Double.NEGATIVE_INFINITY) * Config.getCheatTimewarpRate());
 
         GameHelper.setOriginalTimePreempt((float) BeatmapDifficulty.difficultyRange(
             playableBeatmap.getDifficulty().getAR(), HitObject.PREEMPT_MAX, HitObject.PREEMPT_MID, HitObject.PREEMPT_MIN
@@ -1275,9 +1278,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setDoubleTime(lastMods.ofType(ModDoubleTime.class));
         GameHelper.setNightCore(lastMods.contains(ModNightCore.class) ? lastMods.ofType(ModNightCore.class) : lastMods.ofType(ModOldNightCore.class));
         GameHelper.setHalfTime(lastMods.ofType(ModHalfTime.class));
-        GameHelper.setHidden(lastMods.ofType(ModHidden.class));
+        // HD/FL Remover cheats hide the visual effect but leave the mod in the
+        // score, so the PP calculation still sees HD/FL.
+        GameHelper.setHidden(Config.isCheatHdRemover() ? null : lastMods.ofType(ModHidden.class));
         GameHelper.setTraceable(lastMods.ofType(ModTraceable.class));
-        GameHelper.setFlashlight(lastMods.ofType(ModFlashlight.class));
+        GameHelper.setFlashlight(Config.isCheatFlRemover() ? null : lastMods.ofType(ModFlashlight.class));
         GameHelper.setGravity(lastMods.ofType(ModGravity.class));
         GameHelper.setRelax(lastMods.ofType(ModRelax.class));
         GameHelper.setAutopilot(lastMods.ofType(ModAutopilot.class));
@@ -1292,6 +1297,18 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         GameHelper.setFreezeFrame(lastMods.ofType(ModFreezeFrame.class));
         GameHelper.setApproachDifferent(lastMods.ofType(ModApproachDifferent.class));
         GameHelper.setTwoButtons(lastMods.ofType(Mod2B.class));
+
+        if (Config.hasCheatsEnabled()) {
+            var active = new StringBuilder();
+
+            if (Config.isCheatAimAssist()) active.append("Aim Assist ");
+            if (Config.isCheatTapAssist()) active.append("Tap Assist ");
+            if (Config.isCheatTimewarp()) active.append("Timewarp ").append(Config.getCheatTimewarpRate()).append("x ");
+            if (Config.isCheatHdRemover()) active.append("HD Remover ");
+            if (Config.isCheatFlRemover()) active.append("FL Remover ");
+
+            ToastLogger.showText("Cheats: " + active.toString().trim(), false);
+        }
 
         int cursorCount = replaying && replay != null ? replay.cursorMoves.size() : CursorCount;
 
@@ -1392,7 +1409,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         }
 
         boolean hasUnrankedMod = SmartIterator.wrap(lastMods.values().iterator()).applyFilter(m -> !m.isRanked()).hasNext();
-        if (hasUnrankedMod || (Config.isRemoveSliderLock() && !GameHelper.isTwoButtons() && !GameHelper.isNoNotelock())) {
+        if (hasUnrankedMod || Config.hasCheatsEnabled()
+                || (Config.isRemoveSliderLock() && !GameHelper.isTwoButtons() && !GameHelper.isNoNotelock())) {
             unrankedSprite = new UISprite(ResourceManager.getInstance().getTexture("play-unranked"));
             unrankedSprite.setAnchor(Anchor.TopCenter);
             unrankedSprite.setOrigin(Anchor.Center);
@@ -1740,7 +1758,8 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         updateBackgroundParallax(dt);
 
         if (!isGameOver) {
-            float modRate = ModUtils.calculateRateWithTrackRateMods(rateAdjustingMods, mSecPassed);
+            float modRate = ModUtils.calculateRateWithTrackRateMods(rateAdjustingMods, mSecPassed)
+                * Config.getCheatTimewarpRate();
 
             float replaySettingsRate = replaySettingsPanel != null
                 ? replaySettingsPanel.getPlaybackControl().getRateControl().getRate()
@@ -4429,8 +4448,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         // For variable-rate mods (WindUp/WindDown), the rate at the seek target may differ from
         // the current rate. FramedBeatmapClock.seek() subtracts (userGlobalOffset * rate) from the
         // seek position to compute the audio byte offset, so the rate must be updated first.
-        if (!rateAdjustingMods.isEmpty()) {
-            float modRate = ModUtils.calculateRateWithTrackRateMods(rateAdjustingMods, targetMs);
+        if (!rateAdjustingMods.isEmpty() || Config.isCheatTimewarp()) {
+            float modRate = ModUtils.calculateRateWithTrackRateMods(rateAdjustingMods, targetMs)
+                * Config.getCheatTimewarpRate();
 
             float replaySettingsRate = replaySettingsPanel != null
                 ? replaySettingsPanel.getPlaybackControl().getRateControl().getRate()

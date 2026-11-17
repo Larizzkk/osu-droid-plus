@@ -226,6 +226,7 @@ class SettingsFragment : SettingsFragment() {
         createSectionButton("Movements", R.drawable.videogame_asset_24px, Section.Movements)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
         createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
+        createSectionButton("Cheats", R.drawable.videogame_asset_24px, Section.Cheats)
 
 
         sectionSelector[0].topMargin = 32.dp
@@ -251,6 +252,7 @@ class SettingsFragment : SettingsFragment() {
         Section.Library -> handleLibrarySectionPreferences()
         Section.Advanced -> handleAdvancedSectionPreferences()
         Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
+        Section.Cheats -> handleCheatsSectionPreferences()
         Section.Movements -> handleMovementsSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
         Section.Player -> handlePlayerSectionPreferences()
@@ -486,6 +488,22 @@ class SettingsFragment : SettingsFragment() {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://osu-droid-plus-server-v2.larizrkpee.workers.dev")))
             true
         }
+
+    }
+
+
+    private fun handleCheatsSectionPreferences() {
+        // The cheat flags themselves are persisted by the preference framework and
+        // read by Config on dismiss. Keep the tab disabled in multiplayer so a room
+        // play can never pick them up.
+        val enabled = !Multiplayer.isMultiplayer
+
+        findPreference<CheckBoxPreference>("cheatAimAssist")?.isEnabled = enabled
+        findPreference<CheckBoxPreference>("cheatTapAssist")?.isEnabled = enabled
+        findPreference<CheckBoxPreference>("cheatTimewarp")?.isEnabled = enabled
+        findPreference<CheckBoxPreference>("cheatHdRemover")?.isEnabled = enabled
+        findPreference<CheckBoxPreference>("cheatFlRemover")?.isEnabled = enabled
+        findPreference<SeekBarPreference>("cheatTimewarpRate")?.isEnabled = enabled
     }
 
 
@@ -828,6 +846,7 @@ class SettingsFragment : SettingsFragment() {
         Advanced(R.xml.settings_advanced),
         Movements(R.xml.settings_movements),
         OsuDroidPlus(R.xml.settings_osudroidplus),
+        Cheats(R.xml.settings_cheats),
 
         // Multiplayer exclusive
         Room(R.xml.multiplayer_room_settings),
