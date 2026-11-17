@@ -6,6 +6,9 @@
     <string name="opt_animate_reverse_arrows_title">Animate slider reverse arrows</string>
     <string name="opt_animate_reverse_arrows_summary">Pulse repeat arrows while a slider is active (danser-go style)</string>
 
+    <string name="opt_auto_skip_title">Auto skip</string>
+    <string name="opt_auto_skip_summary">Automatically skip the skippable intro when the skip button appears</string>
+
     <string name="opt_notelock_shake_title">Notelock shake</string>
     <string name="opt_notelock_shake_summary">Shake an object when a press lands on it while it is locked behind an earlier object</string>
 

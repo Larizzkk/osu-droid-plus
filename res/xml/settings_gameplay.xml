@@ -12,6 +12,13 @@
             app:layout="@layout/settings_preference_checkbox" />
 
         <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="autoSkipIntro"
+            android:summary="@string/opt_auto_skip_summary"
+            android:title="@string/opt_auto_skip_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
             android:defaultValue="true"
             android:key="notelockShake"
             android:summary="@string/opt_notelock_shake_summary"

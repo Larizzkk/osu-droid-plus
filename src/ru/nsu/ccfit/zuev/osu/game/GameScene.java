@@ -2368,6 +2368,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             skipBtn.detachSelf();
             skipBtn = null;
         } else if (skipBtn != null) {
+            if (Config.getBoolean("autoSkipIntro", false) && !Multiplayer.isConnected()) {
+                skip();
+                return;
+            }
+
             for (int i = 0; i < cursors.length; ++i) {
                 var latestDownEvent = cursors[i].getLatestNonUpEvent();
 
