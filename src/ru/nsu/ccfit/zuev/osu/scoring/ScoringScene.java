@@ -437,7 +437,13 @@ public class ScoringScene {
             if (beatmapData != null) {
                 var serverSystem = ServerScorePP.calculate(beatmapData, mods, stat);
 
-                if (serverSystem != null) {
+                // If the RX/AP formula produced no value (for example because the
+                // map's performance attributes were unavailable), fall back to the
+                // regular calculation instead of showing a useless "0/0pp".
+                if (serverSystem != null && (serverSystem.value > 0 || serverSystem.max > 0)) {
+                    // Keep the server-formula value for the fallback submitted to
+                    // the server when it cannot download this beatmap itself.
+                    stat.setPP(serverSystem.value);
                     ppinfo.append(String.format(
                         Locale.ENGLISH,
                         "%.2f★ | %.2f/%.2f%s",
@@ -527,6 +533,7 @@ public class ScoringScene {
                     );
                 };
 
+                stat.setPP(performanceAttributes.total);
                 ppinfo.append(String.format(
                     Locale.ENGLISH,
                     "%.2f★ | %.2f/%.2f" + (Config.getDifficultyAlgorithm() == DifficultyAlgorithm.droid ? "dpp" : "pp"),

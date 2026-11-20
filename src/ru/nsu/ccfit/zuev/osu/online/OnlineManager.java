@@ -269,7 +269,7 @@ public class OnlineManager {
         return true;
     }
 
-    public boolean sendRecord(BeatmapInfo beatmap, String scoreData, String replayPath) throws OnlineManagerException {
+    public boolean sendRecord(BeatmapInfo beatmap, String scoreData, String replayPath, double localPP) throws OnlineManagerException {
         Debug.i("Sending record...");
 
         File replayFile = new File(replayPath);
@@ -286,8 +286,14 @@ public class OnlineManager {
         post.addParam("hash", beatmap.getMD5());
         post.addParam("data", scoreData);
         post.addParam("version", onlineVersion);
-        // Cheat plays still submit, but the server stores them in a separate
-        // leaderboard pool instead of the normal PP ladders.
+        // Tells the server that this build already uses the osu!standard score
+        // formula; older builds omit it and their raw score is converted.
+        post.addParam("scoreVersion", "2");
+        // Used only when the server cannot download the beatmap and therefore
+        // has nothing to score; without it those plays were stored as 0 PP.
+        post.addParam("localPP", String.valueOf(localPP));
+        // Cheat plays still submit and count in their mode pool; the flag keeps
+        // the separate cheat board and ranked-score ladder accurate.
         post.addParam("cheat", Config.hasCheatsEnabled() ? "1" : "0");
 
         post.addParam("cs", String.valueOf(beatmap.getCircleSize()));

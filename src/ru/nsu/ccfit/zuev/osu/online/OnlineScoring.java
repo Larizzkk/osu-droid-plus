@@ -156,7 +156,7 @@ public class OnlineScoring {
                     }
 
                     try {
-                        success = OnlineManager.getInstance().sendRecord(beatmap, recordData, replayPath);
+                        success = OnlineManager.getInstance().sendRecord(beatmap, recordData, replayPath, record.getPP());
                     } catch (OnlineManager.OnlineManagerException e) {
                         Debug.e("Login error: " + e.getMessage());
                         success = false;
