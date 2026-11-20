@@ -30,11 +30,14 @@ public class GameEffect extends GameObject {
 
     UISprite hit;
     String texname;
+    /** 50/100/300 judgement art: keep it upright in mandala copies. */
+    private final boolean readableJudgement;
 
     private float duration;
 
     public GameEffect(final String texname) {
         this.texname = texname;
+        this.readableJudgement = isAnimationEffect(texname) && !"hit0".equals(texname);
 
         if (isAnimationEffect(texname) && ResourceManager.getInstance().isTextureLoaded(texname + "-0")) {
             var hit = new UIAnimatedSprite(texname, true, OsuSkin.get().getAnimationFramerate());
@@ -43,6 +46,18 @@ public class GameEffect extends GameObject {
         } else {
             hit = new UISprite();
             hit.setTextureRegion(ResourceManager.getInstance().getTexture(texname));
+        }
+
+        hit.setUserData(this);
+    }
+
+    /**
+     * Counter-rotates judgement numbers so a rotated mandala camera does not
+     * show 50/100/300 upside down.
+     */
+    public void setReadableRotation(float degrees) {
+        if (readableJudgement) {
+            hit.setRotation(degrees);
         }
     }
 

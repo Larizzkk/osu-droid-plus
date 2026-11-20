@@ -5018,10 +5018,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private class MandalaLayer extends Entity {
         private final List<Camera> cameras = new ArrayList<>();
 
-        private void setComboNumberRotation(float degrees) {
+        private void setReadableRotation(float degrees) {
             for (int i = 0; i < mgScene.getChildCount(); i++) {
-                if (mgScene.getChild(i) instanceof NumberedCirclePiece piece) {
+                var child = mgScene.getChild(i);
+                if (child instanceof NumberedCirclePiece piece) {
                     piece.setNumberRotation(degrees);
+                } else if (child.getUserData() instanceof GameEffect effect) {
+                    // 50/100/300 judgement sprites are drawn in the same layer
+                    // as objects, so they need the same counter-rotation.
+                    effect.setReadableRotation(degrees);
                 }
             }
         }
@@ -5058,13 +5063,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
             for (var mandalaCamera : cameras) {
                 // The camera rotates the whole playfield, so cancel that rotation
-                // on combo numbers only; they must stay readable in every copy.
-                setComboNumberRotation(-mandalaCamera.getRotation());
+                // on combo numbers and judgement sprites; they must stay readable
+                // in every copy.
+                setReadableRotation(-mandalaCamera.getRotation());
                 mgScene.onDraw(gl, mandalaCamera);
                 cursorScene.onDraw(gl, mandalaCamera);
             }
 
-            setComboNumberRotation(0f);
+            setReadableRotation(0f);
             mgScene.setVisible(false);
             cursorScene.setVisible(false);
 
