@@ -70,6 +70,15 @@ class ScoreMultiplierCalculatorTest {
     }
 
     @Test
+    fun `No Notelock makes the play easier`() {
+        Assert.assertEquals(
+            0.8,
+            ScoreMultiplierCalculator().calculateFor(listOf(ModNoNotelock())),
+            1e-6
+        )
+    }
+
+    @Test
     fun `HalfTime and CustomSpeed combination is clamped to the lower bound`() {
         // combined rate = 0.75 * 0.5 = 0.375
         // rateMultiplier(0.375) = 0.375 * 1.5 - 0.5 = 0.0625, clamped to 0.1

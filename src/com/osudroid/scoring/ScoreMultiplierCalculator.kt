@@ -53,8 +53,11 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
 
         // region Fun
 
-        // 2B removes the slider/spinner lock, so it is easier than normal play.
+        // 2B and No Notelock remove the slider/spinner and note locks, so they
+        // are easier than normal play. The server applies the same 0.8 to the
+        // notelock flag these mods set.
         single<Mod2B>(0.9)
+        single<ModNoNotelock>(0.8)
         single<ModWindUp> { timeRampMultiplier() }
         single<ModWindDown> { timeRampMultiplier() }
         single<ModRandom> { randomMultiplier() }
