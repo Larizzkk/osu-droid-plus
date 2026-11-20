@@ -59,6 +59,8 @@
     <string name="cheats_category_info">Info</string>
     <string name="cheats_aim_assist_title">Aim Assist</string>
     <string name="cheats_aim_assist_summary">Expands the hit area around hit objects</string>
+    <string name="cheats_aim_assist_hitbox_title">Extra hitbox</string>
+    <string name="cheats_aim_assist_hitbox_summary">Adds 0–200% to the current 2.5× assist radius; 0 keeps it unchanged</string>
     <string name="cheats_tap_assist_title">Tap Assist</string>
     <string name="cheats_tap_assist_summary">Taps inside the hit window are scored with perfect timing</string>
     <string name="cheats_timewarp_title">Timewarp</string>

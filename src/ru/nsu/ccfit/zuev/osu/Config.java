@@ -102,6 +102,7 @@ public class Config {
         bgmVolume,
         offset,
         cheatTimewarpRate,
+        cheatAimAssistHitbox,
         backgroundBrightness,
         playfieldSize,
         playfieldHorizontalPosition,
@@ -284,6 +285,7 @@ public class Config {
         fixFrameOffset = prefs.getBoolean("fixFrameOffset", true);
         removeSliderLock = prefs.getBoolean("removeSliderLock", false);
         cheatAimAssist = prefs.getBoolean("cheatAimAssist", false);
+        cheatAimAssistHitbox = prefs.getInt("cheatAimAssistHitbox", 0);
         cheatTapAssist = prefs.getBoolean("cheatTapAssist", false);
         cheatTimewarp = prefs.getBoolean("cheatTimewarp", false);
         cheatHdRemover = prefs.getBoolean("cheatHdRemover", false);
@@ -373,6 +375,14 @@ public class Config {
 
     public static boolean isCheatAimAssist() {
         return areCheatsAllowed() && cheatAimAssist;
+    }
+
+    /**
+     * Hit-area multiplier for Aim Assist. The original 2.5x radius is kept;
+     * the setting adds an extra 0–200% on top of it (0 = unchanged).
+     */
+    public static float getCheatAimAssistRadiusMultiplier() {
+        return 2.5f * (1f + Math.max(0, Math.min(200, cheatAimAssistHitbox)) / 100f);
     }
 
     public static boolean isCheatTapAssist() {

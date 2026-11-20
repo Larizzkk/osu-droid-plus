@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="cheats_aim_assist_hitbox_title">Дополнительный хитбокс</string>
+    <string name="cheats_aim_assist_hitbox_summary">Добавляет 0–200% к текущему радиусу аим-ассиста (2.5×); 0 оставляет его без изменений</string>
+
     <string name="opt_auto_skip_title">Авто-скип</string>
     <string name="opt_auto_skip_summary">Автоматически пропускать скипаемое вступление, когда появляется кнопка скипа</string>
 

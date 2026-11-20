@@ -316,7 +316,7 @@ public abstract class GameObject {
         // Aim Assist is a meaningful hitbox expansion: a tap in the object's
         // wider assist radius still counts, not just a tap directly on the circle.
         float radius = (float) hitObject.getScreenSpaceGameplayRadius()
-                * (Config.isCheatAimAssist() ? 2.5f : 1f);
+                * (Config.isCheatAimAssist() ? Config.getCheatAimAssistRadiusMultiplier() : 1f);
 
         return Utils.squaredDistance(position, cursorEvent.position) <= Utils.sqr(radius);
     }
