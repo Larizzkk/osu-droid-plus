@@ -61,6 +61,7 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
         single<ModWindUp> { timeRampMultiplier() }
         single<ModWindDown> { timeRampMultiplier() }
         single<ModRandom> { randomMultiplier() }
+        single<ModRandomPlus> { randomPlusMultiplier() }
         single<ModApproachDifferent>(0.7)
         single<ModGravity>(1.06)
         single<ModSynesthesia>(0.99)
@@ -89,6 +90,17 @@ class ScoreMultiplierCalculator @JvmOverloads constructor(difficulty: BeatmapDif
     private fun ModRandom.randomMultiplier(): Double {
         val bonus = 1.15 + 0.10 * (aggressive.toDouble() - 1.0) + 0.015 * max(0.0, angleSharpness.toDouble() - 7.0)
         return bonus.coerceIn(1.15, 1.45)
+    }
+
+    /**
+     * Random+ is harder than Random: every note is a real jump and edge bias
+     * lengthens the movement. Mirrors the server's PP multiplier.
+     */
+    private fun ModRandomPlus.randomPlusMultiplier(): Double {
+        val jumpBonus = 0.0015 * max(0.0, minimumJump.toDouble() - 100.0)
+        val edgeBonus = 0.12 * edgeBias.toDouble().coerceIn(0.0, 1.0)
+
+        return (1.3 + jumpBonus + edgeBonus).coerceIn(1.3, 1.7)
     }
 
     private fun ModDifficultyAdjust.difficultyAdjustMultiplier(): Double {

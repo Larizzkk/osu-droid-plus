@@ -79,6 +79,15 @@ class ScoreMultiplierCalculatorTest {
     }
 
     @Test
+    fun `Random Plus rewards its harder default layout`() {
+        Assert.assertEquals(
+            1.516,
+            ScoreMultiplierCalculator().calculateFor(listOf(ModRandomPlus())),
+            1e-6
+        )
+    }
+
+    @Test
     fun `HalfTime and CustomSpeed combination is clamped to the lower bound`() {
         // combined rate = 0.75 * 0.5 = 0.375
         // rateMultiplier(0.375) = 0.375 * 1.5 - 0.5 = 0.0625, clamped to 0.1

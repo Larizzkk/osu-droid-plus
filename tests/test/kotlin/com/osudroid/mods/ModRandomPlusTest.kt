@@ -57,6 +57,23 @@ class ModRandomPlusTest {
     }
 
     @Test
+    fun `Test minimum jump keeps consecutive notes apart`() {
+        val beatmap = createBeatmap()
+
+        ModRandomPlus().apply {
+            seed = 987654321
+            minimumJump = 220f
+            edgeBias = 0f
+            applyToBeatmap(beatmap)
+        }
+
+        val first = beatmap.hitObjects.objects[0].position
+        val second = beatmap.hitObjects.objects[1].position
+
+        Assert.assertTrue(first.getDistance(second) >= 220f)
+    }
+
+    @Test
     fun `Test zero intensity keeps the original layout`() {
         val beatmap = createBeatmap()
         val originalPositions = beatmap.hitObjects.objects.map { Vector2(it.position.x, it.position.y) }

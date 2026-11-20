@@ -32,12 +32,14 @@ class ModNoNotelockTest {
     }
 
     @Test
-    fun `Test Random Plus is registered as an unranked mod`() {
+    fun `Test Random Plus is registered as a ranked, harder mod`() {
         val mod = ModRandomPlus()
 
         Assert.assertEquals("Random +", mod.name)
         Assert.assertEquals("R+", mod.acronym)
-        Assert.assertFalse(mod.isRanked)
+        Assert.assertTrue(mod.isRanked)
+        Assert.assertEquals(220f, mod.minimumJump, 0f)
+        Assert.assertEquals(0.3f, mod.edgeBias, 0f)
         Assert.assertSame(ModRandomPlus::class, allModsClassesByAcronym["R+"])
     }
 }

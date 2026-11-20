@@ -17,15 +17,17 @@ import kotlinx.coroutines.ensureActive
  * Represents the Random + mod.
  *
  * Unlike [ModRandom], which keeps a chain of relative jumps, this mod places
- * every object independently anywhere inside the playfield. Positions are not
- * derived from the previous object and are allowed to overlap.
+ * every object independently inside the playfield. To make the result genuinely
+ * harder, consecutive objects are kept at a configurable minimum distance and
+ * the layout is biased towards the playfield edges.
  */
 class ModRandomPlus : Mod(), IModApplicableToBeatmap {
     override val name = "Random +"
     override val acronym = "R+"
-    override val description = "Absolutely random object placement, independent on every note."
+    override val description = "Independent random placement with long, edge-biased jumps."
     override val type = ModType.Conversion
-    override val isRanked = false
+    override val isRanked = true
+    override val iconTextureNameSuffix = "random"
 
     /**
      * The seed used to generate the random positions.
@@ -62,6 +64,43 @@ class ModRandomPlus : Mod(), IModApplicableToBeatmap {
         orderPosition = 1
     )
 
+    /**
+     * Minimum distance between two consecutive objects, in osu! pixels.
+     *
+     * Without this, independent random placement regularly put notes next to
+     * each other, which was easier than the original map. A high value forces
+     * every note to be a real jump.
+     */
+    var minimumJump by FloatModSetting(
+        name = "Minimum jump",
+        key = "minimumJump",
+        valueFormatter = { "${it.toInt()}px" },
+        defaultValue = 220f,
+        minValue = 0f,
+        maxValue = 400f,
+        step = 5f,
+        precision = 0,
+        orderPosition = 2
+    )
+
+    /**
+     * How strongly objects are pushed away from the playfield center.
+     *
+     * `0` is uniform placement, `100%` keeps objects close to the edges. Edge
+     * placement creates longer cross-screen movements than a uniform layout.
+     */
+    var edgeBias by FloatModSetting(
+        name = "Edge bias",
+        key = "edgeBias",
+        valueFormatter = { "${(it * 100).toInt()}%" },
+        defaultValue = 0.3f,
+        minValue = 0f,
+        maxValue = 1f,
+        step = 0.05f,
+        precision = 2,
+        orderPosition = 3
+    )
+
     override fun applyToBeatmap(beatmap: Beatmap, scope: CoroutineScope?) {
         if (seed == null) {
             seed = Random.nextInt()
@@ -73,6 +112,9 @@ class ModRandomPlus : Mod(), IModApplicableToBeatmap {
         if (appliedIntensity <= 0f) {
             return
         }
+
+        var previousPosition: Vector2? = null
+        val minJump = minimumJump.coerceIn(0f, 400f) * appliedIntensity
 
         for (hitObject in beatmap.hitObjects.objects) {
             scope?.ensureActive()
@@ -108,30 +150,91 @@ class ModRandomPlus : Mod(), IModApplicableToBeatmap {
                     hitObject.position = HitObjectGenerationUtils.playfieldCenter
                 } else {
                     val original = Vector2(hitObject.position.x, hitObject.position.y)
-                    val randomPosition = Vector2(
-                        randomBetween(bounds.left, bounds.right, random),
-                        randomBetween(bounds.top, bounds.bottom, random)
-                    )
-                    val target = original + (randomPosition - original) * appliedIntensity
+                    val positionBounds = bounds
+                    val target = pickFarthest(previousPosition, minJump) {
+                        val randomPosition = Vector2(
+                            randomBetween(positionBounds.left, positionBounds.right, random),
+                            randomBetween(positionBounds.top, positionBounds.bottom, random)
+                        )
+                        val interpolated = original + (randomPosition - original) * appliedIntensity
 
-                    hitObject.position = Vector2(
-                        target.x.coerceIn(bounds.left, bounds.right),
-                        target.y.coerceIn(bounds.top, bounds.bottom)
-                    )
+                        Vector2(
+                            interpolated.x.coerceIn(positionBounds.left, positionBounds.right),
+                            interpolated.y.coerceIn(positionBounds.top, positionBounds.bottom)
+                        )
+                    }
+
+                    hitObject.position = target
                 }
             } else if (hitObject is HitCircle) {
                 val original = Vector2(hitObject.position.x, hitObject.position.y)
-                val randomPosition = randomPoint(radius, random)
 
-                hitObject.position = original + (randomPosition - original) * appliedIntensity
+                hitObject.position = pickFarthest(previousPosition, minJump) {
+                    val randomPosition = randomPoint(radius, random)
+                    original + (randomPosition - original) * appliedIntensity
+                }
             }
+
+            previousPosition = Vector2(hitObject.position.x, hitObject.position.y)
         }
     }
 
-    private fun randomPoint(radius: Float, random: Random) = Vector2(
-        randomBetween(radius, HitObjectGenerationUtils.playfieldSize.x - radius, random),
-        randomBetween(radius, HitObjectGenerationUtils.playfieldSize.y - radius, random)
-    )
+    /**
+     * Picks the farthest of several random candidates until one is at least
+     * [minDistance] away from [previous]. If the playfield/bounds cannot fit such
+     * a jump, the farthest candidate is used instead of leaving the object close.
+     */
+    private fun pickFarthest(previous: Vector2?, minDistance: Float, sample: () -> Vector2): Vector2 {
+        val first = sample()
+
+        if (previous == null || minDistance <= 0f) {
+            return first
+        }
+
+        val minDistanceSquared = minDistance * minDistance
+        var best = first
+        var bestDistance = first.getDistanceSquared(previous)
+
+        if (bestDistance >= minDistanceSquared) {
+            return best
+        }
+
+        repeat(23) {
+            val candidate = sample()
+            val distance = candidate.getDistanceSquared(previous)
+
+            if (distance > bestDistance) {
+                best = candidate
+                bestDistance = distance
+            }
+
+            if (bestDistance >= minDistanceSquared) {
+                return best
+            }
+        }
+
+        return best
+    }
+
+    private fun randomPoint(radius: Float, random: Random): Vector2 {
+        val left = radius
+        val right = HitObjectGenerationUtils.playfieldSize.x - radius
+        val top = radius
+        val bottom = HitObjectGenerationUtils.playfieldSize.y - radius
+        var x = randomBetween(left, right, random)
+        var y = randomBetween(top, bottom, random)
+
+        if (edgeBias > 0f) {
+            val centerX = HitObjectGenerationUtils.playfieldSize.x / 2f
+            val centerY = HitObjectGenerationUtils.playfieldSize.y / 2f
+            val scale = 1f + edgeBias.coerceIn(0f, 1f) * 1.4f
+
+            x = (centerX + (x - centerX) * scale).coerceIn(left, right)
+            y = (centerY + (y - centerY) * scale).coerceIn(top, bottom)
+        }
+
+        return Vector2(x, y)
+    }
 
     private fun randomBetween(min: Float, max: Float, random: Random): Float {
         if (max <= min) {
