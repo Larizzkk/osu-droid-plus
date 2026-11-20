@@ -172,13 +172,24 @@ public class StatisticV2 implements Serializable {
     }
 
     public void registerHit(final int score, final boolean k, final boolean g, final boolean incrementCombo) {
+        registerHit(score, k, g, incrementCombo, score);
+    }
+
+    /**
+     * Registers a hit whose judgement ({@code score}) and awarded score ({@code scoreValue}) differ.
+     * This is used for slider ends: they are judged as 300/100/50 for accuracy, but osu!standard
+     * awards 30 score for them.
+     */
+    public void registerHit(final int score, final boolean k, final boolean g, final boolean incrementCombo,
+                            final int scoreValue) {
         if (score == 1000) {
             addScore(score, false);
             return;
         }
         if (score < 50 && score > 0) {
             changeHp(0.05f);
-            addScore(score, false);
+            // Slider heads, ticks and repeats are combo-scored in osu!standard.
+            addScore(score, true);
             currentCombo++;
             return;
         }
@@ -198,7 +209,7 @@ public class StatisticV2 implements Serializable {
                     hit300k++;
                 }
                 hit300++;
-                addScore(300, true);
+                addScore(scoreValue, incrementCombo);
                 if (incrementCombo) {
                     currentCombo++;
                 }
@@ -209,7 +220,7 @@ public class StatisticV2 implements Serializable {
                     hit100k++;
                 }
                 hit100++;
-                addScore(100, true);
+                addScore(scoreValue, incrementCombo);
                 if (incrementCombo) {
                     currentCombo++;
                 }
@@ -217,7 +228,7 @@ public class StatisticV2 implements Serializable {
             case 50:
                 changeHp(0.05f);
                 hit50++;
-                addScore(50, true);
+                addScore(scoreValue, incrementCombo);
                 if (incrementCombo) {
                     currentCombo++;
                 }
@@ -267,21 +278,18 @@ public class StatisticV2 implements Serializable {
             double accuracyPortion = scoreV2AccPortion * Math.pow(getAccuracy(), 10) * getNotesHit() / beatmapNoteCount;
 
             totalScore = (long) (scoreV2MaxScore * (comboPortion + accuracyPortion)) + bonusScore;
-        } else if (amount + amount * currentCombo * diffModifier / 25 > 0) {
-            // It is possible for score addition to be a negative number due to
-            // difficulty modifier, hence the prior check.
-            //
-            // In that case, just skip score addition to ensure score is always positive.
+        } else {
+            // osu!standard score formula:
+            //   HitValue + HitValue * (Combo * DifficultyMultiplier) / 25
+            // Combo is 1-based, so the first object already receives the bonus.
+            long scoreCombo = combo ? currentCombo + 1L : 0L;
+            long comboScore = (long) ((amount * (double) scoreCombo * diffModifier) / 25.0);
 
-            //如果分数溢出或分数满了
-            if (totalScore + (amount * currentCombo * diffModifier) / 25 + amount < 0 || totalScore == Long.MAX_VALUE){
+            if (amount + comboScore < 0 || totalScore + amount + comboScore < 0
+                    || totalScore == Long.MAX_VALUE) {
                 totalScore = Long.MAX_VALUE;
-            }
-            else{
-                totalScore += amount;
-                if (combo) {
-                    totalScore += (long) ((amount * currentCombo * diffModifier) / 25);
-                }
+            } else {
+                totalScore += amount + comboScore;
             }
         }
         scoreHash = SecurityUtils.getHigh16Bits(totalScore);

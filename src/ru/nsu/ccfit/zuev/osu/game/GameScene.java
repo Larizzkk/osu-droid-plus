@@ -1289,11 +1289,14 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         stat.canFail = !stat.getMod().contains(ModNoFail.class)
                 && !stat.getMod().contains(ModAutoplay.class);
 
-        float difficultyScoreMultiplier = 1 + Math.min(parsedBeatmap.getDifficulty().od, 10) / 10f +
-                Math.min(parsedBeatmap.getDifficulty().hp, 10) / 10f;
+        // Score must use the difficulty the player actually sees (HR/HD/DA included),
+        // otherwise modded plays are scored with unmodded map stats.
+        var scoringDifficulty = playableBeatmap.getDifficulty();
+        float difficultyScoreMultiplier = 1 + Math.min(scoringDifficulty.od, 10) / 10f +
+                Math.min(scoringDifficulty.hp, 10) / 10f;
 
         // The maximum CS of osu!droid mapped to osu!standard is ~17.62.
-        difficultyScoreMultiplier += (Math.min(parsedBeatmap.getDifficulty().gameplayCS, 17.62f) - 3) / 4f;
+        difficultyScoreMultiplier += (Math.min(scoringDifficulty.gameplayCS, 17.62f) - 3) / 4f;
 
         stat.setDiffModifier(difficultyScoreMultiplier);
         stat.setBeatmapNoteCount(objects.length);
@@ -2602,6 +2605,11 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     }
 
     private String registerHit(final int objectId, final int score, final boolean endCombo, final boolean incrementCombo) {
+        return registerHit(objectId, score, endCombo, incrementCombo, score);
+    }
+
+    private String registerHit(final int objectId, final int score, final boolean endCombo, final boolean incrementCombo,
+                               final int scoreValue) {
 
         if (isGameOver) {
             return "hit0";
@@ -2630,7 +2638,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         String scoreName = "hit300";
         if (score == 50) {
-            stat.registerHit(50, false, false, incrementCombo);
+            stat.registerHit(50, false, false, incrementCombo, scoreValue);
             if (writeReplay) replay.addObjectScore(objectId, ResultType.HIT50);
             scoreName = "hit50";
             comboWas100 = true;
@@ -2638,24 +2646,24 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             comboWas100 = true;
             if (writeReplay) replay.addObjectScore(objectId, ResultType.HIT100);
             if (endCombo && !comboWasMissed) {
-                stat.registerHit(100, true, false, incrementCombo);
+                stat.registerHit(100, true, false, incrementCombo, scoreValue);
                 scoreName = "hit100k";
             } else {
-                stat.registerHit(100, false, false, incrementCombo);
+                stat.registerHit(100, false, false, incrementCombo, scoreValue);
                 scoreName = "hit100";
             }
         } else if (score == 300) {
             if (writeReplay) replay.addObjectScore(objectId, ResultType.HIT300);
             if (endCombo && !comboWasMissed) {
                 if (!comboWas100) {
-                    stat.registerHit(300, true, true, incrementCombo);
+                    stat.registerHit(300, true, true, incrementCombo, scoreValue);
                     scoreName = "hit300g";
                 } else {
-                    stat.registerHit(300, true, false, incrementCombo);
+                    stat.registerHit(300, true, false, incrementCombo, scoreValue);
                     scoreName = "hit300k";
                 }
             } else {
-                stat.registerHit(300, false, false, incrementCombo);
+                stat.registerHit(300, false, false, incrementCombo, scoreValue);
                 scoreName = "hit300";
             }
         }
@@ -2861,7 +2869,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                     stat.addSliderEndHit();
                 }
 
-                scoreName = registerHit(id, score, endCombo, incrementCombo);
+                // osu!standard awards 30 score for the slider end, while its judgement
+                // still counts as 300/100/50 for accuracy.
+                scoreName = registerHit(id, score, endCombo, incrementCombo, 30);
 
                 if (incrementCombo) {
                     createBurstEffectSliderEnd(judgementPos, color);
@@ -4906,15 +4916,15 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
 
         if (tailResult == ResultType.HIT50.getId()) {
             comboWas100 = true;
-            stat.registerHit(50, false, false, tailTracked);
+            stat.registerHit(50, false, false, tailTracked, 30);
         } else if (tailResult == ResultType.HIT100.getId()) {
             comboWas100 = true;
-            stat.registerHit(100, endCombo && !comboWasMissed, false, tailTracked);
+            stat.registerHit(100, endCombo && !comboWasMissed, false, tailTracked, 30);
         } else {
             if (endCombo && !comboWasMissed) {
-                stat.registerHit(300, true, !comboWas100, tailTracked);
+                stat.registerHit(300, true, !comboWas100, tailTracked, 30);
             } else {
-                stat.registerHit(300, false, false, tailTracked);
+                stat.registerHit(300, false, false, tailTracked, 30);
             }
         }
 

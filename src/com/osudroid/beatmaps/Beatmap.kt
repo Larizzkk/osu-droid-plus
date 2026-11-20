@@ -22,6 +22,7 @@ import com.osudroid.mods.ModScoreV2
 import com.osudroid.scoring.ScoreMultiplierCalculator
 import com.osudroid.utils.ModHashMap
 import com.osudroid.utils.applyMods
+import kotlin.math.min
 import kotlin.math.roundToLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ensureActive
@@ -70,11 +71,6 @@ open class Beatmap(mode: GameMode) : IBeatmap, Cloneable {
             return (1e6 * scoreMultiplier).toLong()
         }
 
-        val difficultyMultiplier = 1 + difficulty.od / 10 + difficulty.hp / 10 + (difficulty.difficultyCS - 3) / 4
-
-        var combo = 0
-        var score = 0L
-
         // Spinners need non-rate adjusted to calculate required spins.
         val nonRateAdjustedDifficulty = difficulty.clone()
 
@@ -82,30 +78,34 @@ open class Beatmap(mode: GameMode) : IBeatmap, Cloneable {
             nonRateAdjustedDifficulty.applyMods(mode, mods.values)
         }
 
+        // osu!standard scores with the difficulty the player actually sees; mods such as
+        // HR and DA therefore increase the combo multiplier as well.
+        val difficultyMultiplier = 1 + min(nonRateAdjustedDifficulty.od, 10f) / 10 +
+                min(nonRateAdjustedDifficulty.hp, 10f) / 10 +
+                (min(nonRateAdjustedDifficulty.gameplayCS, 17.62f) - 3) / 4
+
+        var combo = 0
+        var score = 0L
+
+        // osu!standard score formula: HitValue + HitValue * (Combo * DifficultyMultiplier) / 25.
+        // Combo is 1-based, and slider heads/ticks/repeats are combo-scored too.
+        fun addComboScore(hitValue: Int) {
+            combo++
+            score += hitValue + (hitValue * combo * difficultyMultiplier / 25).toLong()
+        }
+
         for (obj in hitObjects) {
             when (obj) {
                 is Slider -> {
-                    // Slider head
-                    score += 30
-                    ++combo
-
-                    // Slider repeats
-                    score += 30 * obj.repeatCount
-                    combo += obj.repeatCount
-
-                    // Slider ticks
-                    score += 10 * obj.tickCount
-                    combo += obj.tickCount
-
-                    // In osu!standard, slider end awards a 30. osu!droid does not do this.
-                    if (mode == GameMode.Standard) {
-                        score += 30
-                    }
+                    addComboScore(30) // head
+                    repeat(obj.repeatCount) { addComboScore(30) }
+                    repeat(obj.tickCount) { addComboScore(10) }
+                    addComboScore(30) // end
                 }
 
                 is Spinner -> {
-                    // For each required rotations, a spinner tick (100 score) is awarded, but does not contribute to
-                    // combo.
+                    // For each required rotation, a spinner tick (100 score) is awarded, but it does not
+                    // contribute to combo.
                     val minRps = when (mode) {
                         GameMode.Droid -> 2 + 2 * nonRateAdjustedDifficulty.od / 10.0
                         GameMode.Standard -> BeatmapDifficulty.difficultyRange(
@@ -116,11 +116,11 @@ open class Beatmap(mode: GameMode) : IBeatmap, Cloneable {
                     val requiredRotations = (minRps * obj.duration / 1000).toInt()
 
                     repeat(requiredRotations) { score += 100 }
+                    addComboScore(300)
                 }
-            }
 
-            score += (300 + 300 * combo * difficultyMultiplier / 25).toLong()
-            ++combo
+                else -> addComboScore(300)
+            }
         }
 
         return (score * scoreMultiplier).roundToLong()
