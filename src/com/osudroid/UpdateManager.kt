@@ -52,6 +52,18 @@ object UpdateManager: IFileRequestObserver
         checkNewUpdates(true)
     }
 
+    /** Compares dotted numeric versions such as 2026.1116.0. */
+    private fun compareVersionNames(left: String, right: String): Int {
+        val a = left.split('.')
+        val b = right.split('.')
+        for (index in 0 until maxOf(a.size, b.size)) {
+            val x = a.getOrNull(index)?.takeWhile(Char::isDigit)?.toIntOrNull() ?: 0
+            val y = b.getOrNull(index)?.takeWhile(Char::isDigit)?.toIntOrNull() ?: 0
+            if (x != y) return x.compareTo(y)
+        }
+        return 0
+    }
+
     /**
      * Check for new game updates.
      *
@@ -78,12 +90,31 @@ object UpdateManager: IFileRequestObserver
                     val response = request.execute().json
 
                     val newVersion = response.getLong("version_code")
+                    val newVersionName = response.optString("versionName")
                     val link = response.getString("link")
 
-                    if (newVersion <= GlobalManager.getInstance().mainActivity.versionCode) {
+                    // The GitHub release tag is the real version identity. Its
+                    // publish timestamp is only a monotonic fallback, so compare
+                    // names first and avoid re-offering a build to itself.
+                    val installedVersionName = MainActivity.versionName
+                    val isNewer = if (
+                        newVersionName.isNotBlank() && installedVersionName.isNotBlank()
+                    ) {
+                        compareVersionNames(newVersionName, installedVersionName) > 0
+                    } else {
+                        newVersion > GlobalManager.getInstance().mainActivity.versionCode
+                    }
+
+                    if (!isNewer) {
                         if (!silently) {
                             ToastLogger.showText(R.string.update_info_latest, false)
                         }
+                        return@use
+                    }
+
+                    // Players may stay on any build. Once they decline this exact
+                    // version, only a manual check (or the next release) asks again.
+                    if (silently && newVersion <= Config.getLong("declinedUpdateVersion", 0)) {
                         return@use
                     }
 
@@ -114,7 +145,10 @@ object UpdateManager: IFileRequestObserver
                                 fileRequest.execute()
                             }
                         }
-                        .addButton("Update later") { it.dismiss() }
+                        .addButton("Decline") { dialog ->
+                            Config.setLong("declinedUpdateVersion", newVersion)
+                            dialog.dismiss()
+                        }
                         .show()
                 }
 
