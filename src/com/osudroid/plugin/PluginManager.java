@@ -23,21 +23,11 @@ public class PluginManager {
 
     private static final String TAG = "PluginManager";
     private static final String PLUGIN_DIR_NAME = "plugins";
-    private static java.io.File logFile;
+    private static final String LEGACY_LOG_PATH = "/sdcard/plugin_log.txt";
 
+    /** Plugin diagnostics go to logcat only; never create a file on shared storage. */
     private static void logToFile(String msg) {
-        try {
-            if (logFile == null) {
-                logFile = new java.io.File("/sdcard/plugin_log.txt");
-            }
-            java.io.FileWriter w = new java.io.FileWriter(logFile, true);
-            w.write(android.text.format.DateFormat.format("HH:mm:ss.SSS", System.currentTimeMillis()).toString());
-            w.write(" ");
-            w.write(msg);
-            w.write("\n");
-            w.flush();
-            w.close();
-        } catch (Exception ignored) {}
+        Log.d(TAG, msg);
     }
 
     private static PluginManager instance;
@@ -58,6 +48,12 @@ public class PluginManager {
     public void loadPlugins(Context context) {
         if (loaded) return;
         loaded = true;
+
+        // Remove the old shared-storage log created by earlier builds.
+        try {
+            File legacyLog = new File(LEGACY_LOG_PATH);
+            if (legacyLog.exists()) legacyLog.delete();
+        } catch (Exception ignored) {}
 
         logToFile("=== Plugin system starting ===");
         logToFile("Internal files dir: " + context.getFilesDir().getAbsolutePath());
