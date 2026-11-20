@@ -627,7 +627,8 @@ public class ScoringScene {
                             var sp = new SendingPanel(OnlineManager.getInstance().getRank(),
                                     OnlineManager.getInstance().getScore(),
                                     OnlineManager.getInstance().getAccuracy(),
-                                    OnlineManager.getInstance().getTotalDpp());
+                                    OnlineManager.getInstance().getTotalDpp(),
+                                    OnlineManager.getInstance().getTotalDppAll());
                             scene.registerTouchArea(sp.getDismissTouchArea());
                             scene.attachChild(sp);
                             OnlineScoring.getInstance().sendRecord(beatmap, stat, sp, replayPath);
@@ -663,7 +664,7 @@ public class ScoringScene {
             } else {
                 var sendingPanel = new SendingPanel(OnlineManager.getInstance().getRank(),
                         OnlineManager.getInstance().getScore(), OnlineManager.getInstance().getAccuracy(),
-                        OnlineManager.getInstance().getTotalDpp());
+                        OnlineManager.getInstance().getTotalDpp(), OnlineManager.getInstance().getTotalDppAll());
                 scene.registerTouchArea(sendingPanel.getDismissTouchArea());
                 scene.attachChild(sendingPanel);
 

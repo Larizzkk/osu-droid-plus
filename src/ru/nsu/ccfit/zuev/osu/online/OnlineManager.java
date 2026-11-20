@@ -58,7 +58,9 @@ public class OnlineManager {
     private long score = 0;
     private float accuracy = 0;
     private float pp = 0;
+    private float ppGain = 0;
     private float totalDpp = 0;
+    private float totalDppAll = 0;
     private String avatarURL = "";
     private String profileBannerURL = "";
     private int mapRank;
@@ -247,8 +249,10 @@ public class OnlineManager {
         rank = Integer.parseInt(params[2]);
         score = Long.parseLong(params[3]);
         pp = Float.parseFloat(params[4]);
-        // login.php returns the cumulative overall PP in params[4].
+        // login.php returns the cumulative overall PP in params[4]. The
+        // optional ninth value is the same overall with cheat plays included.
         totalDpp = pp;
+        totalDppAll = params.length >= 9 ? Float.parseFloat(params[8]) : pp;
         accuracy = Float.parseFloat(params[5]);
         this.username = params[6];
         if (params.length >= 8) {
@@ -334,6 +338,12 @@ public class OnlineManager {
         pp = Float.parseFloat(resp[4]);
         // submit.php sends the cumulative overall PP as the optional sixth value.
         totalDpp = resp.length >= 6 ? Float.parseFloat(resp[5]) : pp;
+        // The seventh value is how much the profile actually gained. The fifth
+        // value is only what the play is worth and can be non-zero even when the
+        // weighted top-100 does not change.
+        ppGain = resp.length >= 7 ? Float.parseFloat(resp[6]) : pp;
+        // Eighth value: the overall with cheat plays included.
+        totalDppAll = resp.length >= 8 ? Float.parseFloat(resp[7]) : totalDpp;
 
         return true;
     }
@@ -514,8 +524,16 @@ public class OnlineManager {
         return pp;
     }
 
+    public float getPPGain() {
+        return ppGain;
+    }
+
     public float getTotalDpp() {
         return totalDpp;
+    }
+
+    public float getTotalDppAll() {
+        return totalDppAll;
     }
 
     public float getAccuracy() {

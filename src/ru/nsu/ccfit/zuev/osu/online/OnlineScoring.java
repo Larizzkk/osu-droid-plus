@@ -172,7 +172,7 @@ public class OnlineScoring {
                         // The submit panel shows the player's overall PP and the
                         // PP that this play earned.
                         panel.show(mgr.getMapRank(), mgr.getRank(), mgr.getScore(), mgr.getAccuracy(),
-                                mgr.getTotalDpp(), mgr.getPP());
+                                mgr.getTotalDpp(), mgr.getTotalDppAll(), mgr.getPP(), mgr.getPPGain());
                         break;
                     }
 

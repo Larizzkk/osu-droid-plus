@@ -18,7 +18,8 @@ class SendingPanel(
     private val overallRank: Long,
     private val score: Long,
     private val accuracy: Float,
-    private val pp: Float
+    private val pp: Float,
+    private val ppAll: Float
 ) : Rectangle(0f, -200f, 800f, 200f) {
     val dismissTouchArea: ITouchArea
         get() = dismissButton
@@ -81,6 +82,7 @@ class SendingPanel(
     private val accuracyColumn = Column("Accuracy").also { rowContainer.attachChild(it) }
     private val scoreColumn = Column("Score").also { rowContainer.attachChild(it) }
     private val ppColumn = Column("Performance").also { rowContainer.attachChild(it) }
+    private val ppAllColumn = Column("With cheats").also { rowContainer.attachChild(it) }
 
     init {
         setColor(0f, 0f, 0f, 0.7f)
@@ -93,6 +95,8 @@ class SendingPanel(
         newScore: Long,
         newAccuracy: Float,
         newPP: Float,
+        newPPAll: Float,
+        playPP: Float,
         earnedPP: Float
     ) {
         dismissButton.canBeDismissed = true
@@ -139,15 +143,24 @@ class SendingPanel(
 
         updateColumn(
             ppColumn,
-            // The server sends the player's new overall PP and the PP this play
-            // earned. Show the overall value as the headline and the play PP as
-            // the gain, rather than deriving a weighted delta locally.
+            // The overall total can stay unchanged when the play is outside the
+            // weighted top-100, but the play still has a PP value. Never hide it
+            // behind a grey "nothing happened" column: show the earned play PP,
+            // and the actual profile gain when there is one.
             when {
-                round(earnedPP) < 1 -> String.format("%.0fpp", round(newPP))
-                else -> String.format("%.0fpp\n(+%.0fpp)", round(newPP), round(earnedPP))
+                round(earnedPP) >= 1 -> String.format("%.0fpp\n(+%.0fpp)", round(newPP), round(earnedPP))
+                round(playPP) >= 1 -> String.format("%.0fpp\n(play +%.0fpp)", round(newPP), round(playPP))
+                else -> String.format("%.0fpp", round(newPP))
             },
-            round(earnedPP),
+            if (round(earnedPP) >= 1) round(earnedPP) else round(playPP),
             scoreColumn
+        )
+
+        updateColumn(
+            ppAllColumn,
+            String.format("%.0fpp", round(newPPAll)),
+            newPPAll - ppAll,
+            ppColumn
         )
 
         // Obtain the maximum height of all columns
@@ -156,7 +169,8 @@ class SendingPanel(
             overallRankColumn.height,
             accuracyColumn.height,
             scoreColumn.height,
-            ppColumn.height
+            ppColumn.height,
+            ppAllColumn.height
         )
 
         // Update the height of all columns to the maximum height
@@ -165,9 +179,10 @@ class SendingPanel(
         accuracyColumn.height = columnMaxHeight
         scoreColumn.height = columnMaxHeight
         ppColumn.height = columnMaxHeight
+        ppAllColumn.height = columnMaxHeight
 
         rowContainer.let {
-            it.width = ppColumn.x + ppColumn.width - mapRankColumn.x
+            it.width = ppAllColumn.x + ppAllColumn.width - mapRankColumn.x
             it.height = columnMaxHeight
         }
 
