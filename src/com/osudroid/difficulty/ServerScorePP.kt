@@ -10,11 +10,8 @@ import com.osudroid.mods.ModHardRock
 import com.osudroid.mods.ModPrecise
 import com.osudroid.mods.ModReallyEasy
 import com.osudroid.mods.ModRelax
-import com.osudroid.mods.ModWindDown
-import com.osudroid.mods.ModWindUp
 import com.osudroid.utils.ModHashMap
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2
-import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.pow
 
@@ -28,15 +25,12 @@ import kotlin.math.pow
  *
  * Only RX/AP are handled here; normal play keeps the client's existing DPP
  * calculation. RX and AP formulas follow the server implementation:
- * - RX: standard PP with the server's OD-4/PR/RE adjustment, multiplied by the
- *   AR bonus; values >= 10000 are rejected.
+ * - RX: standard PP with the server's OD-4/PR/RE adjustment (DA overrides the
+ *   stats it sets), multiplied by the AR bonus; no 10000 PP limit.
  * - AP: speed/accuracy/flashlight only, normalized with exponent 1.1 and
- *   multiplied by 1.12, then passed through the same PP envelope.
+ *   multiplied by 1.12; no envelope.
  */
 object ServerScorePP {
-    private const val RX_MAX_PP = 10000.0
-    private const val PP_ENVELOPE_START = 4500.0
-    private const val PP_ENVELOPE_RANGE = 2500.0
 
     // The server only passes these mods to rosu. Client-only mods (2B, SV2,
     // PR/RE and automation mods) must not influence the displayed RX/AP PP.
@@ -61,12 +55,8 @@ object ServerScorePP {
             return null
         }
 
-        // The server rejects RX combined with AP/DA/WD/WU outright.
-        if (isRX && (isAP ||
-                mods.containsKey(ModDifficultyAdjust::class.java) ||
-                mods.containsKey(ModWindDown::class.java) ||
-                mods.containsKey(ModWindUp::class.java))
-        ) {
+        // RX+AP is contradictory; DA/WD/WU are valid and must still score.
+        if (isRX && isAP) {
             return Result("rxpp", 0.0, 0.0, 0.0)
         }
 
@@ -79,13 +69,16 @@ object ServerScorePP {
 
         if (isRX) {
             val hasRE = mods.containsKey(ModReallyEasy::class.java)
-            var od = beatmap.difficulty.od.toDouble() - 4.0
+            val da = mods.values.filterIsInstance<ModDifficultyAdjust>().firstOrNull()
+            var od = da?.od?.toDouble() ?: (beatmap.difficulty.od.toDouble() - 4.0)
 
-            if (mods.containsKey(ModPrecise::class.java)) {
-                od += 4.0
-            }
-            if (hasRE) {
-                od /= 2.0
+            if (da?.od == null) {
+                if (mods.containsKey(ModPrecise::class.java)) {
+                    od += 4.0
+                }
+                if (hasRE) {
+                    od /= 2.0
+                }
             }
             od = od.coerceIn(0.0, 10.0)
 
@@ -98,10 +91,10 @@ object ServerScorePP {
 
             attributes.overallDifficulty = od
 
-            val ar = if (hasRE) {
-                beatmap.difficulty.ar - 0.5
-            } else {
-                attributes.approachRate
+            val ar = when {
+                da?.ar != null -> da.ar!!.toDouble()
+                hasRE -> beatmap.difficulty.ar - 0.5
+                else -> attributes.approachRate
             }
             attributes.approachRate = ar
 
@@ -143,7 +136,8 @@ object ServerScorePP {
 
         val objectScale = min(1.0, objects / 1000.0)
         val finalPP = rosuPP * (1.0 + min(arBonus, arBonus * objectScale))
-        return if (!finalPP.isFinite() || finalPP < 0 || finalPP >= RX_MAX_PP) 0.0 else finalPP
+        if (!finalPP.isFinite() || finalPP < 0) return 0.0
+        return finalPP
     }
 
     private fun calculateAPPP(speed: Double, accuracy: Double, flashlight: Double, misses: Int): Double {
@@ -154,12 +148,9 @@ object ServerScorePP {
         return norm(1.1, 0.0, speed, accuracy, flashlight) * multiplier
     }
 
-    private fun capScorePP(pp: Double): Double {
-        if (!pp.isFinite() || pp <= 0) return 0.0
-        if (pp <= PP_ENVELOPE_START) return pp
-        val over = pp - PP_ENVELOPE_START
-        return PP_ENVELOPE_START + PP_ENVELOPE_RANGE * (1.0 - exp(-over / PP_ENVELOPE_RANGE))
-    }
+    /** No cap: only non-finite values are treated as zero. */
+    private fun capScorePP(pp: Double): Double =
+        if (!pp.isFinite() || pp <= 0) 0.0 else pp
 
     private fun norm(p: Double, vararg values: Double) =
         values.sumOf { it.coerceAtLeast(0.0).pow(p) }.pow(1.0 / p)
