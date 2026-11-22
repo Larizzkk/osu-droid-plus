@@ -2516,6 +2516,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             }
             cursorSprites = null;
         }
+        for (var cursor : tagCursors) {
+            cursor.dispose();
+        }
     }
 
     private void onExit() {
@@ -3125,6 +3128,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private void createAutoplayCursors(List<HitObject> autoplayObjects) {
         for (var cursor : tagCursors) {
             cursor.detachSelf();
+            cursor.dispose();
         }
         tagCursors.clear();
         tagQueues.clear();
@@ -3234,6 +3238,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
     private void clearCursorVisuals() {
         for (var cursor : tagCursors) {
             cursor.detachSelf();
+            cursor.dispose();
         }
         tagCursors.clear();
         tagQueues.clear();

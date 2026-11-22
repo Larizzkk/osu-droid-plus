@@ -102,9 +102,9 @@ public final class CursorBlurOverlay extends GLSurfaceView {
     }
 
     /**
-     * Reserves a slot for one cursor entity. Slots are intentionally never
-     * recycled during a process lifetime: cursor entities are few and a stale
-     * recycled slot could briefly draw at an old position after a scene change.
+     * Reserves a slot for one cursor entity. Slots are reused after a cursor
+     * releases them: releaseCursor() clears the stored path first, so a
+     * recycled slot cannot draw at the previous cursor's position.
      */
     public static int registerCursor() {
         synchronized (STATE_LOCK) {
