@@ -4,6 +4,7 @@ import com.un4seen.bass.BASS;
 import com.un4seen.bass.BASS_FX;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 
 import ru.nsu.ccfit.zuev.audio.Status;
 import ru.nsu.ccfit.zuev.osu.Config;
@@ -24,6 +25,8 @@ public class BassAudioFunc {
     private final BASS.BASS_CHANNELINFO channelInfo = new BASS.BASS_CHANNELINFO();
 
     private ByteBuffer buffer = null;
+    private FloatBuffer floatBuffer = null;
+    private final float[] spectrum = new float[WINDOW_FFT >> 1];
     private int playFlag = BASS.BASS_STREAM_PRESCAN;
     private boolean isGaming = false;
 
@@ -152,19 +155,42 @@ public class BassAudioFunc {
         return 0;
     }
 
+    /**
+     * Returns the shared FFT buffer. The caller must consume it immediately;
+     * the next call overwrites it. Kept allocation-free for 60 fps callers.
+     */
     public synchronized float[] getSpectrum() {
+        if (!fillSpectrumBuffer()) return null;
+        floatBuffer.clear();
+        floatBuffer.get(spectrum, 0, spectrum.length);
+        return spectrum;
+    }
+
+    /**
+     * Reads the first {@code count} FFT bins into a caller-owned buffer without
+     * allocating anything.
+     *
+     * @return false when no track is playing
+     */
+    public synchronized boolean getSpectrum(float[] out, int count) {
+        if (out == null || count <= 0 || !fillSpectrumBuffer()) return false;
+        int n = Math.min(count, Math.min(out.length, spectrum.length));
+        floatBuffer.clear();
+        floatBuffer.get(out, 0, n);
+        return true;
+    }
+
+    private boolean fillSpectrumBuffer() {
         if (BASS.BASS_ChannelIsActive(channel) != BASS.BASS_ACTIVE_PLAYING) {
-            return null;
+            return false;
         }
         if (buffer == null) {
             buffer = ByteBuffer.allocateDirect(WINDOW_FFT << 1);
             buffer.order(null);
+            floatBuffer = buffer.asFloatBuffer();
         }
         BASS.BASS_ChannelGetData(channel, buffer, BASS.BASS_DATA_FFT1024);
-        int resSize = WINDOW_FFT >> 1;
-        float[] spectrum = new float[resSize];
-        buffer.asFloatBuffer().get(spectrum);
-        return spectrum;
+        return true;
     }
 
     /**

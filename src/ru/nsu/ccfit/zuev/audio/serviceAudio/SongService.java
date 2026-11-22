@@ -178,6 +178,11 @@ public class SongService extends Service {
         return new float[0];
     }
 
+    /** Allocation-free FFT read for per-frame visualisers. */
+    public boolean getSpectrum(float[] out, int count) {
+        return audioFunc != null && audioFunc.getSpectrum(out, count);
+    }
+
     /**
      * Current peak level of the left/right output channels, or null when nothing
      * is playing.
