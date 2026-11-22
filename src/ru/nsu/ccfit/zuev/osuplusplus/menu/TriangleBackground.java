@@ -20,6 +20,7 @@ public class TriangleBackground extends Entity {
     private String style;
     private String backgroundPath;
     private float styleAge;
+    private float brightness = 1f;
 
     public TriangleBackground() {
         this.backgroundPath = ResourceManager.getInstance().getLoadedBackgroundPath();
@@ -44,9 +45,11 @@ public class TriangleBackground extends Entity {
         style = next;
         if (STYLE_LEGACY.equals(style)) {
             legacy = new LegacyTriangleBackground();
+            legacy.setBrightness(brightness);
             visual = legacy;
         } else {
             danser = new DanserTriangleBackground(backgroundPath);
+            danser.setBrightness(brightness);
             visual = danser;
         }
         attachChild(visual);
@@ -83,6 +86,20 @@ public class TriangleBackground extends Entity {
         backgroundPath = path;
         if (danser != null) {
             danser.setBackgroundPath(path);
+        }
+    }
+
+    /**
+     * Applies the background brightness to the active visualiser. The menu keeps
+     * its own dim bars, so only gameplay calls this with a value below 1.
+     */
+    public void setBrightness(float brightness) {
+        this.brightness = Math.max(0f, Math.min(1f, brightness));
+        if (danser != null) {
+            danser.setBrightness(this.brightness);
+        }
+        if (legacy != null) {
+            legacy.setBrightness(this.brightness);
         }
     }
 

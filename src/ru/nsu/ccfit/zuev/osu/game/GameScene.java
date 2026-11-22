@@ -663,6 +663,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         scene.setBackground(new EntityBackground(background));
         if (triangleBg != null) {
             triangleBg.setBackgroundPath(ResourceManager.getInstance().getLoadedBackgroundPath());
+            triangleBg.setBrightness(brightness);
         }
 
         if (storyboardSprite != null) {
@@ -1123,6 +1124,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         // osu!droid+ effects: animated triangle background behind the playfield and a
         // kiai flash overlay above the hit objects.
         triangleBg = new TriangleBackground();
+        triangleBg.setBrightness(Config.getInt("bgbrightness", 25) / 100f);
         bgScene.attachChild(triangleBg);
 
         initializeKiaiParticles();
@@ -1589,6 +1591,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
                 // We do not want
                 if (!breakAnimator.isBreak() && dimRectangle != null) {
                     dimRectangle.setAlpha(1f - brightness);
+                }
+                if (triangleBg != null) {
+                    triangleBg.setBrightness(brightness);
                 }
 
                 return Unit.INSTANCE;
@@ -2434,10 +2439,26 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         hud.onGameplayUpdate(this, deltaTime);
 
         breakAnimator.update(deltaTime);
+        updateTriangleBrightness();
 
         if (countdownAnimator != null) {
             countdownAnimator.update(deltaTime);
         }
+    }
+
+    /**
+     * The dim rectangle lives on the scene background, while the triangle layer
+     * is a child of bgScene above it. Feed the same effective brightness into
+     * the triangles, including the break fade (dimRectangle alpha goes to 0).
+     */
+    private void updateTriangleBrightness() {
+        if (triangleBg == null) {
+            return;
+        }
+        float brightness = dimRectangle != null
+                ? 1f - dimRectangle.getAlpha()
+                : Config.getInt("bgbrightness", 25) / 100f;
+        triangleBg.setBrightness(brightness);
     }
 
     @Nullable
