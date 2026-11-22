@@ -1010,6 +1010,7 @@ public class MainScene implements IUpdateHandler {
                 resetParallaxSprite(background, 0f, 0f);
                 resetParallaxSprite(lastBackground, 0f, 0f);
                 resetParallaxSprite(menuBgSprite, 0f, menuBgBaseY);
+                if (triangleBg != null) triangleBg.setParallax(0f, 0f);
             }
             return;
         }
@@ -1028,6 +1029,7 @@ public class MainScene implements IUpdateHandler {
         applyParallaxSprite(background, scale, dx, dy, 0f, 0f);
         applyParallaxSprite(lastBackground, scale, dx, dy, 0f, 0f);
         applyParallaxSprite(menuBgSprite, scale, dx, dy, 0f, menuBgBaseY);
+        if (triangleBg != null) triangleBg.setParallax(dx, dy);
         parallaxApplied = true;
     }
 
@@ -1483,6 +1485,9 @@ public class MainScene implements IUpdateHandler {
                         }
                     }));
                     lastBackground = background;
+                    if (triangleBg != null) {
+                        triangleBg.setBackgroundPath(ResourceManager.getInstance().getLoadedBackgroundPath());
+                    }
                 }
             } catch (Exception e) {
                 Debug.e(e.toString());
@@ -1642,6 +1647,9 @@ public class MainScene implements IUpdateHandler {
 
         GlobalManager.getInstance().getSongMenu().select();
         ResourceManager.getInstance().loadBackground(beatmap.getBackgroundPath());
+        if (triangleBg != null) {
+            triangleBg.setBackgroundPath(ResourceManager.getInstance().getLoadedBackgroundPath());
+        }
         GlobalManager.getInstance().getSongService().preLoad(beatmap.getAudioPath());
         GlobalManager.getInstance().getSongService().play();
 

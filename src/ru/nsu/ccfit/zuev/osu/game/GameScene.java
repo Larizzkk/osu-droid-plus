@@ -661,6 +661,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         parallaxPosY = 0f;
         parallaxLastTime = -1f;
         scene.setBackground(new EntityBackground(background));
+        if (triangleBg != null) {
+            triangleBg.setBackgroundPath(ResourceManager.getInstance().getLoadedBackgroundPath());
+        }
 
         if (storyboardSprite != null) {
             if (isStoryboardEnabled) {
@@ -4147,6 +4150,9 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         parallaxLastTime = now;
 
         beatmapBackground.setPosition(bgBaseX + parallaxPosX, bgBaseY + parallaxPosY);
+        if (triangleBg != null) {
+            triangleBg.setParallax(parallaxPosX, parallaxPosY);
+        }
     }
 
     /**
