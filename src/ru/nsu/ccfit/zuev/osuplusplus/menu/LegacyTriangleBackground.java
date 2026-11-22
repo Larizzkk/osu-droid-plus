@@ -47,6 +47,7 @@ public class LegacyTriangleBackground extends ColoredSpriteBatch {
     private int maxTriangles = 25;
     private boolean rotateEnabled = true;
     private char direction = 'd';
+    private float brightness = 1f;
     private float kiaiBoostTimer;
     private float settingsAge;
 
@@ -269,7 +270,7 @@ public class LegacyTriangleBackground extends ColoredSpriteBatch {
             return true;
         }
 
-        final float tint = 1f;
+        final float tint = brightness;
         for (int i = 0; i < active.size(); i++) {
             Particle particle = active.get(i);
             drawWithoutChecks(
@@ -333,6 +334,10 @@ public class LegacyTriangleBackground extends ColoredSpriteBatch {
         }
     }
 
+    /** Applies the same background dim as the danser triangles. */
+    public void setBrightness(float brightness) {
+        this.brightness = Math.max(0f, Math.min(1f, brightness));
+    }
 
     public void clearAll() {
         for (Particle particle : active) {

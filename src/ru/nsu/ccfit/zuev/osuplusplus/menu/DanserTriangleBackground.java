@@ -52,6 +52,8 @@ public class DanserTriangleBackground extends Entity {
     private float density = 1f;
     private float scale = 1f;
     private float speed = 1f;
+    /** Background alpha from danser-go: triangles are multiplied by it. */
+    private float brightness = 1f;
     private float settingsAge;
     private final float[] fftBars = new float[FFT_BARS];
 
@@ -222,17 +224,7 @@ public class DanserTriangleBackground extends Entity {
 
         float shade = random.nextFloat() * 0.2f;
         int colorIndex = random.nextInt(Integer.MAX_VALUE);
-        if (colorPalette != null && colorPalette.length > 0) {
-            int color = colorPalette[colorIndex % colorPalette.length];
-            sprite.setColor(
-                ((color >> 16) & 0xff) / 255f,
-                ((color >> 8) & 0xff) / 255f,
-                (color & 0xff) / 255f,
-                1f
-            );
-        } else {
-            sprite.setColor(shade, shade, shade, 1f);
-        }
+        applyColor(sprite, shade, colorIndex);
 
         attachChild(sprite);
         triangles.add(new Triangle(sprite, size, shade, colorIndex));
@@ -249,24 +241,38 @@ public class DanserTriangleBackground extends Entity {
         applyPalette();
     }
 
+    /**
+     * Matches danser-go's bgAlpha: the background dim rectangle is not a parent
+     * of this layer, so the triangles must receive the same brightness factor
+     * themselves. 1 = fully visible, 0 = black.
+     */
+    public void setBrightness(float brightness) {
+        float next = Math.max(0f, Math.min(1f, brightness));
+        if (Math.abs(next - this.brightness) < 0.001f) {
+            return;
+        }
+        this.brightness = next;
+        applyPalette();
+    }
+
     private void applyPalette() {
         for (Triangle triangle : triangles) {
-            if (colorPalette != null && colorPalette.length > 0) {
-                int color = colorPalette[triangle.colorIndex % colorPalette.length];
-                triangle.sprite.setColor(
-                    ((color >> 16) & 0xff) / 255f,
-                    ((color >> 8) & 0xff) / 255f,
-                    (color & 0xff) / 255f,
-                    1f
-                );
-            } else {
-                triangle.sprite.setColor(
-                    triangle.shade,
-                    triangle.shade,
-                    triangle.shade,
-                    1f
-                );
-            }
+            applyColor(triangle.sprite, triangle.shade, triangle.colorIndex);
+        }
+    }
+
+    private void applyColor(Sprite sprite, float shade, int colorIndex) {
+        if (colorPalette != null && colorPalette.length > 0) {
+            int color = colorPalette[colorIndex % colorPalette.length];
+            sprite.setColor(
+                (((color >> 16) & 0xff) / 255f) * brightness,
+                (((color >> 8) & 0xff) / 255f) * brightness,
+                ((color & 0xff) / 255f) * brightness,
+                1f
+            );
+        } else {
+            float shaded = shade * brightness;
+            sprite.setColor(shaded, shaded, shaded, 1f);
         }
     }
 
