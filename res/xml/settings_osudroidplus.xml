@@ -250,49 +250,12 @@
             app:min="1"
             app:showSeekBarValue="true" />
 
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="100"
-            android:key="trailSize"
-            android:max="300"
-            android:summary="@string/droidplus_trail_size_summary"
-            android:title="@string/droidplus_trail_size_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="10"
-            app:showSeekBarValue="true" />
-
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="100"
-            android:key="trailWidth"
-            android:max="300"
-            android:summary="@string/droidplus_trail_width_summary"
-            android:title="@string/droidplus_trail_width_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="10"
-            app:showSeekBarValue="true" />
-
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="trailFastRemoval"
-            android:summary="@string/droidplus_trail_fast_removal_summary"
-            android:title="@string/droidplus_trail_fast_removal_title"
-            app:layout="@layout/settings_preference_checkbox" />
-
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="200"
-            android:key="trailFadeTime"
-            android:max="1000"
-            android:summary="@string/droidplus_trail_fade_time_summary"
-            android:title="@string/droidplus_trail_fade_time_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="1"
-            app:showSeekBarValue="true" />
-
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="trailDelayEnabled"
             android:summary="@string/droidplus_trail_delay_summary"
             android:title="@string/droidplus_trail_delay_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox" />
 
         <CheckBoxPreference
             android:defaultValue="true"

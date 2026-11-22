@@ -122,14 +122,6 @@
     <string name="droidplus_trail_implementation_summary">Choose how the cursor trail looks</string>
     <string name="droidplus_trail_length_title">Trail length</string>
     <string name="droidplus_trail_length_summary">How long the cursor trail stays visible</string>
-    <string name="droidplus_trail_size_title">Trail size</string>
-    <string name="droidplus_trail_size_summary">Size of trail quads, percent</string>
-    <string name="droidplus_trail_width_title">Trail width</string>
-    <string name="droidplus_trail_width_summary">Width of the ribbon, percent</string>
-    <string name="droidplus_trail_fast_removal_title">Fast trail removal</string>
-    <string name="droidplus_trail_fast_removal_summary">Trail fades as a whole regardless of its length</string>
-    <string name="droidplus_trail_fade_time_title">Trail fade time</string>
-    <string name="droidplus_trail_fade_time_summary">Point lifetime when fast removal is off, hundredths of a second</string>
     <string name="droidplus_trail_delay_title">Trail delay</string>
     <string name="droidplus_trail_delay_summary">Show the trail only after holding the cursor for a moment</string>
 

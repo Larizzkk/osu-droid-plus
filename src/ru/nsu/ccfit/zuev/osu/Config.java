@@ -1065,7 +1065,7 @@ public class Config {
     }
 
     public static float getTrailSize() {
-        return getInt("trailSize", 100) / 100f;
+        return 1f;
     }
 
     public static void setTrailSize(float size) {
@@ -1073,7 +1073,7 @@ public class Config {
     }
 
     public static float getTrailWidth() {
-        return getInt("trailWidth", 100) / 100f;
+        return 1f;
     }
 
     public static void setTrailWidth(float width) {
@@ -1081,12 +1081,11 @@ public class Config {
     }
 
     /**
-     * Long trail removal mode. When ON (default), trail points age out with
-     * danser-go's count-proportional formula. When OFF, every point lives
-     * exactly {@link #getTrailFadeTime()} seconds of gameplay time instead.
+     * Long trail removal uses danser-go's count-proportional formula. This is
+     * intentionally not configurable from the settings screen.
      */
     public static boolean isTrailFastRemoval() {
-        return getBoolean("trailFastRemoval", true);
+        return true;
     }
 
     public static void setTrailFastRemoval(boolean enabled) {
@@ -1094,7 +1093,7 @@ public class Config {
     }
 
     public static float getTrailFadeTime() {
-        return getInt("trailFadeTime", 200) / 100f;
+        return 2f;
     }
 
     public static void setTrailFadeTime(float seconds) {
