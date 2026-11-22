@@ -43,6 +43,7 @@ import com.osudroid.BuildSettings;
 import com.osudroid.beatmaps.BeatmapCache;
 import com.osudroid.data.DatabaseManager;
 import com.osudroid.debug.DebugPlaygroundScene;
+import com.osudroid.graphics.shader.CursorBlurOverlay;
 import com.osudroid.plugin.PluginManager;
 import com.osudroid.plugin.PluginPauseHandler;
 import com.osudroid.resources.R;
@@ -126,6 +127,7 @@ public class MainActivity extends BaseGameActivity implements
     private float maxRefreshRate = 60;
     private int maxRefreshRateModeId = 0;
     private MessageDialog multiWindowAlert;
+    private CursorBlurOverlay cursorBlurOverlay;
 
     // Multiplayer
     private Uri roomInviteLink;
@@ -420,6 +422,12 @@ public class MainActivity extends BaseGameActivity implements
         RelativeLayout mainLayout = new RelativeLayout(this);
         mainLayout.setBackgroundColor(Color.BLACK);
         mainLayout.addView(mRenderSurfaceView, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
+
+        // GLES2 shader layer for the cursor motion blur. It is transparent, sits
+        // above the game surface and below the regular UI, and never consumes
+        // touch events.
+        cursorBlurOverlay = new CursorBlurOverlay(this);
+        mainLayout.addView(cursorBlurOverlay, new LayoutParams(MATCH_PARENT, MATCH_PARENT));
 
         FrameLayout frameLayout = new FrameLayout(this);
         frameLayout.setId(View.generateViewId());
@@ -765,6 +773,9 @@ public class MainActivity extends BaseGameActivity implements
     public void onResume() {
         super.onResume();
         activityVisible = true;
+        if (cursorBlurOverlay != null) {
+            cursorBlurOverlay.onResume();
+        }
 
         PluginPauseHandler.dispatchResume();
 
@@ -796,6 +807,9 @@ public class MainActivity extends BaseGameActivity implements
     public void onPause() {
         super.onPause();
         activityVisible = false;
+        if (cursorBlurOverlay != null) {
+            cursorBlurOverlay.onPause();
+        }
 
         PluginPauseHandler.dispatchPause();
 
