@@ -28,20 +28,20 @@
     <string name="droidplus_danser_mandala_title">Mandala copies</string>
     <string name="droidplus_danser_mandala_summary">Rotated copies of hit objects and cursors around the playfield (2-8, 0 = off)</string>
 
-    <string name="droidplus_cat_leaderboard">Leaderboard</string>
-    <string name="droidplus_leaderboard_default_title">Default online leaderboard</string>
-    <string name="droidplus_leaderboard_default_summary">Which leaderboard opens with a beatmap. Manual switching still works.</string>
-    <string name="droidplus_leaderboard_limit_title">Limit leaderboard players</string>
-    <string name="droidplus_leaderboard_limit_summary">Off shows the full server leaderboard (up to 100 players)</string>
-    <string name="droidplus_leaderboard_max_players_title">Maximum players</string>
-    <string name="droidplus_leaderboard_max_players_summary">How many leaderboard rows to show when the limit is on</string>
+    <string name="droidplus_cat_leaderboard">Leaderboards</string>
+    <string name="droidplus_leaderboard_default_title">Default leaderboard</string>
+    <string name="droidplus_leaderboard_default_summary">Which leaderboard opens with a beatmap</string>
+    <string name="droidplus_leaderboard_limit_title">Short leaderboard</string>
+    <string name="droidplus_leaderboard_limit_summary">Show fewer players instead of the full server list</string>
+    <string name="droidplus_leaderboard_max_players_title">Players shown</string>
+    <string name="droidplus_leaderboard_max_players_summary">How many rows the short leaderboard shows</string>
 
     <string-array name="droidplus_leaderboard_default_names">
-        <item>Local scores</item>
-        <item>Score</item>
-        <item>DPP</item>
-        <item>RX PP</item>
-        <item>AP PP</item>
+        <item>This device</item>
+        <item>Total score</item>
+        <item>DPP rating</item>
+        <item>Relax PP</item>
+        <item>Autopilot PP</item>
         <item>Cheat PP</item>
     </string-array>
 

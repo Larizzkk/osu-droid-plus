@@ -7,78 +7,78 @@
     <string name="plus_autoplay_style_summary">Cursor path style used while the Autoplay mod is active</string>
 
     <!-- osu!droid+ settings tab -->
-    <string name="droidplus_cat_gameplay_extras">Gameplay extras</string>
+    <string name="droidplus_cat_gameplay_extras">Gameplay helpers</string>
     <string name="droidplus_cat_kiai">Kiai effects</string>
-    <string name="droidplus_cat_visual">Visual effects</string>
+    <string name="droidplus_cat_visual">Background &amp; effects</string>
     <string name="droidplus_cat_autoplay">Autoplay movement</string>
-    <string name="droidplus_cat_server">Server</string>
+    <string name="droidplus_cat_server">Community</string>
 
-    <string name="droidplus_break_countdown_title">Break countdown</string>
-    <string name="droidplus_break_countdown_summary">Show a skin-rendered countdown during breaks</string>
+    <string name="droidplus_break_countdown_title">Break timer</string>
+    <string name="droidplus_break_countdown_summary">Show a countdown during breaks</string>
 
-    <string name="droidplus_unrestricted_mods_title">Unrestricted mods</string>
-    <string name="droidplus_unrestricted_mods_summary">Allow combining mods that are normally incompatible (except automation mods)</string>
+    <string name="droidplus_unrestricted_mods_title">Combine any mods</string>
+    <string name="droidplus_unrestricted_mods_summary">Allow mods that normally cannot be used together</string>
     <string name="opt_hide_replay_settings_panel_title">Hide replay settings panel</string>
     <string name="opt_hide_replay_settings_panel_summary">Hide the Settings button (Playback, Visual settings) when watching replays or autoplay</string>
 
     <string name="droidplus_heartbeat_volume_title">Heartbeat volume</string>
     <string name="droidplus_heartbeat_volume_summary">Volume of the heartbeat sound effect in the main menu</string>
 
-    <string name="droidplus_manual_submit_title">Manual score submit</string>
-    <string name="droidplus_manual_submit_summary">Show a Submit button on the results screen instead of uploading automatically</string>
+    <string name="droidplus_manual_submit_title">Submit scores manually</string>
+    <string name="droidplus_manual_submit_summary">Show a Submit button on results instead of uploading automatically</string>
 
-    <string name="droidplus_kiai_flash_title">Kiai flash</string>
-    <string name="droidplus_kiai_flash_summary">One short screen flash when a kiai section starts</string>
-    <string name="droidplus_hit_circle_pulse_title">Hit circle pulse</string>
-    <string name="droidplus_hit_circle_pulse_summary">Scale hit circles on the beat during kiai</string>
+    <string name="droidplus_kiai_flash_title">Screen flash</string>
+    <string name="droidplus_kiai_flash_summary">A short flash when a kiai section starts</string>
+    <string name="droidplus_hit_circle_pulse_title">Beat pulse</string>
+    <string name="droidplus_hit_circle_pulse_summary">Hit circles pulse to the beat during kiai</string>
 
-    <string name="droidplus_kiai_particles_title">Kiai particles</string>
-    <string name="droidplus_kiai_particles_summary">Star bursts from both screen edges when kiai starts</string>
+    <string name="droidplus_kiai_particles_title">Star burst</string>
+    <string name="droidplus_kiai_particles_summary">Stars fly in from the screen edges when kiai starts</string>
 
-    <string name="droidplus_menu_kiai_flash_title">Menu kiai flash</string>
-    <string name="droidplus_menu_kiai_flash_summary">Subtle white pulse in the main menu, synced to the preview BPM</string>
+    <string name="droidplus_menu_kiai_flash_title">Menu pulse</string>
+    <string name="droidplus_menu_kiai_flash_summary">A soft flash in the main menu that follows the song\'s beat</string>
 
-    <string name="droidplus_kiai_flash_brightness_title">Kiai flash brightness</string>
-    <string name="droidplus_kiai_flash_brightness_summary">Peak flash opacity, 20 = default</string>
-    <string name="droidplus_triangle_style_title">Triangle style</string>
-    <string name="droidplus_triangle_style_summary">Legacy particles or the danser-go visualiser</string>
-    <string name="droidplus_cat_triangles_legacy">Legacy triangles</string>
-    <string name="droidplus_cat_triangles_danser">Danser triangles</string>
+    <string name="droidplus_kiai_flash_brightness_title">Flash brightness</string>
+    <string name="droidplus_kiai_flash_brightness_summary">How bright the kiai flash is</string>
+    <string name="droidplus_triangle_style_title">Shape style</string>
+    <string name="droidplus_triangle_style_summary">Simple shapes or danser-style triangles</string>
+    <string name="droidplus_triangle_shadowed_title">Soft shadows</string>
+    <string name="droidplus_triangle_shadowed_summary">Add soft shadows to the triangles</string>
+    <string name="droidplus_cat_triangles_legacy">Simple shape settings</string>
+    <string name="droidplus_cat_triangles_danser">Danser triangle settings</string>
     <string name="droidplus_triangle_size_title">Shape size</string>
-    <string name="droidplus_triangle_size_summary">Size of every legacy background shape</string>
+    <string name="droidplus_triangle_size_summary">Size of each drifting shape</string>
     <string name="droidplus_triangle_count_title">Shape count</string>
-    <string name="droidplus_triangle_count_summary">Maximum legacy shapes alive at once</string>
+    <string name="droidplus_triangle_count_summary">How many shapes can be on screen</string>
     <string name="droidplus_particle_shape_title">Shape</string>
     <string name="droidplus_particle_shape_summary">Triangle, circle or square</string>
     <string name="droidplus_particle_direction_title">Direction</string>
-    <string name="droidplus_particle_direction_summary">Drift direction of the legacy shapes</string>
+    <string name="droidplus_particle_direction_summary">Where the shapes drift</string>
     <string name="droidplus_particle_rotation_title">Rotate shapes</string>
-    <string name="droidplus_particle_rotation_summary">Spin each legacy shape while it drifts</string>
-    <string name="droidplus_triangle_shadowed_title">Shadowed triangles</string>
-    <string name="droidplus_triangle_shadowed_summary">Use the soft shadow texture from danser-go</string>
+    <string name="droidplus_particle_rotation_summary">Spin each shape as it moves</string>
     <string name="droidplus_triangle_density_title">Triangle density</string>
-    <string name="droidplus_triangle_density_summary">Percentage of the 40 danser triangles to show</string>
-    <string name="droidplus_triangle_scale_title">Triangle scale</string>
-    <string name="droidplus_triangle_scale_summary">Scale of the triangle field in percent</string>
+    <string name="droidplus_triangle_density_summary">How many triangles to show</string>
+    <string name="droidplus_triangle_scale_title">Triangle size</string>
+    <string name="droidplus_triangle_scale_summary">Scale of the triangle field</string>
     <string name="droidplus_triangle_speed_title">Triangle speed</string>
-    <string name="droidplus_triangle_speed_summary">Base rise speed of the triangles in percent</string>
-    <string name="droidplus_parallax_title">Parallax background</string>
-    <string name="droidplus_parallax_summary">Shift the background slightly against your finger</string>
-    <string name="droidplus_parallax_strength_title">Parallax strength</string>
-    <string name="droidplus_parallax_strength_summary">How far the background follows the finger, percent</string>
-    <string name="droidplus_triangles_title">Triangle background</string>
-    <string name="droidplus_triangles_summary">Danser-style triangles behind the playfield and in the menu</string>
+    <string name="droidplus_triangle_speed_summary">How fast the triangles rise</string>
+    <string name="droidplus_parallax_title">Background parallax</string>
+    <string name="droidplus_parallax_summary">The background shifts slightly as you move</string>
+    <string name="droidplus_parallax_strength_title">Parallax amount</string>
+    <string name="droidplus_parallax_strength_summary">How much the background moves</string>
+    <string name="droidplus_triangles_title">Animated background</string>
+    <string name="droidplus_triangles_summary">Moving shapes behind the playfield and in the menu</string>
 
-    <string name="droidplus_snowfall_title">Snowfall</string>
+    <string name="droidplus_snowfall_title">Snow in the menu</string>
     <string name="droidplus_snowfall_summary">Snow particles in the main menu</string>
 
     <string name="droidplus_autoplay_style_title">Movement type</string>
     <string name="droidplus_autoplay_style_summary">Cursor path style used while the Autoplay mod is active</string>
 
-    <string name="droidplus_cat_visualizer">Visualizer</string>
+    <string name="droidplus_cat_visualizer">Menu visualizer</string>
 
     <string-array name="triangle_style_names">
-        <item>Legacy particles</item>
+        <item>Simple shapes</item>
         <item>Danser triangles</item>
     </string-array>
 
@@ -111,8 +111,8 @@
         <item>right</item>
     </string-array>
 
-    <string name="droidplus_visualizer_enabled_title">Spectrum visualizer</string>
-    <string name="droidplus_visualizer_enabled_summary">Show the bar visualizer in the main menu</string>
+    <string name="droidplus_visualizer_enabled_title">Music visualizer</string>
+    <string name="droidplus_visualizer_enabled_summary">Show bars that react to the music in the main menu</string>
     <string name="droidplus_visualizer_intensity_title">Visualizer intensity</string>
     <string name="droidplus_visualizer_intensity_summary">Bar amplitude, percent</string>
     <string name="droidplus_visualizer_decay_title">Visualizer decay speed</string>
@@ -121,15 +121,15 @@
     <string name="droidplus_visualizer_update_rate_summary">Spectrum sampling interval, milliseconds</string>
     <string name="droidplus_visualizer_rotation_title">Visualizer rotation speed</string>
     <string name="droidplus_visualizer_rotation_summary">Bars per rotation step, 0 disables rotation</string>
-    <string name="droidplus_visualizer_kiai_dim_title">Dim outside kiai</string>
-    <string name="droidplus_visualizer_kiai_dim_summary">Halve the amplitude outside kiai sections</string>
+    <string name="droidplus_visualizer_kiai_dim_title">Dim between kiai</string>
+    <string name="droidplus_visualizer_kiai_dim_summary">Make the bars smaller outside kiai sections</string>
 
-    <string name="droidplus_cat_cursor">Cursor &amp; trail</string>
+    <string name="droidplus_cat_cursor">Cursor</string>
 
-    <string name="droidplus_trail_implementation_title">Trail style</string>
-    <string name="droidplus_trail_implementation_summary">Legacy (stable dots), long (danser-go ribbon) or the original osu!droid particle trail</string>
+    <string name="droidplus_trail_implementation_title">Trail type</string>
+    <string name="droidplus_trail_implementation_summary">Choose how the cursor trail looks</string>
     <string name="droidplus_trail_length_title">Trail length</string>
-    <string name="droidplus_trail_length_summary">Length of the long trail, in hundredths of a second</string>
+    <string name="droidplus_trail_length_summary">How long the cursor trail stays visible</string>
     <string name="droidplus_trail_size_title">Trail size</string>
     <string name="droidplus_trail_size_summary">Size of trail quads, percent</string>
     <string name="droidplus_trail_width_title">Trail width</string>
@@ -139,7 +139,7 @@
     <string name="droidplus_trail_fade_time_title">Trail fade time</string>
     <string name="droidplus_trail_fade_time_summary">Point lifetime when fast removal is off, hundredths of a second</string>
     <string name="droidplus_trail_delay_title">Trail delay</string>
-    <string name="droidplus_trail_delay_summary">Show the long trail only after holding the cursor for one second</string>
+    <string name="droidplus_trail_delay_summary">Show the trail only after holding the cursor for a moment</string>
 
     <string name="droidplus_motion_blur_title">Motion blur</string>
     <string name="droidplus_motion_blur_summary">Blur the cursor when it moves fast</string>
@@ -212,9 +212,9 @@
     </string-array>
 
     <string-array name="trail_implementation_names">
-        <item>Legacy (dots)</item>
-        <item>Long (ribbon)</item>
-        <item>osu!droid (classic)</item>
+        <item>Dots</item>
+        <item>Ribbon</item>
+        <item>Classic osu!droid</item>
     </string-array>
     <string-array name="trail_implementation_values">
         <item>0</item>
@@ -222,8 +222,8 @@
         <item>2</item>
     </string-array>
 
-    <string name="droidplus_server_title">osu!droid+ server</string>
-    <string name="droidplus_server_summary">Open the osu!droid+ server website</string>
+    <string name="droidplus_server_title">Open osu!droid+ website</string>
+    <string name="droidplus_server_summary">Visit the community server page</string>
 
     <string-array name="autoplay_movement_names">
         <item>Linear</item>
