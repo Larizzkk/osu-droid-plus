@@ -717,10 +717,11 @@ public class MainScene implements IUpdateHandler {
         hitsound = ResourceManager.getInstance().loadSound("menuhit", "sfx/menuhit.ogg", false);
         heartbeatSound = ResourceManager.getInstance().loadSound("heartbeat", "sfx/heartbeat.ogg", false);
 
-        // Floating shapes sit above the dim bars (index 1/2) but below every UI
-        // element created later; they are deliberately very faint (alpha 0.04-0.12).
+        // Floating shapes belong to the background: above the background sprite,
+        // below the dim bars and every UI element. MainMenu inserts its buttons
+        // above this layer (see MainMenu.attachButtons), so they stay clickable.
         triangleBg = new TriangleBackground();
-        scene.attachChild(triangleBg, Math.min(3, scene.getChildCount()));
+        scene.attachChild(triangleBg, Math.min(1, scene.getChildCount()));
 
         createClock(scene);
     }
@@ -785,13 +786,17 @@ public class MainScene implements IUpdateHandler {
     private void initSideFlashes() {
         final float boxWidth = 200f;
 
+        // Above the background, triangle effect and dim bars; below the menu
+        // buttons and the rest of the UI, so a beat flash never hides controls.
+        final int flashLayer = 3;
+
         leftFlash = new Rectangle(-boxWidth + 50f, 0, boxWidth, Config.getRES_HEIGHT());
         leftFlash.setColor(1f, 1f, 1f, 0f);
-        scene.attachChild(leftFlash, 0);
+        scene.attachChild(leftFlash, flashLayer);
 
         rightFlash = new Rectangle(Config.getRES_WIDTH() - 50f, 0, boxWidth, Config.getRES_HEIGHT());
         rightFlash.setColor(1f, 1f, 1f, 0f);
-        scene.attachChild(rightFlash, 0);
+        scene.attachChild(rightFlash, flashLayer);
     }
 
     /**

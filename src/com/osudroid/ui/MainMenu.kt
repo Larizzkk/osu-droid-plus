@@ -190,16 +190,20 @@ class MainMenu(val main: MainScene) {
 
 
     fun attachButtons() {
+        // Above the background, triangle effect and dim bars, but below the rest
+        // of the menu UI (logo, music controls, overlays).
+        val buttonLayer = 4
+
         if (!first.hasParent()) {
-            main.scene.attachChild(first, 1)
+            main.scene.attachChild(first, buttonLayer)
         }
 
         if (!second.hasParent()) {
-            main.scene.attachChild(second, 1)
+            main.scene.attachChild(second, buttonLayer)
         }
 
         if (!third.hasParent()) {
-            main.scene.attachChild(third, 1)
+            main.scene.attachChild(third, buttonLayer)
         }
     }
 
