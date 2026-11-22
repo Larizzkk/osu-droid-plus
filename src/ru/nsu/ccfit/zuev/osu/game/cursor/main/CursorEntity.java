@@ -1,5 +1,6 @@
 package ru.nsu.ccfit.zuev.osu.game.cursor.main;
 
+import com.osudroid.graphics.shader.CursorBlurOverlay;
 import com.reco1l.andengine.component.UIComponent;
 
 import org.anddev.andengine.entity.Entity;
@@ -16,6 +17,7 @@ import ru.nsu.ccfit.zuev.osu.game.cursor.trail.CursorTrailOptimized;
 
 public class CursorEntity extends UIComponent {
     protected CursorSprite cursorSprite;
+    private CursorMotionBlur motionBlur;
     protected Object trail = null; // CursorTrail (legacy) or CursorTrailOptimized (long)
     private boolean isShowing = false;
     protected int trailImplementation = 1; // Default to long (optimized) trail
@@ -45,12 +47,16 @@ public class CursorEntity extends UIComponent {
     private float settingsRefreshTimer = 0f;
     private boolean trailDelayEnabled = true;
 
+
     public CursorEntity() {
         skinVersion = ResourceManager.getInstance().getSkinVersion();
+        CursorBlurOverlay.setSkinPath(Config.getSkinPath());
         // The port's CursorSprite anchors itself to the centre and loads the
         // skin texture on its own.
         cursorSprite = new CursorSprite();
-
+        // New key: the old ghost-trail implementation used "cursorMotionBlur"
+        // with a default of OFF, and that stale preference must not silently
+        // disable the new directional blur.
         // Load trail implementation from config
         loadTrailImplementation();
         trailDelayEnabled = Config.getBoolean("trailDelayEnabled", true);
@@ -62,7 +68,14 @@ public class CursorEntity extends UIComponent {
             createTrail(trailTex);
         }
 
+        // The blur tracker is a child of the cursor and is attached after the
+        // sprite, so its draw callback runs with the final cursor position. It
+        // draws nothing in this GLES1 context; the shader overlay does the work.
         attachChild(cursorSprite);
+        ensureMotionBlur();
+        if (motionBlur != null && !motionBlur.hasParent()) {
+            attachChild(motionBlur);
+        }
         setVisible(false);
 
         // Not necessary to update by itself since it's done by GameScene.
@@ -77,6 +90,22 @@ public class CursorEntity extends UIComponent {
         }
         // Clamp to valid range: 0=legacy, 1=long (optimized), 2=osu!droid
         trailImplementation = Math.max(0, Math.min(2, trailImplementation));
+    }
+
+    /**
+     * Creates the blur tracker once per cursor. It does not depend on the skin
+     * texture: the GLES2 overlay loads cursor.png itself and can reload it after
+     * a skin switch.
+     */
+    private void ensureMotionBlur() {
+        if (motionBlur != null) {
+            return;
+        }
+
+        motionBlur = new CursorMotionBlur(this);
+        if (cursorSprite.hasParent()) {
+            attachChild(motionBlur);
+        }
     }
 
     private void createTrail(TextureRegion trailTex) {
@@ -209,6 +238,11 @@ public class CursorEntity extends UIComponent {
     }
 
     public void setShowing(boolean showing) {
+        if (motionBlur != null && showing != isShowing) {
+            // A tap/UP is a discontinuity for the blur just like it is for the
+            // trail: never smear across the previous position.
+            motionBlur.reset();
+        }
         if (!showing) {
             // Cursor hidden: reset timer and disable trail
             showTimer = 0f;
@@ -270,6 +304,9 @@ public class CursorEntity extends UIComponent {
      * spawn is time-gated at the CURRENT position and never interpolates.
      */
     public void onCursorPress() {
+        if (motionBlur != null) {
+            motionBlur.reset();
+        }
         if (trail != null && trailImplementation == 1) {
             ((CursorTrailOptimized) trail).markDiscontinuity();
         }
@@ -295,6 +332,10 @@ public class CursorEntity extends UIComponent {
             refreshTrailImplementation();
             updateTrailLength();
             trailDelayEnabled = Config.getBoolean("trailDelayEnabled", true);
+            ensureMotionBlur();
+            if (motionBlur != null) {
+                motionBlur.reloadSettings();
+            }
         }
 
         if (isShowing) {
@@ -437,6 +478,22 @@ public class CursorEntity extends UIComponent {
         cursorSprite = new CursorSprite();
         attachChild(cursorSprite);
 
+        // Keep the tracker after the new sprite so it samples the cursor at the
+        // same point in the draw pass that renders the visible cursor.
+        if (motionBlur != null) {
+            if (motionBlur.hasParent()) {
+                motionBlur.detachSelf();
+            }
+            attachChild(motionBlur);
+        }
+
+        CursorBlurOverlay.setSkinPath(Config.getSkinPath());
+        if (motionBlur != null) {
+            // The rebuilt sprite starts at a new draw-pass state; do not bridge
+            // the blur history across it.
+            motionBlur.reset();
+        }
+
         setPosition(x, y);
         cursorSprite.setScale(scale);
         setVisible(visible);
@@ -473,6 +530,19 @@ public class CursorEntity extends UIComponent {
             classicEmitter.setCenter(pX + classicOffsetX, pY + classicOffsetY);
         }
         super.setPosition(pX, pY);
+    }
+
+    CursorSprite getCursorSprite() {
+        return cursorSprite;
+    }
+
+    /** Releases native/overlay resources before the entity is discarded. */
+    public void dispose() {
+        if (motionBlur != null) {
+            motionBlur.release();
+            motionBlur = null;
+        }
+        cleanupTrail();
     }
 
     public void cleanupTrail() {
