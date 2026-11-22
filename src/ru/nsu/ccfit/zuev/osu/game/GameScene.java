@@ -2293,7 +2293,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
             replaySettingsPanel = null;
             replayAnalysisOverlay = null;
             breakPeriods = null;
-            cursorSprites = null;
+            disposeCursors();
             this.playableBeatmap = null;
             performanceAttributes = null;
             performanceCalculationParameters = null;
@@ -2486,6 +2486,17 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         });
     }
 
+    private void disposeCursors() {
+        if (cursorSprites != null) {
+            for (CursorEntity cursor : cursorSprites) {
+                if (cursor != null) {
+                    cursor.dispose();
+                }
+            }
+            cursorSprites = null;
+        }
+    }
+
     private void onExit() {
         BeatmapSkinManager.setSkinEnabled(false);
         GameObjectPool.getInstance().purge();
@@ -2507,7 +2518,7 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         effectControlPoints = null;
         parsedBeatmap = null;
         playableBeatmap = null;
-        cursorSprites = null;
+        disposeCursors();
         lastMods = null;
         performanceAttributes = null;
         performanceCalculationParameters = null;
