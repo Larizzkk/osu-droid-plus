@@ -220,17 +220,17 @@ class SettingsFragment : SettingsFragment() {
         createSectionButton("Gameplay", R.drawable.videogame_asset_24px, Section.Gameplay)
         createSectionButton("Graphics", R.drawable.display_settings_24px, Section.Graphics)
         createSectionButton("Audio", R.drawable.headphones_24px, Section.Audio)
+        createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
 
         if (!Multiplayer.isMultiplayer) {
             createSectionButton("Library", R.drawable.library_music_24px, Section.Library)
         }
 
-        createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
-        createSectionButton("Movements", R.drawable.videogame_asset_24px, Section.Movements)
+        createSectionButton("Movements", R.drawable.tune_24px, Section.Movements)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
         createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
-        createSectionButton("Cheats", R.drawable.videogame_asset_24px, Section.Cheats)
         createSectionButton("Plugins", R.drawable.folder_24px, Section.Plugins)
+        createSectionButton("Cheats", R.drawable.shield_person_24px, Section.Cheats)
 
 
         sectionSelector[0].topMargin = 32.dp
