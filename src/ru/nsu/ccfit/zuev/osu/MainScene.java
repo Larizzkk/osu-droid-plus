@@ -87,15 +87,17 @@ import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
  */
 public class MainScene implements IUpdateHandler {
 
-    // Legacy osu!droid+ main-menu visualiser: 120 bars / 5 arms of 24 bars each,
-    // one arm every 72 degrees, all rotating as one star. Values and update order
-    // are copied 1:1 from the legacy osuplusplus MainScene.
-    private static final int SPECTRUM_BAR_COUNT = 120;
-    private static final double SPECTRUM_DECAY_BASE = 0.949999988079071;
-    private static final float SPECTRUM_ATTACK_MULTIPLIER = 3f;
+    // osu!droid+ main-menu visualiser: 200 bars / 5 arms of 40 bars each.
+    // Amplitude update, decay and opacity follow osu!lazer's LogoVisualisation
+    // (50 ms updates, index change 5, linear decay, 0.2 alpha).
+    private static final int SPECTRUM_BARS_PER_ARM = 40;
+    private static final int SPECTRUM_BAR_COUNT = SPECTRUM_BARS_PER_ARM * 5;
+    private static final float SPECTRUM_DECAY_PER_MILLISECOND = 0.0024f;
+    private static final float SPECTRUM_DECAY_FLOOR = 0.09f;
+    private static final float SPECTRUM_AMPLITUDE_SCALE = 3f;
     private static final float SPECTRUM_SCALE_DEAD_ZONE = 0.01f;
     private static final float SPECTRUM_BAR_LENGTH = 600f;
-    private static final int SPECTRUM_INDEX_CHANGE = 3;
+    private static final int SPECTRUM_INDEX_CHANGE = 5;
     private static final long SPECTRUM_UPDATE_INTERVAL = 50;
 
     // osu!stable main-menu dim bars: black strips 86.4 design units tall (768-height
@@ -146,11 +148,7 @@ public class MainScene implements IUpdateHandler {
      */
     private float visualizerSettingsAge = 999f;
     private boolean visualizerEnabled = true;
-    private int visualizerIntensityPct = 100;
-    private int visualizerUpdateRate = (int) SPECTRUM_UPDATE_INTERVAL;
     private boolean visualizerKiaiDim = true;
-    private int visualizerRotationSpeed = SPECTRUM_INDEX_CHANGE;
-    private int visualizerDecaySpeedPct = 100;
     /** True while the bars are already collapsed, so a disabled visualiser costs nothing. */
     private boolean spectrumCleared = false;
     private LinkedList<TimingControlPoint> timingControlPoints;
@@ -537,7 +535,7 @@ public class MainScene implements IUpdateHandler {
         final TextureRegion nptex = ResourceManager.getInstance().getTexture("music_np");
         music_nowplay = new Sprite(Utils.toRes(Config.getRES_WIDTH() - 500), 0, (float) (40 * nptex.getWidth()) / nptex.getHeight(), 40, nptex);
 
-        // Legacy visualiser: 120 bars arranged around the osu!cookie (menu logo).
+        // Visualiser: 200 bars arranged around the osu!cookie (menu logo).
         // The bars are children of an anchor placed at the logo centre, so the star
         // moves and rotates with the cookie instead of staying at the screen centre.
         spectrumAnchor = new Entity((float) Config.getRES_WIDTH() / 2, (float) Config.getRES_HEIGHT() / 2);
@@ -547,9 +545,9 @@ public class MainScene implements IUpdateHandler {
             spectrum[i] = new Rectangle(0, 0, 260, 10);
             spectrum[i].setRotationCenter(0, 5);
             spectrum[i].setScaleCenter(0, 5);
-            // 5 overlapping arms (osu! PC star visualiser): 24 bars per arm,
-            // arms offset by 72 degrees.
-            spectrum[i].setRotation((i % 24) * 15f + (i / 24) * 72f - 220f);
+            // 5 overlapping arms: 40 bars per arm, arms offset by 72 degrees.
+            spectrum[i].setRotation((i % SPECTRUM_BARS_PER_ARM) * (360f / SPECTRUM_BARS_PER_ARM)
+                    + (i / SPECTRUM_BARS_PER_ARM) * 72f - 220f);
             spectrum[i].setAlpha(0f);
 
             spectrumAnchor.attachChild(spectrum[i]);
@@ -1255,11 +1253,7 @@ public class MainScene implements IUpdateHandler {
                 if (visualizerSettingsAge >= 0.5f) {
                     visualizerSettingsAge = 0f;
                     visualizerEnabled = Config.getBoolean("visualizerEnabled", true);
-                    visualizerIntensityPct = Config.getInt("visualizerIntensity", 100);
-                    visualizerUpdateRate = Config.getInt("visualizerUpdateRate", (int) SPECTRUM_UPDATE_INTERVAL);
                     visualizerKiaiDim = Config.getBoolean("visualizerKiaiDim", true);
-                    visualizerRotationSpeed = Config.getInt("visualizerRotationSpeed", SPECTRUM_INDEX_CHANGE);
-                    visualizerDecaySpeedPct = Config.getInt("visualizerDecaySpeed", 100);
                 }
 
                 if (!visualizerEnabled) {
@@ -1272,14 +1266,14 @@ public class MainScene implements IUpdateHandler {
                     }
                 } else {
                     spectrumCleared = false;
-                    // 1:1 with the legacy osuplusplus MainScene visualiser.
+                    // Amplitude sampling matches osu!lazer LogoVisualisation:
+                    // update every 50 ms, shift the source by 5 bars, and only
+                    // rise immediately; falling is handled by linear decay below.
                     float[] fft = GlobalManager.getInstance().getSongService().getSpectrum();
                     long nowMs = System.currentTimeMillis();
 
-                    float visualizerIntensity = visualizerIntensityPct / 100f;
-
                     if (fft != null
-                            && nowMs - lastSpectrumUpdate >= visualizerUpdateRate) {
+                            && nowMs - lastSpectrumUpdate >= SPECTRUM_UPDATE_INTERVAL) {
                         lastSpectrumUpdate = nowMs;
 
                         boolean isKiaiTime = (currentEffectPoint != null && currentEffectPoint.isKiai) || isContinuousKiai;
@@ -1296,27 +1290,27 @@ public class MainScene implements IUpdateHandler {
                                 if (value > peak) peak = value;
                             }
 
-                            float targetAmplitude = peak
-                                    * SPECTRUM_ATTACK_MULTIPLIER
-                                    * kiaiMultiplier
-                                    * visualizerIntensity;
+                            float targetAmplitude = peak * SPECTRUM_AMPLITUDE_SCALE * kiaiMultiplier;
 
-                            int idx = (i + spectrumIndexOffset) % SPECTRUM_BAR_COUNT;
+                            // lazer maps bar i to source (i + indexOffset); with
+                            // the source bin fixed here, that is bar i - offset.
+                            int idx = (i - spectrumIndexOffset + SPECTRUM_BAR_COUNT) % SPECTRUM_BAR_COUNT;
                             if (targetAmplitude > frequencyAmplitudes[idx]) {
                                 frequencyAmplitudes[idx] = targetAmplitude;
                             }
                         }
 
-                        spectrumIndexOffset = (spectrumIndexOffset + visualizerRotationSpeed) % SPECTRUM_BAR_COUNT;
+                        spectrumIndexOffset = (spectrumIndexOffset + SPECTRUM_INDEX_CHANGE) % SPECTRUM_BAR_COUNT;
                     }
 
-                    float decaySpeed = visualizerDecaySpeedPct / 100f;
-                    float decayFactor = (float) Math.pow(
-                            SPECTRUM_DECAY_BASE,
-                            (pSecondsElapsed * 1000f * decaySpeed) / 16.666666666666668);
+                    float decayFactor = pSecondsElapsed * 1000f * SPECTRUM_DECAY_PER_MILLISECOND;
 
                     for (int i = 0; i < SPECTRUM_BAR_COUNT; i++) {
-                        float scale = frequencyAmplitudes[i] * decayFactor;
+                        float scale = frequencyAmplitudes[i];
+                        scale -= decayFactor * (scale + SPECTRUM_DECAY_FLOOR);
+                        if (scale < 0f) {
+                            scale = 0f;
+                        }
 
                         if (scale < SPECTRUM_SCALE_DEAD_ZONE) {
                             frequencyAmplitudes[i] = 0f;
@@ -1327,7 +1321,7 @@ public class MainScene implements IUpdateHandler {
 
                         frequencyAmplitudes[i] = scale;
                         spectrum[i].setWidth(250f + scale * SPECTRUM_BAR_LENGTH);
-                        spectrum[i].setAlpha(Math.max(0f, 0.4f * Math.min(1f, (scale - 0.04f) / 0.08f)));
+                        spectrum[i].setAlpha(Math.max(0f, 0.2f * Math.min(1f, (scale - 0.04f) / 0.08f)));
                     }
                 }
             } else {
