@@ -502,6 +502,15 @@ class SettingsFragment : SettingsFragment() {
                 true
             }
         }
+
+        val blurType = findPreference<ListPreference>("motionBlurBlendFunction")
+        findPreference<CheckBoxPreference>("cursorDirectionalBlur")?.apply {
+            blurType?.isEnabled = isChecked
+            setOnPreferenceChangeListener { _, newValue ->
+                blurType?.isEnabled = newValue as Boolean
+                true
+            }
+        }
     }
 
 

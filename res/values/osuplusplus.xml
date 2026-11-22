@@ -141,6 +141,76 @@
     <string name="droidplus_trail_delay_title">Trail delay</string>
     <string name="droidplus_trail_delay_summary">Show the long trail only after holding the cursor for one second</string>
 
+    <string name="droidplus_motion_blur_title">Motion blur</string>
+    <string name="droidplus_motion_blur_summary">Blur the cursor when it moves fast</string>
+    <string name="droidplus_motion_blur_function_title">Blur type</string>
+    <string name="droidplus_motion_blur_function_summary">How the blur blends between frames</string>
+
+    <string-array name="motion_blur_function_names">
+        <item>Flat</item>
+        <item>Linear</item>
+        <item>InQuad</item>
+        <item>OutQuad</item>
+        <item>InOutQuad</item>
+        <item>InCubic</item>
+        <item>OutCubic</item>
+        <item>InOutCubic</item>
+        <item>InQuart</item>
+        <item>OutQuart</item>
+        <item>InOutQuart</item>
+        <item>InQuint</item>
+        <item>OutQuint</item>
+        <item>InOutQuint</item>
+        <item>InSine</item>
+        <item>OutSine</item>
+        <item>InOutSine</item>
+        <item>InExpo</item>
+        <item>OutExpo</item>
+        <item>InOutExpo</item>
+        <item>InCirc</item>
+        <item>OutCirc</item>
+        <item>InOutCirc</item>
+        <item>InBack</item>
+        <item>OutBack</item>
+        <item>InOutBack</item>
+        <item>Gauss</item>
+        <item>Gaussian</item>
+        <item>Pyramid</item>
+        <item>Semi-circle</item>
+    </string-array>
+    <string-array name="motion_blur_function_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>11</item>
+        <item>12</item>
+        <item>13</item>
+        <item>14</item>
+        <item>15</item>
+        <item>16</item>
+        <item>17</item>
+        <item>18</item>
+        <item>19</item>
+        <item>20</item>
+        <item>21</item>
+        <item>22</item>
+        <item>23</item>
+        <item>24</item>
+        <item>25</item>
+        <item>26</item>
+        <item>27</item>
+        <item>28</item>
+        <item>29</item>
+    </string-array>
+
     <string-array name="trail_implementation_names">
         <item>Legacy (dots)</item>
         <item>Long (ribbon)</item>

@@ -330,6 +330,23 @@
             android:title="@string/droidplus_trail_delay_title"
             app:layout="@layout/settings_preference_checkbox_bottom" />
 
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="cursorDirectionalBlur"
+            android:summary="@string/droidplus_motion_blur_summary"
+            android:title="@string/droidplus_motion_blur_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <ListPreference
+            android:defaultValue="27"
+            android:dialogTitle="@string/droidplus_motion_blur_function_title"
+            android:entries="@array/motion_blur_function_names"
+            android:entryValues="@array/motion_blur_function_values"
+            android:key="motionBlurBlendFunction"
+            android:summary="@string/droidplus_motion_blur_function_summary"
+            android:title="@string/droidplus_motion_blur_function_title"
+            app:layout="@layout/settings_preference_bottom" />
+
     </PreferenceCategory>
 
     <PreferenceCategory android:title="@string/droidplus_cat_leaderboard">
