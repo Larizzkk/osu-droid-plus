@@ -117,6 +117,9 @@ public class ResourceManager {
     private Engine engine;
     private Context context;
 
+    /** File backing the current "::background" texture, or null for the menu fallback. */
+    private volatile String loadedBackgroundPath;
+
     /** Incremented on every completed skin load; see {@link #getSkinVersion()}. */
     private volatile int skinVersion = 0;
     private volatile boolean skinLoadFinished = false;
@@ -130,6 +133,10 @@ public class ResourceManager {
 
     public Engine getEngine() {
         return engine;
+    }
+
+    public String getLoadedBackgroundPath() {
+        return loadedBackgroundPath;
     }
 
     public void Init(final Engine engine, final Context context) {
@@ -538,11 +545,13 @@ public class ResourceManager {
             engine.getTextureManager().unloadTexture(Objects.requireNonNull(textures.get("::background")).getTexture());
         }
         if (file == null) {
+            loadedBackgroundPath = null;
             return textures.get("menu-background");
         }
         TextureRegion region;
         final QualityFileBitmapSource source = new QualityFileBitmapSource(new File(file));
         if (source.getWidth() == 0 || source.getHeight() == 0 || !source.preload()) {
+            loadedBackgroundPath = null;
             textures.put("::background", textures.get("menu-background"));
             return textures.get("::background");
         }
@@ -550,6 +559,7 @@ public class ResourceManager {
         region = TextureRegionFactory.createFromSource(tex, source, 0, 0, false);
         engine.getTextureManager().loadTexture(tex);
         textures.put("::background", region);
+        loadedBackgroundPath = file;
         return region;
     }
 
