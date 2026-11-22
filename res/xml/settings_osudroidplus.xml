@@ -71,50 +71,15 @@
             android:title="@string/droidplus_triangles_title"
             app:layout="@layout/settings_preference_checkbox" />
 
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="15"
-            android:key="triangleSize"
-            android:max="300"
-            android:summary="@string/droidplus_triangle_size_summary"
-            android:title="@string/droidplus_triangle_size_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:showSeekBarValue="true" />
-
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="25"
-            android:key="triangleCount"
-            android:max="300"
-            android:summary="@string/droidplus_triangle_count_summary"
-            android:title="@string/droidplus_triangle_count_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:showSeekBarValue="true" />
-
         <ListPreference
-            android:defaultValue="triangle"
-            android:dialogTitle="@string/droidplus_particle_shape_title"
-            android:entries="@array/particle_shape_names"
-            android:entryValues="@array/particle_shape_values"
-            android:key="triangleShape"
-            android:summary="@string/droidplus_particle_shape_summary"
-            android:title="@string/droidplus_particle_shape_title"
+            android:defaultValue="danser"
+            android:dialogTitle="@string/droidplus_triangle_style_title"
+            android:entries="@array/triangle_style_names"
+            android:entryValues="@array/triangle_style_values"
+            android:key="triangleStyle"
+            android:summary="@string/droidplus_triangle_style_summary"
+            android:title="@string/droidplus_triangle_style_title"
             app:layout="@layout/settings_preference" />
-
-        <ListPreference
-            android:defaultValue="down"
-            android:dialogTitle="@string/droidplus_particle_direction_title"
-            android:entries="@array/particle_direction_names"
-            android:entryValues="@array/particle_direction_values"
-            android:key="triangleDirection"
-            android:summary="@string/droidplus_particle_direction_summary"
-            android:title="@string/droidplus_particle_direction_title"
-            app:layout="@layout/settings_preference" />
-
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="triangleRotate"
-            android:summary="@string/droidplus_particle_rotation_summary"
-            android:title="@string/droidplus_particle_rotation_title"
-            app:layout="@layout/settings_preference_checkbox" />
 
         <CheckBoxPreference
             android:defaultValue="true"
@@ -146,6 +111,98 @@
             android:summary="@string/droidplus_snowfall_summary"
             android:title="@string/droidplus_snowfall_title"
             app:layout="@layout/settings_preference_checkbox_bottom" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/droidplus_cat_triangles_legacy">
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="15"
+            android:key="triangleSize"
+            android:max="300"
+            android:summary="@string/droidplus_triangle_size_summary"
+            android:title="@string/droidplus_triangle_size_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="1"
+            app:showSeekBarValue="true" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="25"
+            android:key="triangleCount"
+            android:max="300"
+            android:summary="@string/droidplus_triangle_count_summary"
+            android:title="@string/droidplus_triangle_count_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="1"
+            app:showSeekBarValue="true" />
+
+        <ListPreference
+            android:defaultValue="triangle"
+            android:dialogTitle="@string/droidplus_particle_shape_title"
+            android:entries="@array/particle_shape_names"
+            android:entryValues="@array/particle_shape_values"
+            android:key="triangleShape"
+            android:summary="@string/droidplus_particle_shape_summary"
+            android:title="@string/droidplus_particle_shape_title"
+            app:layout="@layout/settings_preference" />
+
+        <ListPreference
+            android:defaultValue="down"
+            android:dialogTitle="@string/droidplus_particle_direction_title"
+            android:entries="@array/particle_direction_names"
+            android:entryValues="@array/particle_direction_values"
+            android:key="triangleDirection"
+            android:summary="@string/droidplus_particle_direction_summary"
+            android:title="@string/droidplus_particle_direction_title"
+            app:layout="@layout/settings_preference" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="triangleRotate"
+            android:summary="@string/droidplus_particle_rotation_summary"
+            android:title="@string/droidplus_particle_rotation_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/droidplus_cat_triangles_danser">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="triangleShadowed"
+            android:summary="@string/droidplus_triangle_shadowed_summary"
+            android:title="@string/droidplus_triangle_shadowed_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="triangleDensity"
+            android:max="500"
+            android:summary="@string/droidplus_triangle_density_summary"
+            android:title="@string/droidplus_triangle_density_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="10"
+            app:showSeekBarValue="true" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="triangleScale"
+            android:max="500"
+            android:summary="@string/droidplus_triangle_scale_summary"
+            android:title="@string/droidplus_triangle_scale_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="10"
+            app:showSeekBarValue="true" />
+
+        <com.osudroid.ui.EditableSeekBarPreference
+            android:defaultValue="100"
+            android:key="triangleSpeed"
+            android:max="500"
+            android:summary="@string/droidplus_triangle_speed_summary"
+            android:title="@string/droidplus_triangle_speed_title"
+            app:layout="@layout/settings_preference_seekbar"
+            app:min="10"
+            app:showSeekBarValue="true" />
 
     </PreferenceCategory>
 

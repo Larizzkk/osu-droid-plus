@@ -40,22 +40,34 @@
 
     <string name="droidplus_kiai_flash_brightness_title">Kiai flash brightness</string>
     <string name="droidplus_kiai_flash_brightness_summary">Peak flash opacity, 20 = default</string>
+    <string name="droidplus_triangle_style_title">Triangle style</string>
+    <string name="droidplus_triangle_style_summary">Legacy particles or the danser-go visualiser</string>
+    <string name="droidplus_cat_triangles_legacy">Legacy triangles</string>
+    <string name="droidplus_cat_triangles_danser">Danser triangles</string>
     <string name="droidplus_triangle_size_title">Shape size</string>
-    <string name="droidplus_triangle_size_summary">Size of every background shape</string>
+    <string name="droidplus_triangle_size_summary">Size of every legacy background shape</string>
     <string name="droidplus_triangle_count_title">Shape count</string>
-    <string name="droidplus_triangle_count_summary">Maximum shapes alive at once</string>
+    <string name="droidplus_triangle_count_summary">Maximum legacy shapes alive at once</string>
     <string name="droidplus_particle_shape_title">Shape</string>
     <string name="droidplus_particle_shape_summary">Triangle, circle or square</string>
     <string name="droidplus_particle_direction_title">Direction</string>
-    <string name="droidplus_particle_direction_summary">Drift direction of the shapes</string>
+    <string name="droidplus_particle_direction_summary">Drift direction of the legacy shapes</string>
     <string name="droidplus_particle_rotation_title">Rotate shapes</string>
-    <string name="droidplus_particle_rotation_summary">Spin each shape while it drifts</string>
+    <string name="droidplus_particle_rotation_summary">Spin each legacy shape while it drifts</string>
+    <string name="droidplus_triangle_shadowed_title">Shadowed triangles</string>
+    <string name="droidplus_triangle_shadowed_summary">Use the soft shadow texture from danser-go</string>
+    <string name="droidplus_triangle_density_title">Triangle density</string>
+    <string name="droidplus_triangle_density_summary">Percentage of the 40 danser triangles to show</string>
+    <string name="droidplus_triangle_scale_title">Triangle scale</string>
+    <string name="droidplus_triangle_scale_summary">Scale of the triangle field in percent</string>
+    <string name="droidplus_triangle_speed_title">Triangle speed</string>
+    <string name="droidplus_triangle_speed_summary">Base rise speed of the triangles in percent</string>
     <string name="droidplus_parallax_title">Parallax background</string>
     <string name="droidplus_parallax_summary">Shift the background slightly against your finger</string>
     <string name="droidplus_parallax_strength_title">Parallax strength</string>
     <string name="droidplus_parallax_strength_summary">How far the background follows the finger, percent</string>
     <string name="droidplus_triangles_title">Triangle background</string>
-    <string name="droidplus_triangles_summary">Animated shapes behind the playfield</string>
+    <string name="droidplus_triangles_summary">Danser-style triangles behind the playfield and in the menu</string>
 
     <string name="droidplus_snowfall_title">Snowfall</string>
     <string name="droidplus_snowfall_summary">Snow particles in the main menu</string>
@@ -64,6 +76,16 @@
     <string name="droidplus_autoplay_style_summary">Cursor path style used while the Autoplay mod is active</string>
 
     <string name="droidplus_cat_visualizer">Visualizer</string>
+
+    <string-array name="triangle_style_names">
+        <item>Legacy particles</item>
+        <item>Danser triangles</item>
+    </string-array>
+
+    <string-array name="triangle_style_values">
+        <item>legacy</item>
+        <item>danser</item>
+    </string-array>
 
     <string-array name="particle_shape_names">
         <item>Triangle</item>
