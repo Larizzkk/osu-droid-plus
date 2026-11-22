@@ -113,14 +113,6 @@
 
     <string name="droidplus_visualizer_enabled_title">Music visualizer</string>
     <string name="droidplus_visualizer_enabled_summary">Show bars that react to the music in the main menu</string>
-    <string name="droidplus_visualizer_intensity_title">Visualizer intensity</string>
-    <string name="droidplus_visualizer_intensity_summary">Bar amplitude, percent</string>
-    <string name="droidplus_visualizer_decay_title">Visualizer decay speed</string>
-    <string name="droidplus_visualizer_decay_summary">How fast the bars fall, percent</string>
-    <string name="droidplus_visualizer_update_rate_title">Visualizer update rate</string>
-    <string name="droidplus_visualizer_update_rate_summary">Spectrum sampling interval, milliseconds</string>
-    <string name="droidplus_visualizer_rotation_title">Visualizer rotation speed</string>
-    <string name="droidplus_visualizer_rotation_summary">Bars per rotation step, 0 disables rotation</string>
     <string name="droidplus_visualizer_kiai_dim_title">Dim between kiai</string>
     <string name="droidplus_visualizer_kiai_dim_summary">Make the bars smaller outside kiai sections</string>
 

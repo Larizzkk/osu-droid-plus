@@ -219,46 +219,6 @@
             android:title="@string/droidplus_visualizer_enabled_title"
             app:layout="@layout/settings_preference_checkbox" />
 
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="100"
-            android:key="visualizerIntensity"
-            android:max="300"
-            android:summary="@string/droidplus_visualizer_intensity_summary"
-            android:title="@string/droidplus_visualizer_intensity_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="10"
-            app:showSeekBarValue="true" />
-
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="100"
-            android:key="visualizerDecaySpeed"
-            android:max="300"
-            android:summary="@string/droidplus_visualizer_decay_summary"
-            android:title="@string/droidplus_visualizer_decay_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="10"
-            app:showSeekBarValue="true" />
-
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="16"
-            android:key="visualizerUpdateRate"
-            android:max="100"
-            android:summary="@string/droidplus_visualizer_update_rate_summary"
-            android:title="@string/droidplus_visualizer_update_rate_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="1"
-            app:showSeekBarValue="true" />
-
-        <com.osudroid.ui.EditableSeekBarPreference
-            android:defaultValue="0"
-            android:key="visualizerRotationSpeed"
-            android:max="20"
-            android:summary="@string/droidplus_visualizer_rotation_summary"
-            android:title="@string/droidplus_visualizer_rotation_title"
-            app:layout="@layout/settings_preference_seekbar"
-            app:min="0"
-            app:showSeekBarValue="true" />
-
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="visualizerKiaiDim"
