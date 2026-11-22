@@ -494,6 +494,20 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
+        findPreference<ListPreference>("triangleStyle")?.apply {
+            fun updateSettings(value: String?) {
+                val danser = value != "legacy"
+                findPreference<PreferenceCategory>("triangleLegacySettings")?.isVisible = !danser
+                findPreference<PreferenceCategory>("triangleDanserSettings")?.isVisible = danser
+            }
+
+            updateSettings(value)
+            setOnPreferenceChangeListener { _, newValue ->
+                updateSettings(newValue as String)
+                true
+            }
+        }
+
         val maxPlayers = findPreference<SeekBarPreference>("beatmapLeaderboardMaxPlayers")
         findPreference<CheckBoxPreference>("beatmapLeaderboardLimitEnabled")?.apply {
             maxPlayers?.isEnabled = isChecked

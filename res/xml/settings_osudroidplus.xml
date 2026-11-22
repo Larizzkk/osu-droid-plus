@@ -114,7 +114,9 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/droidplus_cat_triangles_legacy">
+    <PreferenceCategory
+        android:key="triangleLegacySettings"
+        android:title="@string/droidplus_cat_triangles_legacy">
 
         <com.osudroid.ui.EditableSeekBarPreference
             android:defaultValue="15"
@@ -165,7 +167,9 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="@string/droidplus_cat_triangles_danser">
+    <PreferenceCategory
+        android:key="triangleDanserSettings"
+        android:title="@string/droidplus_cat_triangles_danser">
 
         <CheckBoxPreference
             android:defaultValue="true"
