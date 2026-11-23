@@ -13,5 +13,5 @@ class ModAutopilot : Mod() {
     override val iconTextureNameSuffix = "relax2"
 
     override fun isCompatibleWith(other: Mod) =
-        !other.isInstanceOfAny(ModRelax::class, ModAutoplay::class, ModNoFail::class) && super.isCompatibleWith(other)
+        !other.isInstanceOfAny(ModRelax::class, ModAutoplay::class) && super.isCompatibleWith(other)
 }

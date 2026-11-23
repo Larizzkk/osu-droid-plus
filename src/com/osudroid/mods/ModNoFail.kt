@@ -16,7 +16,6 @@ class ModNoFail : Mod() {
         !other.isInstanceOfAny(
             ModPerfect::class,
             ModSuddenDeath::class,
-            ModAutopilot::class,
             ModRelax::class
         ) && super.isCompatibleWith(other)
 }
