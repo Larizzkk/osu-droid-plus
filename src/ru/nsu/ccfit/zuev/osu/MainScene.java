@@ -93,9 +93,7 @@ public class MainScene implements IUpdateHandler {
     // index change 5, linear decay and additive 20% white.
     private static final int SPECTRUM_BAR_COUNT = MenuVisualizer.BARS;
     private static final float SPECTRUM_DECAY_PER_MILLISECOND = 0.0024f;
-    private static final float SPECTRUM_DECAY_FLOOR = 0.09f;
-    private static final float SPECTRUM_AMPLITUDE_SCALE = 3f;
-    private static final float SPECTRUM_SCALE_DEAD_ZONE = 0.01f;
+    private static final float SPECTRUM_DECAY_FLOOR = 0.03f;
     private static final int SPECTRUM_INDEX_CHANGE = 5;
     private static final long SPECTRUM_UPDATE_INTERVAL = 50;
 
@@ -1283,7 +1281,7 @@ public class MainScene implements IUpdateHandler {
                                 if (value > peak) peak = value;
                             }
 
-                            float targetAmplitude = peak * SPECTRUM_AMPLITUDE_SCALE * kiaiMultiplier;
+                            float targetAmplitude = peak * kiaiMultiplier;
 
                             // lazer maps bar i to source (i + indexOffset); with
                             // the source bin fixed here, that is bar i - offset.
@@ -1299,18 +1297,12 @@ public class MainScene implements IUpdateHandler {
                     float decayFactor = pSecondsElapsed * 1000f * SPECTRUM_DECAY_PER_MILLISECOND;
 
                     for (int i = 0; i < SPECTRUM_BAR_COUNT; i++) {
-                        float scale = frequencyAmplitudes[i];
-                        scale -= decayFactor * (scale + SPECTRUM_DECAY_FLOOR);
-                        if (scale < 0f) {
-                            scale = 0f;
+                        float amplitude = frequencyAmplitudes[i];
+                        amplitude -= decayFactor * (amplitude + SPECTRUM_DECAY_FLOOR);
+                        if (amplitude < 0f) {
+                            amplitude = 0f;
                         }
-
-                        if (scale < SPECTRUM_SCALE_DEAD_ZONE) {
-                            frequencyAmplitudes[i] = 0f;
-                            continue;
-                        }
-
-                        frequencyAmplitudes[i] = scale;
+                        frequencyAmplitudes[i] = amplitude;
                     }
 
                     spectrum.setAmplitudes(frequencyAmplitudes);
