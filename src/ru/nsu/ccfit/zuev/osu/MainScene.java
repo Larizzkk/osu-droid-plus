@@ -59,6 +59,7 @@ import org.anddev.andengine.util.modifier.IModifier;
 import org.anddev.andengine.util.modifier.ease.EaseBounceOut;
 import org.anddev.andengine.util.modifier.ease.EaseExponentialOut;
 import org.anddev.andengine.util.modifier.ease.EaseQuadIn;
+import ru.nsu.ccfit.zuev.osuplusplus.menu.MenuVisualizer;
 import ru.nsu.ccfit.zuev.osuplusplus.menu.TriangleBackground;
 
 import java.io.IOException;
@@ -87,16 +88,14 @@ import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
  */
 public class MainScene implements IUpdateHandler {
 
-    // osu!droid+ main-menu visualiser: 200 bars / 5 arms of 40 bars each.
-    // Amplitude update, decay and opacity follow osu!lazer's LogoVisualisation
-    // (50 ms updates, index change 5, linear decay, 0.2 alpha).
-    private static final int SPECTRUM_BARS_PER_ARM = 40;
-    private static final int SPECTRUM_BAR_COUNT = SPECTRUM_BARS_PER_ARM * 5;
+    // Main-menu visualiser follows osu!lazer's LogoVisualisation:
+    // 200 bars per rotation, 5 overlapping rotations, 50 ms amplitude updates,
+    // index change 5, linear decay and additive 20% white.
+    private static final int SPECTRUM_BAR_COUNT = MenuVisualizer.BARS;
     private static final float SPECTRUM_DECAY_PER_MILLISECOND = 0.0024f;
     private static final float SPECTRUM_DECAY_FLOOR = 0.09f;
     private static final float SPECTRUM_AMPLITUDE_SCALE = 3f;
     private static final float SPECTRUM_SCALE_DEAD_ZONE = 0.01f;
-    private static final float SPECTRUM_BAR_LENGTH = 600f;
     private static final int SPECTRUM_INDEX_CHANGE = 5;
     private static final long SPECTRUM_UPDATE_INTERVAL = 50;
 
@@ -131,7 +130,7 @@ public class MainScene implements IUpdateHandler {
     private Sprite musicRepeatBtn;
     private UIScene scene;
     private ChangeableText musicInfoText;
-    private final Rectangle[] spectrum = new Rectangle[SPECTRUM_BAR_COUNT];
+    private MenuVisualizer spectrum;
     /**
      * Orbit point of the visualiser. The whole star lives here instead of at the screen
      * centre, so it travels with the osu!cookie (the menu logo) when the logo slides
@@ -535,23 +534,14 @@ public class MainScene implements IUpdateHandler {
         final TextureRegion nptex = ResourceManager.getInstance().getTexture("music_np");
         music_nowplay = new Sprite(Utils.toRes(Config.getRES_WIDTH() - 500), 0, (float) (40 * nptex.getWidth()) / nptex.getHeight(), 40, nptex);
 
-        // Visualiser: 200 bars arranged around the osu!cookie (menu logo).
-        // The bars are children of an anchor placed at the logo centre, so the star
-        // moves and rotates with the cookie instead of staying at the screen centre.
+        // Visualiser: lazer's LogoVisualisation ring around the osu!cookie.
+        // A single batch draws all 5 x 200 bars; the anchor follows the logo.
         spectrumAnchor = new Entity((float) Config.getRES_WIDTH() / 2, (float) Config.getRES_HEIGHT() / 2);
         scene.attachChild(spectrumAnchor);
 
-        for (int i = 0; i < SPECTRUM_BAR_COUNT; i++) {
-            spectrum[i] = new Rectangle(0, 0, 260, 10);
-            spectrum[i].setRotationCenter(0, 5);
-            spectrum[i].setScaleCenter(0, 5);
-            // 5 overlapping arms: 40 bars per arm, arms offset by 72 degrees.
-            spectrum[i].setRotation((i % SPECTRUM_BARS_PER_ARM) * (360f / SPECTRUM_BARS_PER_ARM)
-                    + (i / SPECTRUM_BARS_PER_ARM) * 72f - 220f);
-            spectrum[i].setAlpha(0f);
-
-            spectrumAnchor.attachChild(spectrum[i]);
-        }
+        spectrum = new MenuVisualizer();
+        spectrum.setLogoSize(logo.getWidth() * logo.getScaleX());
+        spectrumAnchor.attachChild(spectrum);
 
         TextureRegion starRegion = ResourceManager.getInstance().getTexture("star");
 
@@ -1247,6 +1237,9 @@ public class MainScene implements IUpdateHandler {
                             logo.getX() + logo.getWidth() / 2f,
                             logo.getY() + logo.getHeight() / 2f);
                     spectrumAnchor.setRotation(logo.getRotation());
+                    if (spectrum != null) {
+                        spectrum.setLogoSize(logo.getWidth() * logo.getScaleX());
+                    }
                 }
 
                 visualizerSettingsAge += pSecondsElapsed;
@@ -1259,13 +1252,13 @@ public class MainScene implements IUpdateHandler {
                 if (!visualizerEnabled) {
                     if (!spectrumCleared) {
                         spectrumCleared = true;
-                        for (Rectangle specRectangle : spectrum) {
-                            specRectangle.setWidth(0);
-                            specRectangle.setAlpha(0);
-                        }
+                        Arrays.fill(frequencyAmplitudes, 0f);
+                        spectrum.setAmplitudes(frequencyAmplitudes);
                     }
+                    spectrum.setVisible(false);
                 } else {
                     spectrumCleared = false;
+                    spectrum.setVisible(true);
                     // Amplitude sampling matches osu!lazer LogoVisualisation:
                     // update every 50 ms, shift the source by 5 bars, and only
                     // rise immediately; falling is handled by linear decay below.
@@ -1314,22 +1307,20 @@ public class MainScene implements IUpdateHandler {
 
                         if (scale < SPECTRUM_SCALE_DEAD_ZONE) {
                             frequencyAmplitudes[i] = 0f;
-                            spectrum[i].setWidth(250f);
-                            spectrum[i].setAlpha(0f);
                             continue;
                         }
 
                         frequencyAmplitudes[i] = scale;
-                        spectrum[i].setWidth(250f + scale * SPECTRUM_BAR_LENGTH);
-                        spectrum[i].setAlpha(Math.max(0f, 0.2f * Math.min(1f, (scale - 0.04f) / 0.08f)));
                     }
+
+                    spectrum.setAmplitudes(frequencyAmplitudes);
                 }
             } else {
                 if (!spectrumCleared) {
                     spectrumCleared = true;
-                    for (Rectangle specRectangle : spectrum) {
-                        specRectangle.setWidth(0);
-                        specRectangle.setAlpha(0);
+                    Arrays.fill(frequencyAmplitudes, 0f);
+                    if (spectrum != null) {
+                        spectrum.setAmplitudes(frequencyAmplitudes);
                     }
                 }
 
@@ -1502,6 +1493,9 @@ public class MainScene implements IUpdateHandler {
         }
 
         Arrays.fill(frequencyAmplitudes, 0f);
+        if (spectrum != null) {
+            spectrum.setAmplitudes(frequencyAmplitudes);
+        }
         spectrumIndexOffset = 0;
         lastSpectrumUpdate = 0L;
 
