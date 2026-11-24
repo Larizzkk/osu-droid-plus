@@ -192,6 +192,66 @@ public class LuaPluginSandbox {
             }
         });
 
+        // === RECTANGLES (progress bars, panels, gauges) ===
+        globals.set("addRect", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                float x = (float) args.arg(1).todouble();
+                float y = (float) args.arg(2).todouble();
+                float width = (float) args.arg(3).todouble();
+                float height = (float) args.arg(4).todouble();
+                float r = 1, g = 1, b = 1, a = 0.5f;
+                if (args.narg() > 4 && args.arg(5).istable()) {
+                    LuaTable color = args.arg(5).checktable();
+                    r = (float) color.get(1).todouble();
+                    g = (float) color.get(2).todouble();
+                    b = (float) color.get(3).todouble();
+                    a = (float) color.get(4).todouble();
+                }
+                return LuaValue.valueOf(PluginRectManager.addRect(x, y, width, height, r, g, b, a));
+            }
+        });
+        globals.set("moveRect", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                PluginRectManager.moveRect(args.arg(1).toint(),
+                    (float) args.arg(2).todouble(), (float) args.arg(3).todouble());
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("resizeRect", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                PluginRectManager.resizeRect(args.arg(1).toint(),
+                    (float) args.arg(2).todouble(), (float) args.arg(3).todouble());
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("setRectColor", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                LuaTable color = args.arg(2).checktable();
+                PluginRectManager.setRectColor(args.arg(1).toint(),
+                    (float) color.get(1).todouble(), (float) color.get(2).todouble(),
+                    (float) color.get(3).todouble(), (float) color.get(4).todouble());
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("setRectVisible", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                PluginRectManager.setRectVisible(args.arg(1).toint(), args.arg(2).toboolean());
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("setRectZIndex", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                PluginRectManager.setRectZIndex(args.arg(1).toint(), args.arg(2).toint());
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("destroyRect", new OneArgFunction() {
+            public LuaValue call(LuaValue handle) {
+                PluginRectManager.destroyRect(handle.toint());
+                return LuaValue.NIL;
+            }
+        });
+
         // === TEXT RENDERING ===
         globals.set("createText", new VarArgFunction() {
             public Varargs onInvoke(Varargs args) {
@@ -547,6 +607,13 @@ public class LuaPluginSandbox {
                 float b = (float) args.arg(4).todouble();
                 float a = args.narg() > 4 ? (float) args.arg(5).todouble() : 1.0f;
                 PluginSpriteManager.setSpriteColor(handle, r, g, b, a);
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("setSpriteSize", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                PluginSpriteManager.setSpriteSize(args.arg(1).toint(),
+                    (float) args.arg(2).todouble(), (float) args.arg(3).todouble());
                 return LuaValue.NIL;
             }
         });
