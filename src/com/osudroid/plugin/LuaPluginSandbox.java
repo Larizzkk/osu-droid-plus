@@ -79,6 +79,8 @@ public class LuaPluginSandbox {
 
     private static void injectGameAPI(Globals globals, Context ctx, String pluginName) {
         SharedPreferences prefs = ctx.getSharedPreferences("game", 0);
+        SharedPreferences pluginPrefs = ctx.getSharedPreferences(
+            "plugin_settings_" + PluginFileIO.safePluginName(pluginName), 0);
 
         // === UTILITY ===
         globals.set("log", new OneArgFunction() {
@@ -97,6 +99,39 @@ public class LuaPluginSandbox {
                     try { return LuaValue.valueOf(Double.parseDouble(val)); }
                     catch (NumberFormatException e) { return LuaValue.valueOf(val); }
                 }
+                return LuaValue.NIL;
+            }
+        });
+
+        // === PER-PLUGIN SETTINGS (isolated SharedPreferences) ===
+        globals.set("getPluginSetting", new OneArgFunction() {
+            public LuaValue call(LuaValue key) {
+                Object value = pluginPrefs.getAll().get(key.tojstring());
+                if (value instanceof Boolean) return LuaValue.valueOf((Boolean) value);
+                if (value instanceof Integer) return LuaValue.valueOf((Integer) value);
+                if (value instanceof Long) return LuaValue.valueOf((Long) value);
+                if (value instanceof Float) return LuaValue.valueOf((Float) value);
+                if (value != null) return LuaValue.valueOf(value.toString());
+                return LuaValue.NIL;
+            }
+        });
+        globals.set("setPluginSetting", new VarArgFunction() {
+            public Varargs onInvoke(Varargs args) {
+                String key = args.arg(1).tojstring();
+                LuaValue value = args.arg(2);
+                SharedPreferences.Editor editor = pluginPrefs.edit();
+                if (value.isnil()) {
+                    editor.remove(key);
+                } else if (value.isboolean()) {
+                    editor.putBoolean(key, value.toboolean());
+                } else if (value.isint()) {
+                    editor.putInt(key, value.toint());
+                } else if (value.isnumber()) {
+                    editor.putFloat(key, (float) value.todouble());
+                } else {
+                    editor.putString(key, value.tojstring());
+                }
+                editor.apply();
                 return LuaValue.NIL;
             }
         });
