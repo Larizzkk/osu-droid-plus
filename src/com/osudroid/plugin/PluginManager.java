@@ -322,6 +322,7 @@ public class PluginManager {
     public void initGameplay(Activity activity, Scene fgScene) {
         GameState.setActivity(activity);
         PluginSpriteManager.init(fgScene);
+        PluginRectManager.init(fgScene);
         PluginTextManager.init(fgScene);
         GameState.setPlaying(true);
     }
@@ -331,6 +332,7 @@ public class PluginManager {
      */
     public void destroyGameplay() {
         PluginTextManager.destroyAll();
+        PluginRectManager.destroy();
         PluginSpriteManager.destroy();
         PluginTimerManager.cancelAll();
         PluginEventHistory.clear();
