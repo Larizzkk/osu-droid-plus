@@ -204,6 +204,62 @@ public class CursorEntity extends UIComponent {
     }
 
     /**
+     * Applies the "Cursor trail" (particles) toggle without recreating the
+     * cursor. Menu cursors are persistent, so unlike gameplay they never get a
+     * fresh CursorEntity when the setting changes; without this the old trail
+     * kept drawing until the scene was rebuilt.
+     */
+    private void refreshTrailEnabled() {
+        boolean wanted = Config.isUseParticles();
+        if (!wanted) {
+            removeTrail();
+            return;
+        }
+        if (trail != null) {
+            return;
+        }
+
+        TextureRegion trailTex = ResourceManager.getInstance().getTexture("cursortrail");
+        if (trailTex == null) {
+            return;
+        }
+        createTrail(trailTex);
+
+        // Keep the trail below the cursor when re-attaching to an existing scene.
+        if (trail instanceof Entity && getParent() instanceof Scene && hasParent()) {
+            Scene parent = (Scene) getParent();
+            Entity trailEntity = (Entity) trail;
+            if (trailEntity.hasParent()) {
+                trailEntity.detachSelf();
+            }
+            detachSelf();
+            parent.attachChild(trailEntity);
+            parent.attachChild(this);
+        }
+        resetTrail();
+    }
+
+    /** Immediately detaches and releases the current trail. */
+    private void removeTrail() {
+        if (trail == null) {
+            return;
+        }
+        if (trail instanceof Entity) {
+            Entity oldTrail = (Entity) trail;
+            if (oldTrail.hasParent()) {
+                oldTrail.detachSelf();
+            }
+            if (oldTrail instanceof CursorTrailOptimized) {
+                ((CursorTrailOptimized) oldTrail).cleanup();
+            }
+        }
+        trail = null;
+        classicEmitter = null;
+        trailEnabled = false;
+        trailUpdatedThisFrame = false;
+    }
+
+    /**
      * When true, trail bypasses the delay timer and enables immediately.
      * Used during replay playback where frequent UP/DOWN transitions would
      * otherwise reset the delay timer and prevent the trail from ever showing.
@@ -330,6 +386,7 @@ public class CursorEntity extends UIComponent {
         if (settingsRefreshTimer >= SETTINGS_REFRESH_INTERVAL) {
             settingsRefreshTimer = 0f;
             refreshTrailImplementation();
+            refreshTrailEnabled();
             updateTrailLength();
             trailDelayEnabled = Config.getBoolean("trailDelayEnabled", true);
             ensureMotionBlur();
