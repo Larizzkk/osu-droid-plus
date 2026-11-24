@@ -52,6 +52,17 @@ public class LuaPluginSandbox {
         globals.set("newproxy", LuaValue.NIL);
         globals.set("module", LuaValue.NIL);
         globals.set("require", LuaValue.NIL);
+        // JsePlatform also installs LuaJ's Java bridge and source/file loaders.
+        // Leaving any of these reachable would bypass the whole sandbox: luajava
+        // can instantiate arbitrary Android classes, while loadfile/dofile can
+        // read files outside the plugin's data directory.
+        globals.set("luajava", LuaValue.NIL);
+        globals.set("java", LuaValue.NIL);
+        globals.set("javax", LuaValue.NIL);
+        globals.set("load", LuaValue.NIL);
+        globals.set("loadstring", LuaValue.NIL);
+        globals.set("dofile", LuaValue.NIL);
+        globals.set("loadfile", LuaValue.NIL);
 
         // === INJECT SAFE GAME API ===
         injectGameAPI(globals, gameContext, pluginName);
