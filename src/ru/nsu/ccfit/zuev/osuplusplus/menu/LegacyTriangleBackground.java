@@ -3,224 +3,197 @@ package ru.nsu.ccfit.zuev.osuplusplus.menu;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
-
-import javax.microedition.khronos.opengles.GL10;
-
-import org.anddev.andengine.entity.sprite.batch.ColoredSpriteBatch;
-import org.anddev.andengine.opengl.texture.ITexture;
+import org.anddev.andengine.entity.Entity;
+import org.anddev.andengine.entity.sprite.Sprite;
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
-
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.ResourceManager;
 
-/**
- * Original osu!droid+ particle visualiser.
- *
- * <p>The old implementation created one AndEngine {@code Sprite} per particle,
- * which meant hundreds of scene children, matrix pushes and draw calls. This
- * port keeps the same particle simulation but renders every visible particle
- * through a single {@link ColoredSpriteBatch}, so the whole background costs
- * one draw call and no per-frame object allocations.</p>
- */
-public class LegacyTriangleBackground extends ColoredSpriteBatch {
+public class LegacyTriangleBackground extends Entity {
+
+    private final Random random = new Random();
+    private final float screenWidth;
+    private final float screenHeight;
+    private float spawnTimer = 0;
 
     private static final float INTERVAL = 0.35f;
     private static final float EDGE_FADE_DIST = 80f;
     private static final float REMOVE_DIST = 80f;
     private static final int POOL_SIZE = 300;
-    private static final float SETTINGS_REFRESH = 0.5f;
-
-    private final Random random = new Random();
-    private final float screenWidth;
-    private final float screenHeight;
-    private float spawnTimer;
 
     private final ArrayList<Particle> active = new ArrayList<>(128);
     private final ArrayList<Particle> pool = new ArrayList<>(POOL_SIZE);
+    private float kiaiBoostTimer = 0f;
 
-    private final TextureRegion triangleTexture;
-    private final TextureRegion circleTexture;
-    private final TextureRegion squareTexture;
-    private TextureRegion activeTexture;
-
-    private boolean enabled = true;
-    private int maxTriangles = 25;
-    private boolean rotateEnabled = true;
-    private char direction = 'd';
+    private TextureRegion texTriangle, texCircle, texSquare, currentTex;
     private float brightness = 1f;
-    private float kiaiBoostTimer;
-    private float settingsAge;
+    // Direction is read once per update and shared with spawn(), which may also
+    // be called from onBeat(). A stale preference must never crash charAt(0).
+    private char direction = 'd';
 
-    private static final class Particle {
+    private static class Particle {
 
-        float x;
-        float y;
-        float size;
-        float rotation;
-        float rotationSpeed;
-        float speedX;
-        float speedY;
+        Sprite s;
+        float sx, sy;
+        float rot;
         float life;
-        float maxLife;
-        float baseAlpha;
-        float alpha;
+        float max;
+        float a0;
 
-        static Particle obtain(ArrayList<Particle> pool) {
-            return pool.isEmpty() ? new Particle() : pool.remove(pool.size() - 1);
+        static Particle obtain(
+            ArrayList<Particle> pool,
+            TextureRegion tex,
+            float sz
+        ) {
+            int size = pool.size();
+            if (size > 0) {
+                Particle p = pool.remove(size - 1);
+                if (p.s != null && p.s.hasParent()) p.s.detachSelf();
+                p.s = new Sprite(0, 0, sz, sz, tex);
+                return p;
+            }
+            Particle p = new Particle();
+            p.s = new Sprite(0, 0, sz, sz, tex);
+            return p;
         }
 
         void free(ArrayList<Particle> pool) {
             if (pool.size() < POOL_SIZE) {
+                if (s != null && s.hasParent()) s.detachSelf();
                 pool.add(this);
             }
         }
     }
 
     public LegacyTriangleBackground() {
-        super(requireInitialTexture().getTexture(), POOL_SIZE);
-
-        triangleTexture = getOrLoad("triangle", "gfx/triangle.png");
-        circleTexture = getOrLoad("circle", "gfx/circle.png");
-        squareTexture = getOrLoad("square", "gfx/square.png");
-        activeTexture = valid(triangleTexture) ? triangleTexture : valid(circleTexture)
-            ? circleTexture
-            : requireInitialTexture();
-
-        screenWidth = Config.getRES_WIDTH();
-        screenHeight = Config.getRES_HEIGHT();
-
-        this.mTexture = activeTexture.getTexture();
-        setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
-        refreshSettings();
+        this.screenWidth = Config.getRES_WIDTH();
+        this.screenHeight = Config.getRES_HEIGHT();
+        preloadTextures();
     }
 
-    private static TextureRegion requireInitialTexture() {
-        TextureRegion texture = getOrLoad("triangle", "gfx/triangle.png");
-        if (valid(texture)) {
-            return texture;
-        }
-        texture = getOrLoad("cursor", "gfx/cursor.png");
-        if (valid(texture)) {
-            return texture;
-        }
-        texture = getOrLoad("hitcircle", "gfx/hitcircle.png");
-        if (valid(texture)) {
-            return texture;
-        }
-        throw new IllegalStateException("No texture available for legacy triangles");
+    private void preloadTextures() {
+        texTriangle = getOrLoad("triangle", "gfx/triangle.png");
+        if (texTriangle == null) texTriangle =
+            ResourceManager.getInstance().getTexture("star");
+        texCircle = getOrLoad("circle", "gfx/circle.png");
+        texSquare = getOrLoad("square", "gfx/square.png");
+        currentTex = texTriangle;
     }
 
     private static boolean valid(TextureRegion region) {
         return region != null && region.getTexture() != null;
     }
 
-    private static TextureRegion getOrLoad(String name, String path) {
-        ResourceManager resources = ResourceManager.getInstance();
-        TextureRegion region = resources.getTexture(name);
-        if (!valid(region)) {
-            region = resources.loadTexture(name, path, false);
-        }
-        return valid(region) ? region : null;
+    private TextureRegion getOrLoad(String name, String path) {
+        TextureRegion t = ResourceManager.getInstance().getTexture(name);
+        if (!valid(t)) t = ResourceManager.getInstance().loadTexture(
+            name,
+            path,
+            false
+        );
+        return valid(t) ? t : null;
     }
 
-    private void refreshSettings() {
-        enabled = Config.getBoolean("trianglesEnabled", true);
-        maxTriangles = Math.max(1, Math.min(POOL_SIZE, Config.getInt("triangleCount", 25)));
-        rotateEnabled = Config.getBoolean("triangleRotate", true);
-
+    private static char directionFromConfig() {
         String selected = Config.getString("triangleDirection", "down");
-        direction = selected == null || selected.isEmpty() ? 'd' : selected.charAt(0);
+        return selected == null || selected.isEmpty() ? 'd' : selected.charAt(0);
+    }
 
+    private TextureRegion getShapeTexture() {
         String shape = Config.getString("triangleShape", "triangle");
-        TextureRegion next;
+        TextureRegion tex;
         switch (shape == null ? "" : shape) {
             case "circle":
-                next = valid(circleTexture) ? circleTexture : triangleTexture;
+                tex = texCircle;
                 break;
             case "square":
-                next = valid(squareTexture) ? squareTexture : triangleTexture;
+                tex = texSquare;
                 break;
             default:
-                next = triangleTexture;
+                tex = texTriangle;
                 break;
         }
-
-        if (!valid(next)) {
-            next = valid(circleTexture) ? circleTexture : requireInitialTexture();
-        }
-
-        if (next != activeTexture) {
-            activeTexture = next;
-            this.mTexture = next.getTexture();
-        }
+        return valid(tex) ? tex : texTriangle;
     }
 
     @Override
     protected void onManagedUpdate(float dt) {
         super.onManagedUpdate(dt);
 
-        settingsAge += dt;
-        if (settingsAge >= SETTINGS_REFRESH) {
-            settingsAge = 0f;
-            refreshSettings();
-        }
+        currentTex = getShapeTexture();
+        if (currentTex == null) return;
 
-        if (!enabled || activeTexture == null) {
-            if (!active.isEmpty()) {
-                clearAll();
-            }
+        if (
+            !ru.nsu.ccfit.zuev.osu.Config.getBoolean(
+                "trianglesEnabled",
+                true
+            )
+        ) {
+            if (!active.isEmpty()) clearAll();
             return;
         }
 
-        if (kiaiBoostTimer > 0f) {
-            kiaiBoostTimer -= dt;
-        }
-        float boost = kiaiBoostTimer > 0f ? 1f + kiaiBoostTimer * 3f : 1f;
-        float alphaBoost = kiaiBoostTimer > 0f ? 1f + kiaiBoostTimer * 2f : 1f;
+        if (kiaiBoostTimer > 0) kiaiBoostTimer -= dt;
+        float boost = kiaiBoostTimer > 0 ? 1f + kiaiBoostTimer * 3f : 1f;
+        float alphaBoost = kiaiBoostTimer > 0 ? 1f + kiaiBoostTimer * 2f : 1f;
 
+        int maxTri = ru.nsu.ccfit.zuev.osu.Config.getInt(
+            "triangleCount",
+            25
+        );
         spawnTimer += dt * boost;
-        if (spawnTimer >= INTERVAL && active.size() < maxTriangles) {
-            spawnTimer = 0f;
+        if (spawnTimer >= INTERVAL && active.size() < maxTri) {
+            spawnTimer = 0;
             spawn();
         }
 
-        Iterator<Particle> iterator = active.iterator();
-        while (iterator.hasNext()) {
-            Particle particle = iterator.next();
+        boolean rotateEnabled = ru.nsu.ccfit.zuev.osu.Config.getBoolean(
+            "triangleRotate",
+            true
+        );
+        direction = directionFromConfig();
 
+        Iterator<Particle> it = active.iterator();
+        while (it.hasNext()) {
+            Particle p = it.next();
+
+            float dx = 0,
+                dy = 0;
             switch (direction) {
                 case 'l':
-                    particle.x -= particle.speedX * dt * boost;
-                    break;
+                    dx = -p.sx * dt * boost;
+                    break; // "left"
                 case 'r':
-                    particle.x += particle.speedX * dt * boost;
-                    break;
+                    dx = p.sx * dt * boost;
+                    break; // "right"
                 default:
-                    particle.y -= particle.speedY * dt * boost;
-                    break;
+                    dy = -p.sy * dt * boost;
+                    break; // "down"
             }
+            p.s.setPosition(p.s.getX() + dx, p.s.getY() + dy);
 
-            if (rotateEnabled) {
-                particle.rotation += particle.rotationSpeed * boost * dt;
-            }
+            if (rotateEnabled) p.s.setRotation(
+                p.s.getRotation() + p.rot * boost * dt
+            );
 
-            particle.life += dt;
-            if (particle.life > particle.maxLife) {
-                float fade = (particle.life - particle.maxLife) / 1.2f;
-                particle.alpha = Math.max(
-                    0f,
-                    particle.baseAlpha * (1f - Math.min(1f, fade)) * alphaBoost
+            p.life += dt;
+            if (p.life > p.max) {
+                float f = (p.life - p.max) / 1.2f;
+                p.s.setAlpha(
+                    Math.max(0, p.a0 * (1 - Math.min(1, f)) * alphaBoost)
                 );
-            } else if (boost > 1f) {
-                particle.alpha = Math.min(1f, particle.baseAlpha * alphaBoost);
+            } else if (boost > 1) {
+                p.s.setAlpha(Math.min(1f, p.a0 * alphaBoost));
             }
 
             float edgeFade = 1f;
+            float px = p.s.getX(),
+                py = p.s.getY();
             switch (direction) {
                 case 'l':
                     edgeFade = Math.min(
                         1f,
-                        Math.max(0f, (particle.x + REMOVE_DIST) / EDGE_FADE_DIST)
+                        Math.max(0f, (px + REMOVE_DIST) / EDGE_FADE_DIST)
                     );
                     break;
                 case 'r':
@@ -228,108 +201,88 @@ public class LegacyTriangleBackground extends ColoredSpriteBatch {
                         1f,
                         Math.max(
                             0f,
-                            (screenWidth + REMOVE_DIST - particle.x) / EDGE_FADE_DIST
+                            (screenWidth + REMOVE_DIST - px) / EDGE_FADE_DIST
                         )
                     );
                     break;
                 default:
                     edgeFade = Math.min(
                         1f,
-                        Math.max(0f, (particle.y + REMOVE_DIST) / EDGE_FADE_DIST)
+                        Math.max(0f, (py + REMOVE_DIST) / EDGE_FADE_DIST)
                     );
                     break;
             }
-            particle.alpha = Math.min(particle.alpha, edgeFade);
+            p.s.setAlpha(Math.min(p.s.getAlpha(), edgeFade));
 
             boolean remove;
             switch (direction) {
                 case 'l':
-                    remove = particle.x < -REMOVE_DIST;
+                    remove = px < -REMOVE_DIST;
                     break;
                 case 'r':
-                    remove = particle.x > screenWidth + REMOVE_DIST;
+                    remove = px > screenWidth + REMOVE_DIST;
                     break;
                 default:
-                    remove = particle.y < -REMOVE_DIST;
+                    remove = py < -REMOVE_DIST;
                     break;
             }
-
-            if (remove || particle.alpha <= 0.001f) {
-                particle.free(pool);
-                iterator.remove();
+            if (remove || p.s.getAlpha() <= 0.001f) {
+                detachChild(p.s);
+                p.free(pool);
+                it.remove();
             }
         }
-    }
-
-    @Override
-    protected boolean onUpdateSpriteBatch() {
-        setIndex(0);
-        resetColors();
-
-        if (!enabled || activeTexture == null || active.isEmpty()) {
-            return true;
-        }
-
-        final float tint = brightness;
-        for (int i = 0; i < active.size(); i++) {
-            Particle particle = active.get(i);
-            drawWithoutChecks(
-                activeTexture,
-                particle.x - particle.size * 0.5f,
-                particle.y - particle.size * 0.5f,
-                particle.size,
-                particle.size,
-                particle.rotation
-            );
-            putColor(i, tint, tint, tint, particle.alpha);
-        }
-        return true;
     }
 
     public void setKiai(boolean active) {
-        if (active) {
-            kiaiBoostTimer = 1f;
-        }
+        if (active) kiaiBoostTimer = 1f;
     }
 
     private void spawn() {
-        float baseSize = Config.getInt("triangleSize", 15);
-        float size = Math.max(4f, baseSize * (0.3f + random.nextFloat() * 0.7f));
-
-        float x;
-        float y;
+        float baseSz = ru.nsu.ccfit.zuev.osu.Config.getInt(
+            "triangleSize",
+            15
+        );
+        float sz = Math.max(4, baseSz * (0.3f + random.nextFloat() * 0.7f));
+        float x, y;
         switch (direction) {
             case 'l':
-                x = screenWidth + size;
+                x = screenWidth + sz;
                 y = random.nextFloat() * screenHeight;
                 break;
             case 'r':
-                x = -size;
+                x = -sz;
                 y = random.nextFloat() * screenHeight;
                 break;
             default:
                 x = random.nextFloat() * screenWidth;
-                y = screenHeight + size;
+                y = screenHeight + sz;
                 break;
         }
 
-        Particle particle = Particle.obtain(pool);
-        particle.x = x;
-        particle.y = y;
-        particle.size = size;
-        particle.rotation = random.nextFloat() * 360f;
-        particle.rotationSpeed = (random.nextFloat() - 0.5f) * 50f;
-        particle.speedX = 15f + random.nextFloat() * 100f;
-        particle.speedY = 15f + random.nextFloat() * 100f;
-        particle.life = 0f;
-        particle.maxLife = 2f + random.nextFloat() * 4f;
-        particle.baseAlpha = 0.04f + random.nextFloat() * 0.08f;
-        particle.alpha = particle.baseAlpha;
-        active.add(particle);
+        Particle p = Particle.obtain(pool, currentTex, sz);
+        p.s.setPosition(x, y);
+        p.s.setAlpha(0.04f + random.nextFloat() * 0.08f);
+        p.s.setRotation(random.nextFloat() * 360);
+        p.s.clearEntityModifiers();
+        p.s.setColor(brightness, brightness, brightness);
+        p.s.setVisible(true);
+        p.sx = 15 + random.nextFloat() * 100;
+        p.sy = 15 + random.nextFloat() * 100;
+        p.rot = (random.nextFloat() - 0.5f) * 50;
+        p.life = 0;
+        p.max = 2 + random.nextFloat() * 4;
+        p.a0 = p.s.getAlpha();
+        attachChild(p.s);
+        active.add(p);
     }
 
     public void onBeat() {
-        for (int i = 0; i < 3 && active.size() < maxTriangles; i++) {
+        int maxTri = ru.nsu.ccfit.zuev.osu.Config.getInt(
+            "triangleCount",
+            25
+        );
+        for (int i = 0; i < 3 && active.size() < maxTri; i++) {
             spawn();
         }
     }
@@ -337,11 +290,15 @@ public class LegacyTriangleBackground extends ColoredSpriteBatch {
     /** Applies the same background dim as the danser triangles. */
     public void setBrightness(float brightness) {
         this.brightness = Math.max(0f, Math.min(1f, brightness));
+        for (Particle particle : active) {
+            particle.s.setColor(this.brightness, this.brightness, this.brightness);
+        }
     }
 
     public void clearAll() {
-        for (Particle particle : active) {
-            particle.free(pool);
+        for (Particle p : active) {
+            detachChild(p.s);
+            p.free(pool);
         }
         active.clear();
         spawnTimer = 0f;
