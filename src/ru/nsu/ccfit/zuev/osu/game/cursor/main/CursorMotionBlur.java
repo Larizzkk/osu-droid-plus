@@ -14,7 +14,7 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager;
  *
  * <p>The shutter, blend weights and weight curve are read from the same
  * parameters danser-go exposes: BlendFrames, OversampleMultiplier,
- * BlendFunctionID and GaussWeightsMult. The shader receives nine positions
+ * BlendFunctionID and GaussWeightsMult. The shader receives thirteen positions
  * across that shutter and accumulates the cursor image with the calculated
  * weights. Sampling the real recent path keeps circular/arc movement smooth
  * instead of producing the old straight-chord sawtooth.</p>
@@ -25,7 +25,7 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager;
 public final class CursorMotionBlur extends Entity {
 
     /** Path samples over the exposure. Must match CursorBlurOverlay.BLUR_SAMPLES. */
-    private static final int BLUR_SAMPLES = 9;
+    private static final int BLUR_SAMPLES = 13;
     private static final int HISTORY_CAPACITY = 512;
 
     /** Safety cap only for pathological flicks; normal blur is physical. */

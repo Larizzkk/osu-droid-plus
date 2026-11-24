@@ -28,7 +28,7 @@ import ru.nsu.ccfit.zuev.osu.Config;
  *
  * <p>Cursor entities publish an immutable-ish snapshot through static arrays.
  * The GL thread copies those values once per frame and issues one draw call per
- * visible cursor. The fragment shader accumulates the cursor image at nine
+ * visible cursor. The fragment shader accumulates the cursor image at thirteen
  * positions across the danser-go shutter, using weights calculated from the
  * selected blending function (or manual weights). Those offsets follow the
  * cursor's recent path, not a single straight velocity vector, so arcs and fast
@@ -41,9 +41,11 @@ public final class CursorBlurOverlay extends GLSurfaceView {
 
     /** Enough slots for every simultaneous game cursor plus the menu cursor. */
     private static final int MAX_CURSORS = 16;
-    /** Path samples over the exposure interval. 9 keeps the fragment uniform
-     *  count below the GLES2 minimum of 16 vectors. */
-    private static final int BLUR_SAMPLES = 9;
+    /** Path samples over the exposure interval. More taps remove the visible
+     *  gaps in fast flicks without changing the shutter length. Fallback taps
+     *  are used when a GLES2 driver cannot fit this many fragment uniforms. */
+    private static final int BLUR_SAMPLES = 13;
+    private static final int FALLBACK_SAMPLES = 9;
 
     private static final Object STATE_LOCK = new Object();
     private static final boolean[] USED = new boolean[MAX_CURSORS];
@@ -256,8 +258,8 @@ public final class CursorBlurOverlay extends GLSurfaceView {
         private static final String FRAGMENT_SHADER =
             "precision mediump float;\n" +
             "uniform sampler2D uTexture;\n" +
-            "uniform vec2 uOffsets[9];\n" +
-            "uniform float uWeights[9];\n" +
+            "uniform vec2 uOffsets[13];\n" +
+            "uniform float uWeights[13];\n" +
             "uniform float uAlpha;\n" +
             "uniform float uRotation;\n" +
             "uniform vec2 uImageSize;\n" +
@@ -268,7 +270,7 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             "    float weightSum = 0.0;\n" +
             "    float c = cos(uRotation);\n" +
             "    float s = sin(uRotation);\n" +
-            "    for (int i = 0; i < 9; i++) {\n" +
+            "    for (int i = 0; i < 13; i++) {\n" +
             // danser-go calculates 1 + 100 * easing(t) on the CPU; the exact
             // curve (and optional manual weights) arrives in this array.
             "        float w = uWeights[i];\n" +
@@ -291,9 +293,15 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             "    gl_FragColor = vec4(colorSum / weightSum, alpha);\n" +
             "}\n";
 
+        /** Kept for GLES2 devices whose fragment uniform budget is too small. */
+        private static final String FRAGMENT_SHADER_FALLBACK = FRAGMENT_SHADER
+            .replace("[13]", "[" + FALLBACK_SAMPLES + "]")
+            .replace("i < 13", "i < " + FALLBACK_SAMPLES);
+
         private final Context context;
 
         private ShaderProgram program;
+        private int activeSamples = BLUR_SAMPLES;
         private ShaderQuad quad;
         private int textureId;
         private int loadedGeneration = -1;
@@ -335,6 +343,12 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             GLES20.glClearColor(0f, 0f, 0f, 0f);
 
             program = ShaderProgram.create(VERTEX_SHADER, FRAGMENT_SHADER);
+            activeSamples = BLUR_SAMPLES;
+            if (program == null) {
+                Log.w(TAG, "13-tap blur shader unavailable; falling back to 9 taps");
+                program = ShaderProgram.create(VERTEX_SHADER, FRAGMENT_SHADER_FALLBACK);
+                activeSamples = FALLBACK_SAMPLES;
+            }
             quad = new ShaderQuad();
             textureId = 0;
             loadedGeneration = -1;
@@ -396,12 +410,12 @@ public final class CursorBlurOverlay extends GLSurfaceView {
                     offsetBuffer.put(offsetY[i][j]);
                 }
                 offsetBuffer.position(0);
-                program.setUniform2fv("uOffsets[0]", BLUR_SAMPLES, offsetBuffer);
+                program.setUniform2fv("uOffsets[0]", activeSamples, offsetBuffer);
 
                 weightBuffer.clear();
                 weightBuffer.put(weights, 0, BLUR_SAMPLES);
                 weightBuffer.position(0);
-                program.setUniform1fv("uWeights[0]", BLUR_SAMPLES, weightBuffer);
+                program.setUniform1fv("uWeights[0]", activeSamples, weightBuffer);
 
                 quad.draw(program.getPositionAttribute());
             }
