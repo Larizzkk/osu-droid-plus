@@ -19,6 +19,17 @@ import ru.nsu.ccfit.zuev.skins.OsuSkin;
 
 public class BeatmapItem extends Sprite {
 
+    /**
+     * A selected set overlaps cards by 25 px, so only the top ~102 px of each
+     * 127 px card stays visible. Every line must fit inside that band.
+     */
+    private static final float TITLE_Y = 2f;
+    private static final float ARTIST_Y = 34f;
+    private static final float VERSION_Y = 58f;
+    private static final float STARS_Y = 82f;
+    private static final float STAR_SCALE = 0.34f;
+    private static final float STAR_SPACING = 22f;
+
     private static final Color4 DEFAULT_COLOR = new Color4(25 / 255f, 25 / 255f, 240 / 255f);
     private static final Color4 SELECTED_COLOR = new Color4(1f, 1f, 1f);
 
@@ -42,11 +53,11 @@ public class BeatmapItem extends Sprite {
         // Stable card layout: title (font) on top, then "artist // creator", then
         // the difficulty version — the two secondary lines use the smaller font so
         // all three fit above the star row inside the 127px card.
-        beatmapTitle = new ChangeableText(Utils.toRes(32), Utils.toRes(8),
+        beatmapTitle = new ChangeableText(Utils.toRes(32), Utils.toRes(TITLE_Y),
                 ResourceManager.getInstance().getFont("font"), "", 200);
-        beatmapLeftText = new ChangeableText(Utils.toRes(32), Utils.toRes(44),
+        beatmapLeftText = new ChangeableText(Utils.toRes(32), Utils.toRes(ARTIST_Y),
                 ResourceManager.getInstance().getFont("smallFont"), "", 128);
-        beatmapVersion = new ChangeableText(Utils.toRes(32), Utils.toRes(71),
+        beatmapVersion = new ChangeableText(Utils.toRes(32), Utils.toRes(VERSION_Y),
                 ResourceManager.getInstance().getFont("smallFont"), "", 64);
 
 
@@ -66,9 +77,9 @@ public class BeatmapItem extends Sprite {
         // under the three text lines (stable shows the star row below the version).
         stars = new Sprite[10];
         for (int i = 0; i < 10; i++) {
-            stars[i] = new Sprite(Utils.toRes(32 + 31 * i), Utils.toRes(97),
+            stars[i] = new Sprite(Utils.toRes(32 + STAR_SPACING * i), Utils.toRes(STARS_Y),
                     ResourceManager.getInstance().getTexture("star"));
-            stars[i].setScale(0.6f);
+            stars[i].setScale(STAR_SCALE);
             attachChild(stars[i]);
         }
         final TextureRegion starTex = ResourceManager.getInstance()
@@ -108,9 +119,9 @@ public class BeatmapItem extends Sprite {
 
         if (fPoint > 0 && fInt != 10) {
             halfStar.setVisible(true);
-            halfStar.setPosition(Utils.toRes(32 + 31 * fInt),
-                    Utils.toRes(97));
-            halfStar.setScale(fPoint * 0.6f);
+            halfStar.setPosition(Utils.toRes(32 + STAR_SPACING * fInt),
+                    Utils.toRes(STARS_Y));
+            halfStar.setScale(fPoint * STAR_SCALE);
         }
         updateMark();
     }
