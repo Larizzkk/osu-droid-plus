@@ -331,14 +331,20 @@ public class MainScene implements IUpdateHandler {
                                 "<a href=\"https://osudroid.moe\">Visit official osu!droid website ↗</a>\n" +
                                 "<br>\n" +
                                 "<br>\n" +
-                                "<a href=\"https://discord.gg/nyD92cE\">Join the official Discord server ↗</a>\n",
+                                "<a href=\"" + OnlineManager.serverURL + "\">Visit the osu!droid+ server website ↗</a>\n" +
+                                "<br>\n" +
+                                "<br>\n" +
+                                "<a href=\"https://discord.gg/nyD92cE\">Join the official Discord server ↗</a>\n" +
+                                "<br>\n" +
+                                "<br>\n" +
+                                "<a href=\"https://discord.gg/TKWMj5mYdW\">Join the osu!droid+ Discord server ↗</a>\n",
                             true
                         )
                         .addButton("Changelog", dialog -> {
                             dialog.dismiss();
 
                             try {
-                                var intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://osudroid.moe/changelog/latest"));
+                                var intent = new Intent(Intent.ACTION_VIEW, Uri.parse(OnlineManager.changelogURL));
                                 context.startActivity(intent);
                             } catch (Exception e) {
                                 android.util.Log.e("MainScene", "Failed to load changelog", e);

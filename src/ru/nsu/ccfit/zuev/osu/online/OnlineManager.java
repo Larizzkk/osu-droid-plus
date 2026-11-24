@@ -29,10 +29,13 @@ import ru.nsu.ccfit.zuev.osu.online.PostBuilder.RequestException;
 
 public class OnlineManager {
     public static final String hostname = "osu-droid-plus-server-v2.larizrkpee.workers.dev";
-    public static final String endpoint = "https://" + hostname + "/api/";
+    public static final String serverURL = "https://" + hostname;
+    public static final String endpoint = serverURL + "/api/";
     public static final String updateEndpoint = endpoint + "update.php?lang=";
-    public static final String defaultAvatarURL = "https://" + hostname + "/user/avatar/0.png";
-    public static final String profileBannerEndpoint = "https://" + hostname + "/user/banner/";
+    public static final String updateDownloadURL = endpoint + "update/download";
+    public static final String changelogURL = serverURL + "/changelog";
+    public static final String defaultAvatarURL = serverURL + "/user/avatar/0.png";
+    public static final String profileBannerEndpoint = serverURL + "/user/banner/";
     // Protocol version the osu!droid+ server implements (same as the legacy client).
     private static final String onlineVersion = "60";
 

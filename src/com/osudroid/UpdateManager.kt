@@ -41,7 +41,7 @@ object UpdateManager: IFileRequestObserver
                 .addButton("Yes") {
                     it.dismiss()
 
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://osu-droid-plus-server-v2.larizrkpee.workers.dev/changelog"))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(OnlineManager.changelogURL))
                     GlobalManager.getInstance().mainActivity.startActivity(intent)
                 }
                 .addButton("No", clickListener = MessageDialog::dismiss)
@@ -91,7 +91,9 @@ object UpdateManager: IFileRequestObserver
 
                     val newVersion = response.getLong("version_code")
                     val newVersionName = response.optString("versionName")
-                    val link = response.getString("link")
+                    // The server normally returns its own /api/update/download
+                    // proxy; keep the same origin if an older server omits it.
+                    val link = response.optString("link", OnlineManager.updateDownloadURL)
 
                     // The GitHub release tag is the real version identity. Its
                     // publish timestamp is only a monotonic fallback, so compare
