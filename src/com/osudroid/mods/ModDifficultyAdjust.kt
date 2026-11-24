@@ -176,19 +176,19 @@ class ModDifficultyAdjust @JvmOverloads constructor(
             val settings = mutableListOf<String>()
 
             if (cs != null) {
-                settings += "CS%.1f".format(cs)
+                settings += "CS%.1f".format(java.util.Locale.US, cs)
             }
 
             if (ar != null) {
-                settings += "AR%.1f".format(ar)
+                settings += "AR%.1f".format(java.util.Locale.US, ar)
             }
 
             if (od != null) {
-                settings += "OD%.1f".format(od)
+                settings += "OD%.1f".format(java.util.Locale.US, od)
             }
 
             if (hp != null) {
-                settings += "HP%.1f".format(hp)
+                settings += "HP%.1f".format(java.util.Locale.US, hp)
             }
 
             return settings.joinToString(", ")

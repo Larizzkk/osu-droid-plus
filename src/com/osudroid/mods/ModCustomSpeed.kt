@@ -14,5 +14,5 @@ class ModCustomSpeed @JvmOverloads constructor(trackRateMultiplier: Float = 1f) 
     override val requiresConfiguration = true
 
     override val extraInformation
-        get() = "%.2fx".format(trackRateMultiplier)
+        get() = "%.2fx".format(java.util.Locale.US, trackRateMultiplier)
 }

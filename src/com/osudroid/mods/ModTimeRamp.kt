@@ -45,7 +45,7 @@ abstract class ModTimeRamp : Mod(), IModApplicableToBeatmap, IModApplicableToTra
     }
 
     override val extraInformation
-        get() = "%.2fx - %.2fx".format(initialRate, finalRate)
+        get() = "%.2fx - %.2fx".format(java.util.Locale.US, initialRate, finalRate)
 
     companion object {
         /**

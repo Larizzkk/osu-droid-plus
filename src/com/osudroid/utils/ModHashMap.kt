@@ -191,29 +191,29 @@ open class ModHashMap : ConcurrentHashMap<Class<out Mod>, Mod> {
         }
 
         if (customSpeed != null) {
-            append("x%.2f|".format(customSpeed.trackRateMultiplier))
+            append("x%.2f|".format(java.util.Locale.US, customSpeed.trackRateMultiplier))
         }
 
         difficultyAdjust?.let {
             if (it.ar != null) {
-                append("AR%.1f|".format(it.ar))
+                append("AR%.1f|".format(java.util.Locale.US, it.ar))
             }
 
             if (it.od != null) {
-                append("OD%.1f|".format(it.od))
+                append("OD%.1f|".format(java.util.Locale.US, it.od))
             }
 
             if (it.cs != null) {
-                append("CS%.1f|".format(it.cs))
+                append("CS%.1f|".format(java.util.Locale.US, it.cs))
             }
 
             if (it.hp != null) {
-                append("HP%.1f|".format(it.hp))
+                append("HP%.1f|".format(java.util.Locale.US, it.hp))
             }
         }
 
         if (flashlight != null && flashlight.followDelay != ModFlashlight.DEFAULT_FOLLOW_DELAY) {
-            append("FLD%.2f|".format(flashlight.followDelay))
+            append("FLD%.2f|".format(java.util.Locale.US, flashlight.followDelay))
         }
     }.substringBeforeLast('|')
 
