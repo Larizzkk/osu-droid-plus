@@ -53,7 +53,24 @@ public class PluginSpriteManager {
 
     public static void scaleSprite(int handle, float scale) {
         Sprite s = sprites.get(handle);
-        if (s != null) s.setScale(scale);
+        if (s != null) {
+            s.setScale(Math.max(0f, Math.min(100f, scale)));
+        }
+    }
+
+    public static void setSpriteSize(int handle, float width, float height) {
+        Sprite s = sprites.get(handle);
+        TextureRegion tex = s != null ? s.getTextureRegion() : null;
+        if (s != null && tex != null && tex.getWidth() > 0 && tex.getHeight() > 0) {
+            s.setScale(clampSize(width) / tex.getWidth(), clampSize(height) / tex.getHeight());
+        }
+    }
+
+    private static float clampSize(float value) {
+        if (!Float.isFinite(value)) {
+            return 0f;
+        }
+        return Math.max(0f, Math.min(4096f, value));
     }
 
     public static void setSpriteAlpha(int handle, float alpha) {
@@ -79,7 +96,13 @@ public class PluginSpriteManager {
     public static void setSpriteZIndex(int handle, int index) {
         Sprite s = sprites.get(handle);
         if (s != null && pluginLayer != null) {
-            pluginLayer.attachChild(s, index);
+            if (s.hasParent()) {
+                s.detachSelf();
+            }
+            // attachChild(index) silently refuses an out-of-range index, which
+            // would leave the sprite detached forever.
+            int target = Math.max(0, Math.min(index, pluginLayer.getChildCount()));
+            pluginLayer.attachChild(s, target);
         }
     }
 
