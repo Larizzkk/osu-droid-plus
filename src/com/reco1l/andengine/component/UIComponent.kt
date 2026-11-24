@@ -1839,9 +1839,13 @@ abstract class UIComponent : Entity(0f, 0f),
         background?.updateClock(currentClock)
         foreground?.updateClock(currentClock)
 
-        mChildren?.forEach {
-            @Suppress("UNCHECKED_CAST")
-            (it as? IClockReceiver<IFrameBasedClock?>)?.updateClock(currentClock)
+        // A child may attach/detach entities while receiving the clock. Iterate
+        // over a snapshot so that does not invalidate the live child iterator.
+        mChildren?.toTypedArray()?.forEach { child ->
+            if (child.parent === this) {
+                @Suppress("UNCHECKED_CAST")
+                (child as? IClockReceiver<IFrameBasedClock?>)?.updateClock(currentClock)
+            }
         }
     }
 

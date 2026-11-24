@@ -155,9 +155,13 @@ open class UIScene : Scene(), IShape, IClockProvider<IFrameBasedClock?>, IClockR
             loadState = LoadState.NotLoaded
         }
 
-        mChildren?.forEach {
-            @Suppress("UNCHECKED_CAST")
-            (it as? IClockReceiver<IFrameBasedClock?>)?.updateClock(currentClock)
+        // A child may attach/detach entities while receiving the clock. Iterate
+        // over a snapshot so that does not invalidate the live child iterator.
+        mChildren?.toTypedArray()?.forEach { child ->
+            if (child.parent === this) {
+                @Suppress("UNCHECKED_CAST")
+                (child as? IClockReceiver<IFrameBasedClock?>)?.updateClock(currentClock)
+            }
         }
 
         @Suppress("UNCHECKED_CAST")
