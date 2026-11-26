@@ -18,6 +18,8 @@ import ru.nsu.ccfit.zuev.osu.game.cursor.trail.CursorTrailOptimized;
 public class CursorEntity extends UIComponent {
     protected CursorSprite cursorSprite;
     private CursorMotionBlur motionBlur;
+    /** True while the GLES2 overlay draws the only visible cursor. */
+    private boolean blurHidesCursor;
     protected Object trail = null; // CursorTrail (legacy) or CursorTrailOptimized (long)
     private boolean isShowing = false;
     protected int trailImplementation = 1; // Default to long (optimized) trail
@@ -289,6 +291,19 @@ public class CursorEntity extends UIComponent {
         }
     }
 
+    /**
+     * While the blur overlay is drawing the cursor, the sharp sprite must not
+     * draw on top of it. The overlay is a separate surface above the game, so
+     * leaving this sprite visible produced a second, sharp cursor next to the
+     * blurred one.
+     */
+    void setMotionBlurHidesCursor(boolean hide) {
+        blurHidesCursor = hide;
+        if (cursorSprite != null) {
+            cursorSprite.setVisible(!hide);
+        }
+    }
+
     public boolean isShowing() {
         return isShowing;
     }
@@ -300,6 +315,7 @@ public class CursorEntity extends UIComponent {
             motionBlur.reset();
         }
         if (!showing) {
+            setMotionBlurHidesCursor(false);
             // Cursor hidden: reset timer and disable trail
             showTimer = 0f;
             trailEnabled = false;
@@ -533,6 +549,9 @@ public class CursorEntity extends UIComponent {
         cursorSprite.onDetached();
 
         cursorSprite = new CursorSprite();
+        // A skin switch while the overlay owns the cursor must not bring the
+        // sharp sprite back for one frame.
+        cursorSprite.setVisible(!blurHidesCursor);
         attachChild(cursorSprite);
 
         // Keep the tracker after the new sprite so it samples the cursor at the
@@ -591,6 +610,15 @@ public class CursorEntity extends UIComponent {
 
     CursorSprite getCursorSprite() {
         return cursorSprite;
+    }
+
+    /** Clears the blur and restores the sharp cursor, e.g. when pausing. */
+    public void clearMotionBlur() {
+        if (motionBlur != null) {
+            motionBlur.reset();
+        } else {
+            setMotionBlurHidesCursor(false);
+        }
     }
 
     /** Releases native/overlay resources before the entity is discarded. */

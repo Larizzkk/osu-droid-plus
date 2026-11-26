@@ -3623,6 +3623,17 @@ public class GameScene implements GameObjectListener, IOnSceneTouchListener {
         gameplayClock.stop();
         paused = true;
 
+        // Do not leave the GLES2 overlay showing a frozen blurred cursor under
+        // the pause menu; the sharp cursor is restored and the blur history is
+        // dropped so resuming cannot draw a streak from the pause position.
+        if (cursorSprites != null) {
+            for (CursorEntity cursorSprite : cursorSprites) {
+                if (cursorSprite != null) {
+                    cursorSprite.clearMotionBlur();
+                }
+            }
+        }
+
         scene.setIgnoreUpdate(true);
         hud.setIgnoreUpdate(true);
 

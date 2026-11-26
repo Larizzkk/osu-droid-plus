@@ -14,7 +14,7 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager;
  *
  * <p>The shutter, blend weights and weight curve are read from the same
  * parameters danser-go exposes: BlendFrames, OversampleMultiplier,
- * BlendFunctionID and GaussWeightsMult. The shader receives thirteen positions
+ * BlendFunctionID and GaussWeightsMult. The shader receives 24 positions
  * across that shutter and accumulates the cursor image with the calculated
  * weights. Sampling the real recent path keeps circular/arc movement smooth
  * instead of producing the old straight-chord sawtooth.</p>
@@ -25,22 +25,17 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager;
 public final class CursorMotionBlur extends Entity {
 
     /** Path samples over the exposure. Must match CursorBlurOverlay.BLUR_SAMPLES. */
-    private static final int BLUR_SAMPLES = 13;
+    private static final int BLUR_SAMPLES = 24;
     private static final int HISTORY_CAPACITY = 512;
 
     /** Safety cap only for pathological flicks; normal blur is physical. */
     private static final float MAX_BLUR_PX = 512f;
-    /** A jump larger than this is a teleport (tap/replay seek), not motion. */
-    private static final float TELEPORT_DISTANCE = 320f;
-
     private final CursorEntity owner;
     private final int slot;
 
     private MotionBlurSettings settings;
 
     private boolean hasLastPosition;
-    private float lastX;
-    private float lastY;
     private long lastTimeNanos;
 
     // Geometry uses this frame's velocity, not a smoothed one: on a fast circle
@@ -58,6 +53,8 @@ public final class CursorMotionBlur extends Entity {
     // Reused per-frame snapshot, no allocations in the draw path.
     private final float[] pathOffsetX = new float[BLUR_SAMPLES];
     private final float[] pathOffsetY = new float[BLUR_SAMPLES];
+    private float pastSampleX;
+    private float pastSampleY;
 
     public CursorMotionBlur(final CursorEntity owner) {
         this.owner = owner;
@@ -83,6 +80,7 @@ public final class CursorMotionBlur extends Entity {
 
     /** Releases the overlay slot when the cursor entity is discarded. */
     public void release() {
+        showSharpCursor();
         CursorBlurOverlay.releaseCursor(slot);
     }
 
@@ -94,6 +92,15 @@ public final class CursorMotionBlur extends Entity {
         historyHead = 0;
         historyCount = 0;
         CursorBlurOverlay.clear(slot);
+        showSharpCursor();
+    }
+
+    private void showSharpCursor() {
+        owner.setMotionBlurHidesCursor(false);
+    }
+
+    private void hideSharpCursor() {
+        owner.setMotionBlurHidesCursor(true);
     }
 
     @Override
@@ -107,6 +114,7 @@ public final class CursorMotionBlur extends Entity {
             slot < 0
         ) {
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             hasLastPosition = false;
             historyCount = 0;
             return;
@@ -117,26 +125,24 @@ public final class CursorMotionBlur extends Entity {
         final float y = owner.getY();
 
         if (!hasLastPosition || lastTimeNanos == 0L) {
-            lastX = x;
-            lastY = y;
             lastTimeNanos = now;
             hasLastPosition = true;
             historyHead = 0;
             historyCount = 0;
             appendHistory(x, y, now);
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             return;
         }
 
         final float dt = (now - lastTimeNanos) * 1.0e-9f;
-        final float dx = x - lastX;
-        final float dy = y - lastY;
-        final float distanceSq = dx * dx + dy * dy;
 
-        // Frame hitch or a teleport: restart sampling instead of a huge smear.
-        if (dt > 0.15f || distanceSq > TELEPORT_DISTANCE * TELEPORT_DISTANCE) {
-            lastX = x;
-            lastY = y;
+        // Frame hitch: restart sampling instead of a huge smear. A large cursor
+        // jump is not a reason to reset: at 30 FPS a fast flick can move more
+        // than 320 px per frame, and clearing the blur there made the effect
+        // depend on the frame rate. Presses and seeks reset the tracker
+        // explicitly through reset().
+        if (dt > 0.15f) {
             lastTimeNanos = now;
             pathVelocityX = 0f;
             pathVelocityY = 0f;
@@ -144,6 +150,7 @@ public final class CursorMotionBlur extends Entity {
             historyCount = 0;
             appendHistory(x, y, now);
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             return;
         }
 
@@ -151,24 +158,27 @@ public final class CursorMotionBlur extends Entity {
             return;
         }
 
-        pathVelocityX = dx / dt;
-        pathVelocityY = dy / dt;
-
-        lastX = x;
-        lastY = y;
         lastTimeNanos = now;
         appendHistory(x, y, now);
         trimHistory(now);
+
+        // Use a fixed time window instead of this frame's displacement. At high
+        // refresh rates a cursor often repeats a position for a frame; dividing
+        // that zero movement by a short dt made the forward half of the blur
+        // flicker. A fixed window gives the same average velocity at 30, 60 and
+        // 120 FPS, matching the shutter better.
+        updatePathVelocity(x, y, now);
 
         final float cursorWidth = cursor.getWidth() * Math.abs(cursor.getScaleX());
         final float cursorHeight = cursor.getHeight() * Math.abs(cursor.getScaleY());
         if (cursorWidth <= 0f || cursorHeight <= 0f) {
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             return;
         }
 
         // Sample the actual path across the shutter. Past positions come from
-        // real history; the future half uses this frame's velocity.
+        // real history; the future half uses the fixed-window velocity.
         final long halfExposure = settings.exposureNanos / 2L;
         for (int i = 0; i < BLUR_SAMPLES; i++) {
             final long targetTime = now - halfExposure
@@ -180,6 +190,7 @@ public final class CursorMotionBlur extends Entity {
         final var engine = GlobalManager.getInstance().getEngine();
         if (camera == null || engine == null) {
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             return;
         }
 
@@ -189,6 +200,7 @@ public final class CursorMotionBlur extends Entity {
         final float cameraHeight = camera.getHeight();
         if (surfaceWidth <= 0 || surfaceHeight <= 0 || cameraWidth <= 0f || cameraHeight <= 0f) {
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             return;
         }
 
@@ -231,8 +243,9 @@ public final class CursorMotionBlur extends Entity {
             radius = Math.max(radius, (float) Math.sqrt(ox * ox + oy * oy));
         }
 
-        if (radius < 0.35f) {
+        if (radius < 0.35f || !CursorBlurOverlay.isOperational()) {
             CursorBlurOverlay.clear(slot);
+            showSharpCursor();
             return;
         }
 
@@ -248,6 +261,68 @@ public final class CursorMotionBlur extends Entity {
             radius,
             1f
         );
+        hideSharpCursor();
+    }
+
+    /**
+     * Average velocity over the exposure window. The position at the start of
+     * the window is interpolated from the recorded path, so a frame that did
+     * not move still contributes the recent movement instead of zero. This is
+     * the live equivalent of danser sampling the cursor at fixed times inside
+     * its oversampled shutter.
+     */
+    private void updatePathVelocity(float x, float y, long now) {
+        final long window = settings.exposureNanos;
+        if (historyCount < 2 || window <= 0L) {
+            pathVelocityX = 0f;
+            pathVelocityY = 0f;
+            return;
+        }
+
+        samplePast(now - window, x, y);
+        final float seconds = window * 1.0e-9f;
+        pathVelocityX = (x - pastSampleX) / seconds;
+        pathVelocityY = (y - pastSampleY) / seconds;
+    }
+
+    /** Interpolates the recorded path at an arbitrary past time. */
+    private void samplePast(long targetTime, float currentX, float currentY) {
+        final int newest = historyHead;
+        final long newestTime = historyTime[newest];
+
+        if (targetTime >= newestTime) {
+            pastSampleX = currentX;
+            pastSampleY = currentY;
+            return;
+        }
+
+        final int oldest = (historyHead - historyCount + 1 + HISTORY_CAPACITY)
+            % HISTORY_CAPACITY;
+        if (targetTime <= historyTime[oldest]) {
+            final float dt = (targetTime - historyTime[oldest]) * 1.0e-9f;
+            pastSampleX = historyX[oldest] + pathVelocityX * dt;
+            pastSampleY = historyY[oldest] + pathVelocityY * dt;
+            return;
+        }
+
+        pastSampleX = currentX;
+        pastSampleY = currentY;
+        int newer = newest;
+        for (int k = 1; k < historyCount; k++) {
+            final int older = (historyHead - k + HISTORY_CAPACITY) % HISTORY_CAPACITY;
+            if (historyTime[older] <= targetTime) {
+                final long span = historyTime[newer] - historyTime[older];
+                final float t = span > 0L
+                    ? (targetTime - historyTime[older]) / (float) span
+                    : 1f;
+                pastSampleX = historyX[older]
+                    + (historyX[newer] - historyX[older]) * t;
+                pastSampleY = historyY[older]
+                    + (historyY[newer] - historyY[older]) * t;
+                return;
+            }
+            newer = older;
+        }
     }
 
     private void appendHistory(float x, float y, long time) {

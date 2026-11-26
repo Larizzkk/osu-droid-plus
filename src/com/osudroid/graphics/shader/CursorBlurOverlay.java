@@ -28,7 +28,7 @@ import ru.nsu.ccfit.zuev.osu.Config;
  *
  * <p>Cursor entities publish an immutable-ish snapshot through static arrays.
  * The GL thread copies those values once per frame and issues one draw call per
- * visible cursor. The fragment shader accumulates the cursor image at thirteen
+ * visible cursor. The fragment shader accumulates the cursor image at 24
  * positions across the danser-go shutter, using weights calculated from the
  * selected blending function (or manual weights). Those offsets follow the
  * cursor's recent path, not a single straight velocity vector, so arcs and fast
@@ -44,8 +44,8 @@ public final class CursorBlurOverlay extends GLSurfaceView {
     /** Path samples over the exposure interval. More taps remove the visible
      *  gaps in fast flicks without changing the shutter length. Fallback taps
      *  are used when a GLES2 driver cannot fit this many fragment uniforms. */
-    private static final int BLUR_SAMPLES = 13;
-    private static final int FALLBACK_SAMPLES = 9;
+    private static final int BLUR_SAMPLES = 24;
+    private static final int FALLBACK_SAMPLES = 12;
 
     private static final Object STATE_LOCK = new Object();
     private static final boolean[] USED = new boolean[MAX_CURSORS];
@@ -70,6 +70,8 @@ public final class CursorBlurOverlay extends GLSurfaceView {
     private static volatile CursorBlurOverlay instance;
     private static volatile int textureGeneration;
     private static volatile String skinPath;
+    /** True once the shader and cursor texture are actually usable. */
+    private static volatile boolean operational;
 
     private final Renderer renderer;
 
@@ -108,6 +110,11 @@ public final class CursorBlurOverlay extends GLSurfaceView {
      * releases them: releaseCursor() clears the stored path first, so a
      * recycled slot cannot draw at the previous cursor's position.
      */
+    /** Whether the overlay can draw; the game cursor may be hidden only then. */
+    public static boolean isOperational() {
+        return operational;
+    }
+
     public static int registerCursor() {
         synchronized (STATE_LOCK) {
             for (int i = 0; i < MAX_CURSORS; i++) {
@@ -258,8 +265,8 @@ public final class CursorBlurOverlay extends GLSurfaceView {
         private static final String FRAGMENT_SHADER =
             "precision mediump float;\n" +
             "uniform sampler2D uTexture;\n" +
-            "uniform vec2 uOffsets[13];\n" +
-            "uniform float uWeights[13];\n" +
+            "uniform vec2 uOffsets[24];\n" +
+            "uniform float uWeights[24];\n" +
             "uniform float uAlpha;\n" +
             "uniform float uRotation;\n" +
             "uniform vec2 uImageSize;\n" +
@@ -270,7 +277,7 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             "    float weightSum = 0.0;\n" +
             "    float c = cos(uRotation);\n" +
             "    float s = sin(uRotation);\n" +
-            "    for (int i = 0; i < 13; i++) {\n" +
+            "    for (int i = 0; i < 24; i++) {\n" +
             // danser-go calculates 1 + 100 * easing(t) on the CPU; the exact
             // curve (and optional manual weights) arrives in this array.
             "        float w = uWeights[i];\n" +
@@ -295,8 +302,8 @@ public final class CursorBlurOverlay extends GLSurfaceView {
 
         /** Kept for GLES2 devices whose fragment uniform budget is too small. */
         private static final String FRAGMENT_SHADER_FALLBACK = FRAGMENT_SHADER
-            .replace("[13]", "[" + FALLBACK_SAMPLES + "]")
-            .replace("i < 13", "i < " + FALLBACK_SAMPLES);
+            .replace("[24]", "[" + FALLBACK_SAMPLES + "]")
+            .replace("i < 24", "i < " + FALLBACK_SAMPLES);
 
         private final Context context;
 
@@ -329,6 +336,13 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             .order(java.nio.ByteOrder.nativeOrder())
             .asFloatBuffer();
 
+        // The fallback shader has fewer taps. Resample the 24-tap path and
+        // weights over the whole shutter instead of sending only its first
+        // half, which made the fallback blur one-sided.
+        private final float[] fallbackOffsetX = new float[FALLBACK_SAMPLES];
+        private final float[] fallbackOffsetY = new float[FALLBACK_SAMPLES];
+        private final float[] fallbackWeights = new float[FALLBACK_SAMPLES];
+
         Renderer(Context context) {
             this.context = context;
         }
@@ -345,7 +359,7 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             program = ShaderProgram.create(VERTEX_SHADER, FRAGMENT_SHADER);
             activeSamples = BLUR_SAMPLES;
             if (program == null) {
-                Log.w(TAG, "13-tap blur shader unavailable; falling back to 9 taps");
+                Log.w(TAG, "24-tap blur shader unavailable; falling back to 12 taps");
                 program = ShaderProgram.create(VERTEX_SHADER, FRAGMENT_SHADER_FALLBACK);
                 activeSamples = FALLBACK_SAMPLES;
             }
@@ -353,6 +367,7 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             textureId = 0;
             loadedGeneration = -1;
 
+            operational = false;
             if (program == null) {
                 Log.e(TAG, "Shader program could not be created; cursor blur disabled");
             }
@@ -370,6 +385,7 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
             if (program == null || surfaceWidth <= 0 || surfaceHeight <= 0) {
+                operational = false;
                 return;
             }
 
@@ -378,8 +394,10 @@ public final class CursorBlurOverlay extends GLSurfaceView {
                 loadedGeneration = textureGeneration;
             }
             if (textureId == 0) {
+                operational = false;
                 return;
             }
+            operational = true;
 
             copyState();
 
@@ -405,15 +423,29 @@ public final class CursorBlurOverlay extends GLSurfaceView {
                 program.setUniform1f("uAlpha", alpha[i]);
 
                 offsetBuffer.clear();
-                for (int j = 0; j < BLUR_SAMPLES; j++) {
-                    offsetBuffer.put(offsetX[i][j]);
-                    offsetBuffer.put(offsetY[i][j]);
+                if (activeSamples == BLUR_SAMPLES) {
+                    for (int j = 0; j < BLUR_SAMPLES; j++) {
+                        offsetBuffer.put(offsetX[i][j]);
+                        offsetBuffer.put(offsetY[i][j]);
+                    }
+                } else {
+                    resample(offsetX[i], fallbackOffsetX, activeSamples);
+                    resample(offsetY[i], fallbackOffsetY, activeSamples);
+                    for (int j = 0; j < activeSamples; j++) {
+                        offsetBuffer.put(fallbackOffsetX[j]);
+                        offsetBuffer.put(fallbackOffsetY[j]);
+                    }
                 }
                 offsetBuffer.position(0);
                 program.setUniform2fv("uOffsets[0]", activeSamples, offsetBuffer);
 
                 weightBuffer.clear();
-                weightBuffer.put(weights, 0, BLUR_SAMPLES);
+                if (activeSamples == BLUR_SAMPLES) {
+                    weightBuffer.put(weights, 0, BLUR_SAMPLES);
+                } else {
+                    resample(weights, fallbackWeights, activeSamples);
+                    weightBuffer.put(fallbackWeights, 0, activeSamples);
+                }
                 weightBuffer.position(0);
                 program.setUniform1fv("uWeights[0]", activeSamples, weightBuffer);
 
@@ -421,6 +453,18 @@ public final class CursorBlurOverlay extends GLSurfaceView {
             }
 
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+        }
+
+        /** Maps the full 24-tap shutter onto the fallback shader's tap count. */
+        private static void resample(float[] source, float[] target, int count) {
+            for (int i = 0; i < count; i++) {
+                float position = count <= 1 ? 0f
+                    : (float) i * (BLUR_SAMPLES - 1) / (count - 1);
+                int lower = (int) position;
+                int upper = Math.min(lower + 1, BLUR_SAMPLES - 1);
+                float t = position - lower;
+                target[i] = source[lower] + (source[upper] - source[lower]) * t;
+            }
         }
 
         private void copyState() {

@@ -10,13 +10,13 @@ import ru.nsu.ccfit.zuev.osu.Config;
  * <p>danser blends {@code BlendFrames} rendered frames that are
  * {@code OversampleMultiplier} times denser than the output. At 60 output FPS
  * the shutter is therefore {@code (BlendFrames / OversampleMultiplier) / 60}
- * seconds. The shader integrates thirteen path positions across that shutter using
+ * seconds. The shader integrates 24 path positions across that shutter using
  * the same {@code 1 + 100 * easing(t)} weights as danser-go.</p>
  */
 final class MotionBlurSettings {
 
-    static final int SAMPLES = 13;
     static final int DANSER_BLEND_FRAMES = 24;
+    static final int SAMPLES = DANSER_BLEND_FRAMES;
     static final int FUNCTION_GAUSS_SYMMETRIC = 27;
 
     static final int DEFAULT_OVERSAMPLE = 16;
@@ -93,32 +93,13 @@ final class MotionBlurSettings {
             return;
         }
 
-        // danser-go evaluates one weight per oversampled frame (24 by default)
-        // and averages those frames in the blend shader. Our shader has fewer
-        // taps, so integrate each tap over its slice of the 24-frame shutter
-        // instead of point-sampling the easing. That keeps the same total
-        // exposure and the same relative emphasis as danser.
-        final double[] frames = new double[DANSER_BLEND_FRAMES];
-        for (int frame = 0; frame < DANSER_BLEND_FRAMES; frame++) {
-            double t = DANSER_BLEND_FRAMES <= 1
-                ? 0.0
-                : (double) frame / (DANSER_BLEND_FRAMES - 1);
+        // One weight per danser-go oversampled frame. With 24 taps this is an
+        // exact copy of danser's blend, not a resampled approximation.
+        for (int i = 0; i < SAMPLES; i++) {
+            double t = SAMPLES <= 1 ? 0.0 : (double) i / (SAMPLES - 1);
             double value = 1.0 + Easing.evaluate(blendFunction, t, gaussWeightsMultiplier) * 100.0;
             // Back easings can overshoot; never feed a negative weight to the shader.
-            frames[frame] = Math.max(0.0, value);
-        }
-
-        for (int i = 0; i < SAMPLES; i++) {
-            int start = i * DANSER_BLEND_FRAMES / SAMPLES;
-            int end = (i + 1) * DANSER_BLEND_FRAMES / SAMPLES;
-            if (end <= start) {
-                end = Math.min(DANSER_BLEND_FRAMES, start + 1);
-            }
-            double sum = 0.0;
-            for (int frame = start; frame < end; frame++) {
-                sum += frames[frame];
-            }
-            weights[i] = (float) (sum / Math.max(1, end - start));
+            weights[i] = (float) Math.max(0.0, value);
         }
     }
 
