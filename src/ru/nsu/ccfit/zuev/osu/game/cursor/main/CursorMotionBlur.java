@@ -16,8 +16,9 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager;
  * parameters danser-go exposes: BlendFrames, OversampleMultiplier,
  * BlendFunctionID and GaussWeightsMult. The shader receives 24 positions
  * across that shutter and accumulates the cursor image with the calculated
- * weights. Sampling the real recent path keeps circular/arc movement smooth
- * instead of producing the old straight-chord sawtooth.</p>
+ * weights. A circle fitted to the recent path makes fast circular movement
+ * read as a continuous arc instead of a straight-chord sawtooth; straight
+ * movement keeps the linear path.</p>
  *
  * <p>The tracker is attached after the cursor sprite, so it reads the final
  * cursor position in the same draw pass as the visible cursor.</p>
@@ -56,6 +57,14 @@ public final class CursorMotionBlur extends Entity {
     private float pastSampleX;
     private float pastSampleY;
 
+    // Locally fitted arc. Straight movement falls back to the linear path.
+    private boolean hasArc;
+    private float arcCenterX;
+    private float arcCenterY;
+    private float arcRadius;
+    private double arcAngle;
+    private double arcSpeed;
+
     public CursorMotionBlur(final CursorEntity owner) {
         this.owner = owner;
         this.slot = CursorBlurOverlay.registerCursor();
@@ -89,6 +98,7 @@ public final class CursorMotionBlur extends Entity {
         hasLastPosition = false;
         pathVelocityX = 0f;
         pathVelocityY = 0f;
+        hasArc = false;
         historyHead = 0;
         historyCount = 0;
         CursorBlurOverlay.clear(slot);
@@ -167,7 +177,7 @@ public final class CursorMotionBlur extends Entity {
         // that zero movement by a short dt made the forward half of the blur
         // flicker. A fixed window gives the same average velocity at 30, 60 and
         // 120 FPS, matching the shutter better.
-        updatePathVelocity(x, y, now);
+        updatePathCurve(x, y, now);
 
         final float cursorWidth = cursor.getWidth() * Math.abs(cursor.getScaleX());
         final float cursorHeight = cursor.getHeight() * Math.abs(cursor.getScaleY());
@@ -265,6 +275,58 @@ public final class CursorMotionBlur extends Entity {
     }
 
     /**
+     * Fits a circle through the current point and two recent points of the
+     * recorded path. A circle turns fast circular movement into a real arc:
+     * both the past and the future taps then follow the curve instead of a
+     * chord plus a straight tangent. Nearly straight movement has no stable
+     * circle and keeps using the linear path.
+     */
+    private void updatePathCurve(float x, float y, long now) {
+        updatePathVelocity(x, y, now);
+        hasArc = false;
+        if (historyCount < 3 || settings.exposureNanos <= 0L) {
+            return;
+        }
+
+        samplePast(now - settings.exposureNanos / 3L, x, y);
+        final float x1 = pastSampleX;
+        final float y1 = pastSampleY;
+        samplePast(now - (settings.exposureNanos * 2L) / 3L, x, y);
+        final float x2 = pastSampleX;
+        final float y2 = pastSampleY;
+
+        final float determinant = 2f
+            * (x * (y1 - y2) + x1 * (y2 - y) + x2 * (y - y1));
+        if (Math.abs(determinant) < 1f) {
+            return;
+        }
+
+        final float s0 = x * x + y * y;
+        final float s1 = x1 * x1 + y1 * y1;
+        final float s2 = x2 * x2 + y2 * y2;
+        final float cx = (s0 * (y1 - y2) + s1 * (y2 - y) + s2 * (y - y1)) / determinant;
+        final float cy = (s0 * (x2 - x1) + s1 * (x - x2) + s2 * (x1 - x)) / determinant;
+        final float radius = (float) Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
+        if (!Float.isFinite(radius) || radius < 1f || radius > MAX_BLUR_PX * 4f) {
+            return;
+        }
+
+        final double angle = Math.atan2(y - cy, x - cx);
+        final double speed = ((x - cx) * pathVelocityY - (y - cy) * pathVelocityX)
+            / (radius * (double) radius);
+        if (!Double.isFinite(speed) || Math.abs(speed) < 1e-9) {
+            return;
+        }
+
+        arcCenterX = cx;
+        arcCenterY = cy;
+        arcRadius = radius;
+        arcAngle = angle;
+        arcSpeed = speed;
+        hasArc = true;
+    }
+
+    /**
      * Average velocity over the exposure window. The position at the start of
      * the window is interpolated from the recorded path, so a frame that did
      * not move still contributes the recent movement instead of zero. This is
@@ -359,6 +421,14 @@ public final class CursorMotionBlur extends Entity {
      * velocity.
      */
     private void samplePath(long targetTime, float currentX, float currentY, int index) {
+        if (hasArc) {
+            final double dt = (targetTime - lastTimeNanos) * 1.0e-9;
+            final double angle = arcAngle + arcSpeed * dt;
+            pathOffsetX[index] = arcCenterX + arcRadius * (float) Math.cos(angle) - currentX;
+            pathOffsetY[index] = arcCenterY + arcRadius * (float) Math.sin(angle) - currentY;
+            return;
+        }
+
         float sampleX;
         float sampleY;
 
