@@ -184,7 +184,8 @@ public class MainScene implements IUpdateHandler {
     // sides; a normal downbeat flashes both.
     // Legacy osu!droid MenuSideFlashes: two white boxes hugging the screen edges,
     // pulsing with the live channel level on every beat / kiai beat.
-    private Rectangle leftFlash, rightFlash;
+    private Sprite leftFlash, rightFlash;
+    private static TextureRegion sideFlashGradient;
     private boolean leftFlashActive = false;
     private static final float AMPLITUDE_DEAD_ZONE = 0.25f;
     private static final float ALPHA_MULTIPLIER = (1 - AMPLITUDE_DEAD_ZONE) / 0.55f;
@@ -732,12 +733,25 @@ public class MainScene implements IUpdateHandler {
 
         hitsound = ResourceManager.getInstance().loadSound("menuhit", "sfx/menuhit.ogg", false);
         heartbeatSound = ResourceManager.getInstance().loadSound("heartbeat", "sfx/heartbeat.ogg", false);
+        heartbeatBellSound = ResourceManager.getInstance().loadSound(
+                "heartbeat-bell",
+                "sfx/osu-logo-heartbeat-bell.mp3",
+                false
+        );
 
         // Floating shapes belong to the background: above the background sprite,
         // below the dim bars and every UI element. MainMenu inserts its buttons
         // above this layer (see MainMenu.attachButtons), so they stay clickable.
         triangleBg = new TriangleBackground();
         scene.attachChild(triangleBg, Math.min(1, scene.getChildCount()));
+
+        // osu!lazer's MainMenuSeasonalLighting. It is a single batched entity,
+        // so hundreds of hit-object lights still cost one draw call.
+        seasonalLighting = new MenuSeasonalLighting();
+        seasonalLighting.setTheme(seasonalTheme);
+        seasonalLighting.setVisible(seasonalEffectsEnabled);
+        scene.attachChild(seasonalLighting, 2);
+        updateSeasonalVisuals();
 
         createClock(scene);
     }
@@ -798,19 +812,40 @@ public class MainScene implements IUpdateHandler {
         scene.attachChild(sessionTimeText);
     }
 
-    /** Legacy initSideFlashes(): two 200 px white boxes hugging the screen edges. */
+    /**
+     * Colored beat flashes on the screen edges. The visible 600 px fade from
+     * the edge inwards and take their colour from the seasonal palette.
+     */
     private void initSideFlashes() {
-        final float boxWidth = 200f;
+        final float boxWidth = 200f * 4f;
 
         // Above the background, triangle effect and dim bars; below the menu
         // buttons and the rest of the UI, so a beat flash never hides controls.
         final int flashLayer = 3;
 
-        leftFlash = new Rectangle(-boxWidth + 50f, 0, boxWidth, Config.getRES_HEIGHT());
+        if (sideFlashGradient == null) {
+            sideFlashGradient = ResourceManager.getInstance().loadHighQualityAsset(
+                    "side-flash-gradient",
+                    "gfx/side-flash-gradient.png"
+            );
+            if (sideFlashGradient == null) {
+                sideFlashGradient = ResourceManager.getInstance().getTexture("emptyavatar");
+            }
+        }
+
+        TextureRegion leftRegion = sideFlashGradient.deepCopy();
+        TextureRegion rightRegion = sideFlashGradient.deepCopy();
+        rightRegion.setFlippedHorizontal(true);
+
+        leftFlash = new Sprite(-200f, 0, boxWidth, Config.getRES_HEIGHT(), leftRegion);
+        leftFlash.setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE);
         leftFlash.setColor(1f, 1f, 1f, 0f);
         scene.attachChild(leftFlash, flashLayer);
 
-        rightFlash = new Rectangle(Config.getRES_WIDTH() - 50f, 0, boxWidth, Config.getRES_HEIGHT());
+        float visibleWidth = boxWidth - 200f;
+        rightFlash = new Sprite(Config.getRES_WIDTH() - visibleWidth, 0, boxWidth,
+                Config.getRES_HEIGHT(), rightRegion);
+        rightFlash.setBlendFunction(GL10.GL_SRC_ALPHA, GL10.GL_ONE);
         rightFlash.setColor(1f, 1f, 1f, 0f);
         scene.attachChild(rightFlash, flashLayer);
     }
@@ -819,8 +854,14 @@ public class MainScene implements IUpdateHandler {
      * Legacy flashSide(): fade in over 65 ms to a peak derived from the channel's
      * live audio level, then fade out over one beat with quadratic easing.
      */
-    private void flashSide(Rectangle flash, double beatLength, boolean kiai) {
+    private void flashSide(Sprite flash, double beatLength, boolean kiai) {
         if (flash == null) {
+            return;
+        }
+
+        if (!seasonalEffectsEnabled) {
+            flash.clearEntityModifiers();
+            flash.setColor(1f, 1f, 1f, 0f);
             return;
         }
 
@@ -834,6 +875,14 @@ public class MainScene implements IUpdateHandler {
         float targetAlpha = 0.1f + (channelLevel - AMPLITUDE_DEAD_ZONE) / multiplier;
         if (targetAlpha < 0.1f) targetAlpha = 0.1f;
         if (targetAlpha > 1f) targetAlpha = 1f;
+
+        int sideColor = seasonalTheme.randomSideColor();
+        flash.setColor(
+                ((sideColor >> 16) & 0xFF) / 255f,
+                ((sideColor >> 8) & 0xFF) / 255f,
+                (sideColor & 0xFF) / 255f,
+                0f
+        );
 
         flash.clearEntityModifiers();
         flash.registerEntityModifier(new SequenceEntityModifier(
@@ -1080,6 +1129,33 @@ public class MainScene implements IUpdateHandler {
     public void onUpdate(final float pSecondsElapsed) {
         updateParallax(pSecondsElapsed);
         beatPassTime += pSecondsElapsed * 1000;
+
+        seasonalSettingsAge += pSecondsElapsed;
+        if (seasonalSettingsAge >= 0.5f) {
+            seasonalSettingsAge = 0f;
+            boolean enabled = Config.getBoolean("newYearEffectsEnabled", true);
+            boolean automatic = Config.getBoolean("seasonalAutoTheme", true);
+            if (enabled != seasonalEffectsEnabled || automatic != seasonalAutoTheme) {
+                seasonalEffectsEnabled = enabled;
+                seasonalAutoTheme = automatic;
+                seasonalTheme = SeasonalTheme.resolve(automatic);
+                updateSeasonalVisuals();
+                if (enabled) {
+                    loadSeasonalLighting();
+                } else if (seasonalLighting != null) {
+                    seasonalLighting.clear();
+                }
+            }
+        }
+
+        // Drive the lighting from the track position regardless of the BASS
+        // status enum. The old code only updated on Status.PLAYING, which can
+        // report STALLED on some devices while the menu music is audible.
+        var seasonalSongService = GlobalManager.getInstance().getSongService();
+        if (seasonalLighting != null && seasonalEffectsEnabled && seasonalSongService != null) {
+            seasonalLighting.update(seasonalSongService.getPosition(), pSecondsElapsed * 1000f);
+        }
+
         if (isOnExitAnim) {
             return;
         }
@@ -1151,8 +1227,22 @@ public class MainScene implements IUpdateHandler {
                 logo.registerEntityModifier(new SequenceEntityModifier(new org.anddev.andengine.entity.modifier.ScaleModifier((float) (bpmLength / 1000 * 0.9f), 1f, 1.07f),
                         new org.anddev.andengine.entity.modifier.ScaleModifier((float) (bpmLength / 1000 * 0.07f), 1.07f, 1f)));
 
-                if (heartbeatSound != null) {
-                    heartbeatSound.play(Config.getInt("heartbeatVolume", 100) / 100f);
+                // lazer's OsuLogoChristmas swaps both the heartbeat and the
+                // downbeat for the bell. Beat samples get +/-1% pitch variance;
+                // the downbeat keeps its original pitch.
+                BassSoundProvider beatSound = seasonalEffectsEnabled && heartbeatBellSound != null
+                        ? heartbeatBellSound
+                        : heartbeatSound;
+                if (beatSound != null) {
+                    if (beatSound == heartbeatBellSound) {
+                        boolean downbeat = currentTimingPoint != null
+                                && currentTimingPoint.timeSignature > 0
+                                && beatIndex % currentTimingPoint.timeSignature == 0;
+                        beatSound.setFrequency(downbeat
+                                ? 1f
+                                : 1f - 0.01f + (float) (Math.random() * 0.02));
+                    }
+                    beatSound.play(Config.getInt("heartbeatVolume", 100) / 100f);
                 }
             }
 
@@ -1559,6 +1649,80 @@ public class MainScene implements IUpdateHandler {
             beatPassTime = (position - currentTimingPoint.time) % bpmLength;
         } catch (IOException | IllegalArgumentException e) {
             Debug.e("Failed to load beatmap for timing points: " + e);
+        }
+
+        loadSeasonalLighting();
+    }
+
+    /**
+     * Parses the menu beatmap with hit objects in the background. The lighting
+     * only needs the selected track, and parsing on the update thread would
+     * stutter the menu on large maps.
+     */
+    private void loadSeasonalLighting() {
+        if (seasonalLighting == null) {
+            return;
+        }
+
+        seasonalLighting.clear();
+        if (!seasonalEffectsEnabled || beatmapInfo == null) {
+            return;
+        }
+
+        final BeatmapInfo info = beatmapInfo;
+        final String md5 = info.getMD5();
+
+        Execution.async(() -> {
+            try {
+                Beatmap beatmap = BeatmapCache.getBeatmap(info, true);
+                Execution.updateThread(() -> {
+                    if (seasonalLighting == null || !seasonalEffectsEnabled) {
+                        return;
+                    }
+                    if (beatmapInfo != null && md5.equals(beatmapInfo.getMD5())) {
+                        seasonalLighting.setBeatmap(beatmap, md5);
+                    }
+                });
+            } catch (Exception e) {
+                Debug.e("Failed to load seasonal lighting: " + e);
+            }
+        });
+    }
+
+    /** Applies the seasonal palette, visibility and logo-visualiser tint. */
+    private void updateSeasonalVisuals() {
+        if (seasonalLighting != null) {
+            seasonalLighting.setTheme(seasonalTheme);
+            seasonalLighting.setVisible(seasonalEffectsEnabled);
+        }
+
+        if (seasonalEffectsEnabled && snowfall == null && scene != null && context != null
+                && Config.getBoolean("snowfallEnabled", true)) {
+            snowfall = addSnowfall(scene, context);
+        }
+        if (snowfall != null) {
+            snowfall.setVisible(seasonalEffectsEnabled
+                    && Config.getBoolean("snowfallEnabled", true));
+        }
+
+        if (spectrum != null) {
+            if (seasonalEffectsEnabled) {
+                spectrum.setBarColor(seasonalTheme.getBarR(),
+                        seasonalTheme.getBarG(), seasonalTheme.getBarB());
+            } else {
+                spectrum.setBarColor(1f, 1f, 1f);
+            }
+        }
+
+        if (!seasonalEffectsEnabled) {
+            if (leftFlash != null) {
+                leftFlash.clearEntityModifiers();
+                leftFlash.setColor(1f, 1f, 1f, 0f);
+            }
+            if (rightFlash != null) {
+                rightFlash.clearEntityModifiers();
+                rightFlash.setColor(1f, 1f, 1f, 0f);
+            }
         }
     }
 

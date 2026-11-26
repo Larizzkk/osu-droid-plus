@@ -63,6 +63,9 @@ public final class MenuVisualizer extends ColoredSpriteBatch {
     private volatile float[] audioData = new float[BARS];
     private float[] spareData = new float[BARS];
     private float diameter;
+    private float barR = 1f;
+    private float barG = 1f;
+    private float barB = 1f;
 
     public MenuVisualizer() {
         // SpriteBatch.setIndex() rejects the index exactly equal to capacity,
@@ -76,6 +79,13 @@ public final class MenuVisualizer extends ColoredSpriteBatch {
     /** Size of the logo the ring is wrapped around, in screen pixels. */
     public void setLogoSize(float logoSize) {
         this.diameter = logoSize * LOGO_SCALE_ADJUST;
+    }
+
+    /** lazer's SeasonalMenuLogoVisualisation uses the ambient seasonal colour. */
+    public void setBarColor(float r, float g, float b) {
+        barR = r;
+        barG = g;
+        barB = b;
     }
 
     /** Snapshot amplitudes from the update thread without allocating. */
@@ -140,7 +150,7 @@ public final class MenuVisualizer extends ColoredSpriteBatch {
                         centerX + bottomX, centerY + bottomY,
                         centerX + bottomX + amplitudeX, centerY + bottomY + amplitudeY);
 
-                putColor(rect++, 1f, 1f, 1f, ALPHA);
+                putColor(rect++, barR, barG, barB, ALPHA);
             }
         }
 
