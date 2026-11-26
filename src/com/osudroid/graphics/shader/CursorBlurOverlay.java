@@ -31,9 +31,10 @@ import ru.nsu.ccfit.zuev.osu.Config;
  * visible cursor. The fragment shader accumulates the cursor image at 24
  * positions across the danser-go shutter, using weights calculated from the
  * selected blending function (or manual weights). Those offsets follow the
- * cursor's recent path, not a single straight velocity vector, so arcs and fast
- * circular movement stay curved instead of forming a sawtooth. It is still a
- * shutter blur, not a trail: the window is only the exposure.</p>
+ * cursor's recorded path, with only the unknown future extrapolated from the
+ * newest segment. Sharp turns therefore stay corners instead of being bent
+ * into a fitted arc. It is still a shutter blur, not a trail: the window is
+ * only the exposure.</p>
  */
 public final class CursorBlurOverlay extends GLSurfaceView {
 
@@ -151,8 +152,7 @@ public final class CursorBlurOverlay extends GLSurfaceView {
     /**
      * Publishes the cursor image and a short screen-space path for the current
      * exposure. Offsets are relative to the current cursor centre and follow
-     * the actual recent path, so circular/arc movement is blurred as an arc
-     * instead of a series of straight chords (the sawtooth artefact).
+     * the recorded path, so a sharp direction change keeps its incoming stroke.
      */
     public static void submitPath(
         int slot,

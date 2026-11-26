@@ -16,9 +16,9 @@ import ru.nsu.ccfit.zuev.osu.GlobalManager;
  * parameters danser-go exposes: BlendFrames, OversampleMultiplier,
  * BlendFunctionID and GaussWeightsMult. The shader receives 24 positions
  * across that shutter and accumulates the cursor image with the calculated
- * weights. A circle fitted to the recent path makes fast circular movement
- * read as a continuous arc instead of a straight-chord sawtooth; straight
- * movement keeps the linear path.</p>
+ * weights. Past taps are interpolated from the recorded path, while the
+ * future half follows the newest segment's tangent. A sharp turn becomes a
+ * real corner in the shutter instead of an unstable fitted arc.</p>
  *
  * <p>The tracker is attached after the cursor sprite, so it reads the final
  * cursor position in the same draw pass as the visible cursor.</p>
@@ -31,6 +31,12 @@ public final class CursorMotionBlur extends Entity {
 
     /** Safety cap only for pathological flicks; normal blur is physical. */
     private static final float MAX_BLUR_PX = 512f;
+    private static final long MIN_SEGMENT_NANOS = 2_000_000L;
+    private static final float MIN_SEGMENT_PX = 1.5f;
+    /** Dot product below this means roughly a 75 degree turn or sharper. */
+    private static final float CORNER_DOT = 0.25f;
+    /** Shorten an uncertain forward tail right after a turn. */
+    private static final float CORNER_EXTRAPOLATION = 0.6f;
     private final CursorEntity owner;
     private final int slot;
 
@@ -39,10 +45,12 @@ public final class CursorMotionBlur extends Entity {
     private boolean hasLastPosition;
     private long lastTimeNanos;
 
-    // Geometry uses this frame's velocity, not a smoothed one: on a fast circle
-    // the smoothed direction lags the tangent and bends the forward blur.
-    private float pathVelocityX;
-    private float pathVelocityY;
+    // Direction of the newest real segment, used only for the future half of
+    // the shutter. Past taps always come from the recorded path, so a turn
+    // keeps its incoming stroke instead of being bent into an arc.
+    private float tangentVelocityX;
+    private float tangentVelocityY;
+    private boolean hasCorner;
 
     // Ring buffer of recent scene-space positions. head = newest entry.
     private final float[] historyX = new float[HISTORY_CAPACITY];
@@ -56,14 +64,6 @@ public final class CursorMotionBlur extends Entity {
     private final float[] pathOffsetY = new float[BLUR_SAMPLES];
     private float pastSampleX;
     private float pastSampleY;
-
-    // Locally fitted arc. Straight movement falls back to the linear path.
-    private boolean hasArc;
-    private float arcCenterX;
-    private float arcCenterY;
-    private float arcRadius;
-    private double arcAngle;
-    private double arcSpeed;
 
     public CursorMotionBlur(final CursorEntity owner) {
         this.owner = owner;
@@ -96,9 +96,9 @@ public final class CursorMotionBlur extends Entity {
     /** Discards history so the next frame cannot blur across a tap/seek. */
     public void reset() {
         hasLastPosition = false;
-        pathVelocityX = 0f;
-        pathVelocityY = 0f;
-        hasArc = false;
+        tangentVelocityX = 0f;
+        tangentVelocityY = 0f;
+        hasCorner = false;
         historyHead = 0;
         historyCount = 0;
         CursorBlurOverlay.clear(slot);
@@ -154,8 +154,9 @@ public final class CursorMotionBlur extends Entity {
         // explicitly through reset().
         if (dt > 0.15f) {
             lastTimeNanos = now;
-            pathVelocityX = 0f;
-            pathVelocityY = 0f;
+            tangentVelocityX = 0f;
+            tangentVelocityY = 0f;
+            hasCorner = false;
             historyHead = 0;
             historyCount = 0;
             appendHistory(x, y, now);
@@ -172,12 +173,9 @@ public final class CursorMotionBlur extends Entity {
         appendHistory(x, y, now);
         trimHistory(now);
 
-        // Use a fixed time window instead of this frame's displacement. At high
-        // refresh rates a cursor often repeats a position for a frame; dividing
-        // that zero movement by a short dt made the forward half of the blur
-        // flicker. A fixed window gives the same average velocity at 30, 60 and
-        // 120 FPS, matching the shutter better.
-        updatePathCurve(x, y, now);
+        // The future half uses the newest real segment, not an average across
+        // the whole shutter: an abrupt turn must change direction immediately.
+        updatePathMotion(now);
 
         final float cursorWidth = cursor.getWidth() * Math.abs(cursor.getScaleX());
         final float cursorHeight = cursor.getHeight() * Math.abs(cursor.getScaleY());
@@ -275,76 +273,108 @@ public final class CursorMotionBlur extends Entity {
     }
 
     /**
-     * Fits a circle through the current point and two recent points of the
-     * recorded path. A circle turns fast circular movement into a real arc:
-     * both the past and the future taps then follow the curve instead of a
-     * chord plus a straight tangent. Nearly straight movement has no stable
-     * circle and keeps using the linear path.
+     * Derives the forward tail from the newest real segment. The past half is
+     * never rewritten: interpolating the recorded path preserves an incoming
+     * stroke when the direction changes, so a sharp turn becomes a corner in
+     * the shutter instead of an unstable fitted circle.
      */
-    private void updatePathCurve(float x, float y, long now) {
-        updatePathVelocity(x, y, now);
-        hasArc = false;
-        if (historyCount < 3 || settings.exposureNanos <= 0L) {
+    private void updatePathMotion(long now) {
+        tangentVelocityX = 0f;
+        tangentVelocityY = 0f;
+        hasCorner = false;
+        if (historyCount < 2 || settings.exposureNanos <= 0L) {
             return;
         }
 
-        samplePast(now - settings.exposureNanos / 3L, x, y);
-        final float x1 = pastSampleX;
-        final float y1 = pastSampleY;
-        samplePast(now - (settings.exposureNanos * 2L) / 3L, x, y);
-        final float x2 = pastSampleX;
-        final float y2 = pastSampleY;
+        final int newest = historyHead;
+        int older = -1;
+        float dx = 0f;
+        float dy = 0f;
 
-        final float determinant = 2f
-            * (x * (y1 - y2) + x1 * (y2 - y) + x2 * (y - y1));
-        if (Math.abs(determinant) < 1f) {
+        // A repeated frame has zero displacement; skip it so the tangent is
+        // the last real movement, not a division by a near-zero time.
+        for (int k = 1; k < historyCount; k++) {
+            final int candidate = (historyHead - k + HISTORY_CAPACITY) % HISTORY_CAPACITY;
+            final long dt = historyTime[newest] - historyTime[candidate];
+            final float cx = historyX[newest] - historyX[candidate];
+            final float cy = historyY[newest] - historyY[candidate];
+            if (dt >= MIN_SEGMENT_NANOS
+                    && cx * cx + cy * cy >= MIN_SEGMENT_PX * MIN_SEGMENT_PX) {
+                older = candidate;
+                dx = cx;
+                dy = cy;
+                break;
+            }
+        }
+
+        if (older < 0) {
+            useWindowAverage(now);
             return;
         }
 
-        final float s0 = x * x + y * y;
-        final float s1 = x1 * x1 + y1 * y1;
-        final float s2 = x2 * x2 + y2 * y2;
-        final float cx = (s0 * (y1 - y2) + s1 * (y2 - y) + s2 * (y - y1)) / determinant;
-        final float cy = (s0 * (x2 - x1) + s1 * (x - x2) + s2 * (x1 - x)) / determinant;
-        final float radius = (float) Math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
-        if (!Float.isFinite(radius) || radius < 1f || radius > MAX_BLUR_PX * 4f) {
-            return;
-        }
-
-        final double angle = Math.atan2(y - cy, x - cx);
-        final double speed = ((x - cx) * pathVelocityY - (y - cy) * pathVelocityX)
-            / (radius * (double) radius);
-        if (!Double.isFinite(speed) || Math.abs(speed) < 1e-9) {
-            return;
-        }
-
-        arcCenterX = cx;
-        arcCenterY = cy;
-        arcRadius = radius;
-        arcAngle = angle;
-        arcSpeed = speed;
-        hasArc = true;
+        final long nanos = historyTime[newest] - historyTime[older];
+        setTangent(dx * 1.0e9f / nanos, dy * 1.0e9f / nanos);
+        hasCorner = isSharpTurn(newest, older);
     }
 
-    /**
-     * Average velocity over the exposure window. The position at the start of
-     * the window is interpolated from the recorded path, so a frame that did
-     * not move still contributes the recent movement instead of zero. This is
-     * the live equivalent of danser sampling the cursor at fixed times inside
-     * its oversampled shutter.
-     */
-    private void updatePathVelocity(float x, float y, long now) {
+    /** Fallback when the newest samples are identical (a paused cursor). */
+    private void useWindowAverage(long now) {
         final long window = settings.exposureNanos;
-        if (historyCount < 2 || window <= 0L) {
-            pathVelocityX = 0f;
-            pathVelocityY = 0f;
+        final float x = historyX[historyHead];
+        final float y = historyY[historyHead];
+        samplePast(now - window, x, y);
+        final float seconds = window * 1.0e-9f;
+        setTangent((x - pastSampleX) / seconds, (y - pastSampleY) / seconds);
+    }
+
+    /** Clamps pathological flicks without changing normal cursor speed. */
+    private void setTangent(float vx, float vy) {
+        if (!Float.isFinite(vx) || !Float.isFinite(vy)) {
+            tangentVelocityX = 0f;
+            tangentVelocityY = 0f;
             return;
         }
 
-        samplePast(now - window, x, y);
-        final float seconds = window * 1.0e-9f;
-        pathVelocityX = (x - pastSampleX) / seconds;
-        pathVelocityY = (y - pastSampleY) / seconds;
+        final float speed = (float) Math.sqrt(vx * vx + vy * vy);
+        final float maxSpeed = MAX_BLUR_PX / (settings.exposureNanos * 1.0e-9f);
+        if (speed > maxSpeed && speed > 0f) {
+            final float factor = maxSpeed / speed;
+            vx *= factor;
+            vy *= factor;
+        }
+
+        tangentVelocityX = vx;
+        tangentVelocityY = vy;
+    }
+
+    /** True when the previous real segment points away from the current one. */
+    private boolean isSharpTurn(int newest, int older) {
+        final float speed = (float) Math.sqrt(
+            tangentVelocityX * tangentVelocityX + tangentVelocityY * tangentVelocityY);
+        if (speed <= 0f) {
+            return false;
+        }
+
+        final int distance = (historyHead - older + HISTORY_CAPACITY) % HISTORY_CAPACITY;
+        for (int k = 1; k <= historyCount - distance; k++) {
+            final int candidate = (older - k + HISTORY_CAPACITY) % HISTORY_CAPACITY;
+            final long dt = historyTime[older] - historyTime[candidate];
+            if (dt < MIN_SEGMENT_NANOS) {
+                continue;
+            }
+
+            final float px = historyX[older] - historyX[candidate];
+            final float py = historyY[older] - historyY[candidate];
+            final float length = (float) Math.sqrt(px * px + py * py);
+            if (length < MIN_SEGMENT_PX) {
+                continue;
+            }
+
+            final float dot = (tangentVelocityX * px + tangentVelocityY * py)
+                / (speed * length);
+            return dot < CORNER_DOT;
+        }
+        return false;
     }
 
     /** Interpolates the recorded path at an arbitrary past time. */
@@ -362,8 +392,8 @@ public final class CursorMotionBlur extends Entity {
             % HISTORY_CAPACITY;
         if (targetTime <= historyTime[oldest]) {
             final float dt = (targetTime - historyTime[oldest]) * 1.0e-9f;
-            pastSampleX = historyX[oldest] + pathVelocityX * dt;
-            pastSampleY = historyY[oldest] + pathVelocityY * dt;
+            pastSampleX = historyX[oldest] + tangentVelocityX * dt;
+            pastSampleY = historyY[oldest] + tangentVelocityY * dt;
             return;
         }
 
@@ -416,19 +446,10 @@ public final class CursorMotionBlur extends Entity {
 
     /**
      * Writes the scene-space offset from the current cursor to the sampled
-     * position at {@code targetTime}. Between frames the path is interpolated;
-     * outside the available history it is extrapolated with the current frame's
-     * velocity.
+     * position at {@code targetTime}. Past taps follow the recorded path; only
+     * the unknown future is extrapolated, and a fresh turn shortens it.
      */
     private void samplePath(long targetTime, float currentX, float currentY, int index) {
-        if (hasArc) {
-            final double dt = (targetTime - lastTimeNanos) * 1.0e-9;
-            final double angle = arcAngle + arcSpeed * dt;
-            pathOffsetX[index] = arcCenterX + arcRadius * (float) Math.cos(angle) - currentX;
-            pathOffsetY[index] = arcCenterY + arcRadius * (float) Math.sin(angle) - currentY;
-            return;
-        }
-
         float sampleX;
         float sampleY;
 
@@ -440,16 +461,17 @@ public final class CursorMotionBlur extends Entity {
             final long newestTime = historyTime[newest];
 
             if (targetTime >= newestTime) {
-                final float dt = (targetTime - newestTime) * 1.0e-9f;
-                sampleX = historyX[newest] + pathVelocityX * dt;
-                sampleY = historyY[newest] + pathVelocityY * dt;
+                final float scale = hasCorner ? CORNER_EXTRAPOLATION : 1f;
+                final float dt = (targetTime - newestTime) * 1.0e-9f * scale;
+                sampleX = historyX[newest] + tangentVelocityX * dt;
+                sampleY = historyY[newest] + tangentVelocityY * dt;
             } else {
                 final int oldest = (historyHead - historyCount + 1 + HISTORY_CAPACITY)
                     % HISTORY_CAPACITY;
                 if (targetTime <= historyTime[oldest]) {
                     final float dt = (targetTime - historyTime[oldest]) * 1.0e-9f;
-                    sampleX = historyX[oldest] + pathVelocityX * dt;
-                    sampleY = historyY[oldest] + pathVelocityY * dt;
+                    sampleX = historyX[oldest] + tangentVelocityX * dt;
+                    sampleY = historyY[oldest] + tangentVelocityY * dt;
                 } else {
                     sampleX = currentX;
                     sampleY = currentY;
