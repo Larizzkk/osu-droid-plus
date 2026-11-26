@@ -34,9 +34,9 @@ import com.osudroid.beatmaps.hitobjects.sliderobject.SliderTick;
 public final class MenuSeasonalLighting extends ColoredSpriteBatch {
 
     private static final int MAX_LIGHTS = 192;
+    /** Hit objects only drive the rhythm; their glows follow a menu pattern. */
+    private static final int PATTERN_PERIOD = 4;
 
-    private static final float PLAYFIELD_WIDTH = 512f;
-    private static final float PLAYFIELD_HEIGHT = 384f;
     private static final float GLOW_DIAMETER = 172f;
     private static final float LIGHT_ALPHA = 0.5f;
 
@@ -50,6 +50,11 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
     private HitObject[] hitObjects = new HitObject[0];
     private int lastObjectIndex = -1;
     private double lastPosition = -1;
+    private int spawnCount;
+    private float garlandPhase;
+    private float leftRisePhase;
+    private float rightRisePhase;
+    private float logoPhase;
     /**
      * Monotonic fade clock. lazer drives light transforms from the container
      * clock, not from the beatmap track, so a seek must not rewind a glow.
@@ -104,6 +109,11 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
         hitObjects = new HitObject[0];
         lastObjectIndex = -1;
         lastPosition = -1;
+        spawnCount = 0;
+        garlandPhase = 0f;
+        leftRisePhase = 0f;
+        rightRisePhase = 0f;
+        logoPhase = 0f;
         clearLights();
     }
 
@@ -188,27 +198,55 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
             light.offsetY = 0;
         }
 
-        // Keep the whole glow on screen. lazer stretches the 512x384 playfield
-        // to a 16:10 box, which puts lights far outside the visible area on
-        // tall phones; using the real screen height and clamping the centre
-        // gives the same motion without glows disappearing off-screen.
+        // Hit objects keep the rhythm, but the glows are laid out as menu
+        // decorations: a garland across the top, a smooth rise along each
+        // side, and a cluster of lights around the logo. The texture, size,
+        // colour and fade timing are unchanged.
         float width = Config.getRES_WIDTH();
         float height = Config.getRES_HEIGHT();
         float margin = GLOW_DIAMETER * 0.5f * light.scale + 24f;
+        float usableWidth = Math.max(1f, width - margin * 2f);
 
-        light.x = clampVisible(
-                object.getPosition().x / PLAYFIELD_WIDTH * width,
-                margin, width);
-        light.y = clampVisible(
-                object.getPosition().y / PLAYFIELD_HEIGHT * height,
-                margin, height);
-    }
+        int slot = spawnCount++ % PATTERN_PERIOD;
+        if (slot == 0) {
+            float u = garlandPhase;
+            garlandPhase += 0.14f;
+            if (garlandPhase >= 1f) {
+                garlandPhase -= 1f;
+            }
 
-    private static float clampVisible(float value, float margin, float size) {
-        if (size <= margin * 2f) {
-            return size / 2f;
+            light.x = margin + u * usableWidth;
+            light.y = Math.max(margin, height * 0.08f) + height * 0.09f
+                    * (float) Math.sin(Math.PI * u);
+            light.riseY = 0f;
+        } else if (slot == 1 || slot == 2) {
+            boolean left = slot == 1;
+            float u = left ? leftRisePhase : rightRisePhase;
+            if (left) {
+                leftRisePhase += 0.12f;
+                if (leftRisePhase >= 1f) {
+                    leftRisePhase -= 1f;
+                }
+            } else {
+                rightRisePhase += 0.12f;
+                if (rightRisePhase >= 1f) {
+                    rightRisePhase -= 1f;
+                }
+            }
+
+            float sway = width * 0.02f * (float) Math.sin(u * Math.PI * 2f);
+            light.x = left ? margin + sway : width - margin - sway;
+            float bottom = Math.max(margin, height - margin);
+            float top = margin + Math.max(0f, height - margin * 2f) * 0.25f;
+            light.y = bottom - (bottom - top) * u;
+            light.riseY = (bottom - top) * 0.18f;
+        } else {
+            logoPhase += 0.85f;
+            float radius = Math.min(width, height) * 0.16f;
+            light.x = width / 2f + (float) Math.cos(logoPhase) * radius;
+            light.y = height / 2f + (float) Math.sin(logoPhase) * radius * 0.5f;
+            light.riseY = height * 0.02f;
         }
-        return Math.max(margin, Math.min(size - margin, value));
     }
 
     private static boolean hasSample(HitObject object, String name) {
@@ -247,10 +285,11 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
                 continue;
             }
 
+            float progress = Math.min(1f, (float) ((lightTime - light.spawnTime) / light.lifetime()));
             float move = light.tick ? easeOut(Math.min(1f, (float) ((lightTime - light.spawnTime) / 1400.0))) : 0f;
             float diameter = GLOW_DIAMETER * light.scale;
             float x = light.x + light.offsetX * move - diameter / 2f;
-            float y = light.y + light.offsetY * move - diameter / 2f;
+            float y = light.y + light.offsetY * move - light.riseY * easeOut(progress) - diameter / 2f;
 
             drawWithoutChecks(glowTexture, x, y, diameter, diameter);
             putColor(rect++, light.r, light.g, light.b, alpha);
@@ -297,6 +336,7 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
         float scale;
         float offsetX;
         float offsetY;
+        float riseY;
         double startTime;
         double spawnTime;
         boolean tick;
