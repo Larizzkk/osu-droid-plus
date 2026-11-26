@@ -19,7 +19,6 @@ import com.osudroid.beatmaps.hitobjects.HitObject;
 import com.osudroid.beatmaplisting.BeatmapListing;
 import com.osudroid.ui.MainMenu;
 import com.osudroid.ui.MenuSeasonalLighting;
-import com.osudroid.ui.MenuSeasonalText;
 import com.osudroid.ui.SeasonalTheme;
 import com.osudroid.utils.Execution;
 import com.reco1l.andengine.Anchor;
@@ -173,7 +172,6 @@ public class MainScene implements IUpdateHandler {
 
     /** osu!lazer's seasonal (Christmas/New Year) menu treatment. */
     private MenuSeasonalLighting seasonalLighting;
-    private MenuSeasonalText seasonalText;
     private boolean seasonalEffectsEnabled;
     private boolean seasonalAutoTheme;
     private SeasonalTheme seasonalTheme = SeasonalTheme.resolve(false);
@@ -753,11 +751,6 @@ public class MainScene implements IUpdateHandler {
         seasonalLighting.setTheme(seasonalTheme);
         seasonalLighting.setVisible(seasonalEffectsEnabled);
         scene.attachChild(seasonalLighting, 2);
-
-        seasonalText = new MenuSeasonalText();
-        seasonalText.setTheme(seasonalTheme);
-        seasonalText.setVisible(seasonalEffectsEnabled);
-        scene.attachChild(seasonalText, 4);
         updateSeasonalVisuals();
 
         createClock(scene);
@@ -1253,18 +1246,6 @@ public class MainScene implements IUpdateHandler {
                 }
             }
 
-            if (seasonalText != null && seasonalEffectsEnabled && musicStarted) {
-                boolean beatKiai = (currentEffectPoint != null && currentEffectPoint.isKiai)
-                        || isContinuousKiai;
-                var songService = GlobalManager.getInstance().getSongService();
-                float[] levels = songService != null ? songService.getChannelLevel() : null;
-                float level = levels != null ? Math.max(levels[0], levels[1]) : 0f;
-                int signature = currentTimingPoint != null && currentTimingPoint.timeSignature > 0
-                        ? currentTimingPoint.timeSignature
-                        : 4;
-                seasonalText.onBeat(beatKiai, beatIndex, bpmLength, signature, level);
-            }
-
             if (currentTimingPoint != null) {
                 boolean kiai = (currentEffectPoint != null && currentEffectPoint.isKiai) || isContinuousKiai;
 
@@ -1713,13 +1694,6 @@ public class MainScene implements IUpdateHandler {
         if (seasonalLighting != null) {
             seasonalLighting.setTheme(seasonalTheme);
             seasonalLighting.setVisible(seasonalEffectsEnabled);
-        }
-        if (seasonalText != null) {
-            seasonalText.setTheme(seasonalTheme);
-            seasonalText.setVisible(seasonalEffectsEnabled);
-            if (!seasonalEffectsEnabled) {
-                seasonalText.clear();
-            }
         }
 
         if (seasonalEffectsEnabled && snowfall == null && scene != null && context != null
