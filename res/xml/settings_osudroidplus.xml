@@ -110,6 +110,20 @@
             android:key="snowfallEnabled"
             android:summary="@string/droidplus_snowfall_summary"
             android:title="@string/droidplus_snowfall_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="newYearEffectsEnabled"
+            android:summary="@string/droidplus_new_year_effects_summary"
+            android:title="@string/droidplus_new_year_effects_title"
+            app:layout="@layout/settings_preference_checkbox" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="seasonalAutoTheme"
+            android:summary="@string/droidplus_seasonal_auto_theme_summary"
+            android:title="@string/droidplus_seasonal_auto_theme_title"
             app:layout="@layout/settings_preference_checkbox_bottom" />
 
     </PreferenceCategory>
