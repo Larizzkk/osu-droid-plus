@@ -1,7 +1,8 @@
 package ru.nsu.ccfit.zuev.osu;
 
 import static com.acivev.ui.EffectKt.addFireworksWithPeriod;
-import static com.acivev.ui.EffectKt.addSnowfallWithPeriod;
+import static com.acivev.ui.EffectKt.addSnowfall;
+import static com.acivev.ui.SnowfallKt.setSnowPointerX;
 
 import android.content.Context;
 import android.content.Intent;
@@ -261,6 +262,8 @@ public class MainScene implements IUpdateHandler {
 
         refreshParallaxSettings();
         scene.setOnSceneTouchListener((pScene, pTouchEvent) -> {
+            setSnowPointerX(pTouchEvent.getX());
+
             if (!parallaxEnabled) {
                 return false;
             }
@@ -280,10 +283,14 @@ public class MainScene implements IUpdateHandler {
             return false;
         });
 
-        if (Config.getBoolean("snowfallEnabled", true)) {
-            addSnowfallWithPeriod(scene, context);
+        // The existing "Snow in the menu" setting is the switch; the old date
+        // gate hid the effect for most of the season when the setting was on.
+        if (seasonalEffectsEnabled && Config.getBoolean("snowfallEnabled", true)) {
+            snowfall = addSnowfall(scene, context);
         }
-        addFireworksWithPeriod(scene, context);
+        if (seasonalEffectsEnabled) {
+            addFireworksWithPeriod(scene, context);
+        }
 
         final TextureRegion logotex = ResourceManager.getInstance().getTexture("logo");
         logo = new Sprite((float) Config.getRES_WIDTH() / 2 - (float) logotex.getWidth() / 2, (float) Config.getRES_HEIGHT() / 2 - (float) logotex.getHeight() / 2, logotex) {
