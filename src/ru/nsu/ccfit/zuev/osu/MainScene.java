@@ -10,8 +10,15 @@ import android.net.Uri;
 import android.util.Log;
 
 import com.acivev.VibratorManager;
+import com.acivev.ui.Snowfall;
 import com.edlplan.framework.easing.Easing;
+import com.osudroid.beatmaps.Beatmap;
 import com.osudroid.beatmaps.BeatmapCache;
+import com.osudroid.beatmaps.hitobjects.HitObject;
+import com.osudroid.beatmaplisting.BeatmapListing;
+import com.osudroid.ui.MainMenu;
+import com.osudroid.ui.MenuSeasonalLighting;
+import com.osudroid.ui.SeasonalTheme;
 import com.osudroid.utils.Execution;
 import com.reco1l.andengine.Anchor;
 import com.reco1l.andengine.UIScene;
@@ -20,9 +27,7 @@ import com.reco1l.andengine.sprite.UISprite;
 import com.osudroid.ui.BannerManager;
 import com.osudroid.ui.BannerManager.BannerSprite;
 import com.osudroid.data.BeatmapInfo;
-import com.osudroid.ui.MainMenu;
 
-import com.osudroid.beatmaplisting.BeatmapListing;
 import com.reco1l.andengine.ui.UIConfirmDialog;
 import com.reco1l.framework.Color4;
 import com.reco1l.osu.ui.HorizontalMessageDialog;
@@ -162,6 +167,15 @@ public class MainScene implements IUpdateHandler {
     private boolean musicStarted;
     private BassSoundProvider hitsound;
     private BassSoundProvider heartbeatSound;
+    private BassSoundProvider heartbeatBellSound;
+
+    /** osu!lazer's seasonal (Christmas/New Year) menu treatment. */
+    private MenuSeasonalLighting seasonalLighting;
+    private boolean seasonalEffectsEnabled;
+    private boolean seasonalAutoTheme;
+    private SeasonalTheme seasonalTheme = SeasonalTheme.resolve(false);
+    private Snowfall snowfall;
+    private float seasonalSettingsAge = 999f;
 
     // ── osu!PC (lazer) main-menu effects ────────────────────────────────────
     // MenuSideFlashes: two 200px white boxes hugging the left/right screen edges,
@@ -218,6 +232,9 @@ public class MainScene implements IUpdateHandler {
 
     public void load(Context context) {
         this.context = context;
+        seasonalEffectsEnabled = Config.getBoolean("newYearEffectsEnabled", true);
+        seasonalAutoTheme = Config.getBoolean("seasonalAutoTheme", true);
+        seasonalTheme = SeasonalTheme.resolve(seasonalAutoTheme);
         Debug.i("Load: mainMenuLoaded()");
         VibratorManager.INSTANCE.init(context);
         scene = new UIScene();
