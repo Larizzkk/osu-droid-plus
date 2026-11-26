@@ -50,7 +50,11 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
     private HitObject[] hitObjects = new HitObject[0];
     private int lastObjectIndex = -1;
     private double lastPosition = -1;
-    private double currentTime;
+    /**
+     * Monotonic fade clock. lazer drives light transforms from the container
+     * clock, not from the beatmap track, so a seek must not rewind a glow.
+     */
+    private volatile double lightTime;
     private String beatmapMd5;
 
     public MenuSeasonalLighting() {
@@ -101,16 +105,16 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
         hitObjects = new HitObject[0];
         lastObjectIndex = -1;
         lastPosition = -1;
-        currentTime = 0;
         clearLights();
     }
 
     /**
-     * Advances the lighting clock. {@code positionMs} is the menu track
-     * position, which makes the fades pause/rewind together with the audio.
+     * Advances the lighting clock. The track position only decides which hit
+     * objects have passed; fades use a separate monotonic clock, like lazer's
+     * container clock, so seeks and pauses cannot rewind or freeze a glow.
      */
     public void update(double positionMs, float frameElapsedMs) {
-        currentTime = positionMs;
+        lightTime += frameElapsedMs;
 
         if (hitObjects.length == 0) {
             return;
@@ -163,7 +167,7 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
         nextLight = (nextLight + 1) % lights.length;
 
         light.startTime = object.startTime;
-        light.spawnTime = currentTime;
+        light.spawnTime = lightTime;
         light.active = true;
         light.tick = object instanceof SliderTick;
         light.scale = light.tick ? 0.5f : 1f;
@@ -235,16 +239,16 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
                 continue;
             }
 
-            float alpha = light.alpha(currentTime);
+            float alpha = light.alpha(lightTime);
             if (alpha <= 0f) {
                 // The fade-in starts at spawn; only retire once the fade-out ends.
-                if (currentTime >= light.spawnTime + light.lifetime()) {
+                if (lightTime >= light.spawnTime + light.lifetime()) {
                     light.active = false;
                 }
                 continue;
             }
 
-            float move = light.tick ? easeOut(Math.min(1f, (float) ((currentTime - light.spawnTime) / 1400.0))) : 0f;
+            float move = light.tick ? easeOut(Math.min(1f, (float) ((lightTime - light.spawnTime) / 1400.0))) : 0f;
             float diameter = GLOW_DIAMETER * light.scale;
             float x = light.x + light.offsetX * move - diameter / 2f;
             float y = light.y + light.offsetY * move - diameter / 2f;
