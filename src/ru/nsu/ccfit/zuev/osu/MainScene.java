@@ -1664,8 +1664,8 @@ public class MainScene implements IUpdateHandler {
             return;
         }
 
-        seasonalLighting.clear();
         if (!seasonalEffectsEnabled || beatmapInfo == null) {
+            seasonalLighting.clear();
             return;
         }
 

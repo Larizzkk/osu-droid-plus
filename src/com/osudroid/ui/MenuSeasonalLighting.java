@@ -81,7 +81,6 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
         beatmapMd5 = md5;
         lastObjectIndex = -1;
         lastPosition = -1;
-        clearLights();
 
         List<HitObject> objects = new ArrayList<>();
         for (HitObject object : beatmap.getHitObjects().objects) {
