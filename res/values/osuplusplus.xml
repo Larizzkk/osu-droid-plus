@@ -69,12 +69,8 @@
     <string name="droidplus_triangles_title">Animated background</string>
     <string name="droidplus_triangles_summary">Moving shapes behind the playfield and in the menu</string>
 
-    <string name="droidplus_snowfall_title">Snow in the menu</string>
-    <string name="droidplus_snowfall_summary">Snow particles in the main menu</string>
-    <string name="droidplus_new_year_effects_title">Seasonal menu effects</string>
-    <string name="droidplus_new_year_effects_summary">Snow, beat lights, colored side flashes and logo bell in the main menu</string>
-    <string name="droidplus_seasonal_auto_theme_title">Automatic holiday colors</string>
-    <string name="droidplus_seasonal_auto_theme_summary">White normally, orange on Halloween, pink in spring, and other holiday palettes by date. Off uses New Year colors</string>
+    <string name="droidplus_seasonal_effects_title">Seasonal effects</string>
+    <string name="droidplus_seasonal_effects_summary">All seasonal effects follow the date: snow, hearts, leaves, pumpkins and New Year lights. Side flashes stay on and turn white when disabled</string>
 
     <string name="droidplus_autoplay_style_title">Movement type</string>
     <string name="droidplus_autoplay_style_summary">Cursor path style used while the Autoplay mod is active</string>
