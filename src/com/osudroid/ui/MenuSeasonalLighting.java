@@ -42,7 +42,7 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
 
     private static TextureRegion glowTexture;
 
-    private SeasonalTheme theme = SeasonalTheme.resolve(true);
+    private SeasonalTheme theme = SeasonalTheme.resolve();
 
     private final Light[] lights = new Light[MAX_LIGHTS];
     private int nextLight;
@@ -70,7 +70,7 @@ public final class MenuSeasonalLighting extends ColoredSpriteBatch {
 
     /** Switches the colour palette used for new lights. */
     public void setTheme(SeasonalTheme theme) {
-        this.theme = theme != null ? theme : SeasonalTheme.resolve(false);
+        this.theme = theme != null ? theme : SeasonalTheme.resolve();
     }
 
     /**
