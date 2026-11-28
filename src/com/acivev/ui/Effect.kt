@@ -17,10 +17,14 @@ import java.util.Calendar
 import javax.microedition.khronos.opengles.GL10
 
 fun addSnowfall(scene: Scene, context: Context): Snowfall {
-    // Keep the snowfall on the background layer: above the background sprite,
+    return addSnowfall(scene, context, Snowfall.Style.SNOW)
+}
+
+fun addSnowfall(scene: Scene, context: Context, style: Snowfall.Style): Snowfall {
+    // Keep the particles on the background layer: above the background sprite,
     // below the dim bars, logo and menu buttons. Later background swaps are
-    // inserted at index 0, so the snow stays on top of them.
-    val snowfall = Snowfall()
+    // inserted at index 0, so the effect stays on top of them.
+    val snowfall = Snowfall(style)
     scene.attachChild(snowfall, Math.min(1, scene.childCount))
     return snowfall
 }
@@ -37,6 +41,12 @@ fun addFireworks(scene: Scene, context: Context) {
     val maxParticles = if (isLowEndDevice) 10 else 25
 
     fun launchSingleFirework() {
+        // The single seasonal switch also gates fireworks. The scheduler keeps
+        // running, so toggling the setting takes effect without reloading the menu.
+        if (!Config.getBoolean("seasonalEffectsEnabled", true)) {
+            return
+        }
+
         // Random launch position along bottom of screen
         val launchX = (Math.random().toFloat() * Config.getRES_WIDTH() * 0.9f) + (Config.getRES_WIDTH() * 0.05f)
         val launchY = Config.getRES_HEIGHT() * 0.9f

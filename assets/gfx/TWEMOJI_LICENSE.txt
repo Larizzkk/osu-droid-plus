@@ -1,0 +1,17 @@
+Seasonal menu artwork: Twemoji
+Source: https://github.com/jdecked/twemoji
+Graphics license: CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+Copyright 2020 Twitter, Inc and other contributors
+
+Files derived from Twemoji SVG artwork:
+  pumpkin1.png  <- 1f383.svg (jack-o-lantern)
+  ghost1.png    <- 1f47b.svg (ghost)
+  heart1.png    <- 2764.svg  (red heart)
+  heart2.png    <- 1f495.svg (two hearts)
+  heart3.png    <- 1f49e.svg (revolving hearts)
+  leaf1.png     <- 1f342.svg (fallen leaf)
+  leaf2.png     <- 1f341.svg (maple leaf)
+  leaf3.png     <- 1f343.svg (leaf fluttering in wind)
+
+The heart and leaf shapes were recolored to white so the renderer can tint
+them per season. Their silhouettes are otherwise unmodified.
