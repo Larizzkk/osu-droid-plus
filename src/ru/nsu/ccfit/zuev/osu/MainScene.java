@@ -173,9 +173,9 @@ public class MainScene implements IUpdateHandler {
     /** osu!lazer's seasonal (Christmas/New Year) menu treatment. */
     private MenuSeasonalLighting seasonalLighting;
     private boolean seasonalEffectsEnabled;
-    private boolean seasonalAutoTheme;
-    private SeasonalTheme seasonalTheme = SeasonalTheme.resolve(false);
+    private SeasonalTheme seasonalTheme = SeasonalTheme.resolve();
     private Snowfall snowfall;
+    private SeasonalTheme.FallingEffect activeFallingEffect = SeasonalTheme.FallingEffect.NONE;
     private float seasonalSettingsAge = 999f;
 
     // ── osu!PC (lazer) main-menu effects ────────────────────────────────────
@@ -234,9 +234,8 @@ public class MainScene implements IUpdateHandler {
 
     public void load(Context context) {
         this.context = context;
-        seasonalEffectsEnabled = Config.getBoolean("newYearEffectsEnabled", true);
-        seasonalAutoTheme = Config.getBoolean("seasonalAutoTheme", true);
-        seasonalTheme = SeasonalTheme.resolve(seasonalAutoTheme);
+        seasonalEffectsEnabled = Config.getBoolean("seasonalEffectsEnabled", true);
+        seasonalTheme = SeasonalTheme.resolve();
         Debug.i("Load: mainMenuLoaded()");
         VibratorManager.INSTANCE.init(context);
         scene = new UIScene();
@@ -284,14 +283,10 @@ public class MainScene implements IUpdateHandler {
             return false;
         });
 
-        // The existing "Snow in the menu" setting is the switch; the old date
-        // gate hid the effect for most of the season when the setting was on.
-        if (seasonalEffectsEnabled && Config.getBoolean("snowfallEnabled", true)) {
-            snowfall = addSnowfall(scene, context);
-        }
-        if (seasonalEffectsEnabled) {
-            addFireworksWithPeriod(scene, context);
-        }
+        // Falling particles are created lazily by updateSeasonalVisuals() once
+        // the theme is known: snow in winter, hearts on Valentine's Day, leaves
+        // in spring/autumn and pumpkins/ghosts on Halloween.
+        addFireworksWithPeriod(scene, context);
 
         final TextureRegion logotex = ResourceManager.getInstance().getTexture("logo");
         logo = new Sprite((float) Config.getRES_WIDTH() / 2 - (float) logotex.getWidth() / 2, (float) Config.getRES_HEIGHT() / 2 - (float) logotex.getHeight() / 2, logotex) {
@@ -749,7 +744,6 @@ public class MainScene implements IUpdateHandler {
         // so hundreds of hit-object lights still cost one draw call.
         seasonalLighting = new MenuSeasonalLighting();
         seasonalLighting.setTheme(seasonalTheme);
-        seasonalLighting.setVisible(seasonalEffectsEnabled);
         scene.attachChild(seasonalLighting, 2);
         updateSeasonalVisuals();
 
@@ -859,12 +853,8 @@ public class MainScene implements IUpdateHandler {
             return;
         }
 
-        if (!seasonalEffectsEnabled) {
-            flash.clearEntityModifiers();
-            flash.setColor(1f, 1f, 1f, 0f);
-            return;
-        }
-
+        // Side flashes are always active. The master switch only removes the
+        // holiday treatment: with it off they simply flash white.
         var songService = GlobalManager.getInstance().getSongService();
         float[] levels = songService != null ? songService.getChannelLevel() : null;
         float channelLevel = levels != null
@@ -876,7 +866,7 @@ public class MainScene implements IUpdateHandler {
         if (targetAlpha < 0.1f) targetAlpha = 0.1f;
         if (targetAlpha > 1f) targetAlpha = 1f;
 
-        int sideColor = seasonalTheme.randomSideColor();
+        int sideColor = seasonalEffectsEnabled ? seasonalTheme.randomSideColor() : 0xFFFFFF;
         flash.setColor(
                 ((sideColor >> 16) & 0xFF) / 255f,
                 ((sideColor >> 8) & 0xFF) / 255f,
@@ -1133,14 +1123,12 @@ public class MainScene implements IUpdateHandler {
         seasonalSettingsAge += pSecondsElapsed;
         if (seasonalSettingsAge >= 0.5f) {
             seasonalSettingsAge = 0f;
-            boolean enabled = Config.getBoolean("newYearEffectsEnabled", true);
-            boolean automatic = Config.getBoolean("seasonalAutoTheme", true);
-            if (enabled != seasonalEffectsEnabled || automatic != seasonalAutoTheme) {
+            boolean enabled = Config.getBoolean("seasonalEffectsEnabled", true);
+            if (enabled != seasonalEffectsEnabled) {
                 seasonalEffectsEnabled = enabled;
-                seasonalAutoTheme = automatic;
-                seasonalTheme = SeasonalTheme.resolve(automatic);
+                seasonalTheme = SeasonalTheme.resolve();
                 updateSeasonalVisuals();
-                if (enabled) {
+                if (seasonalBeatLightsEnabled()) {
                     loadSeasonalLighting();
                 } else if (seasonalLighting != null) {
                     seasonalLighting.clear();
@@ -1152,7 +1140,7 @@ public class MainScene implements IUpdateHandler {
         // status enum. The old code only updated on Status.PLAYING, which can
         // report STALLED on some devices while the menu music is audible.
         var seasonalSongService = GlobalManager.getInstance().getSongService();
-        if (seasonalLighting != null && seasonalEffectsEnabled && seasonalSongService != null) {
+        if (seasonalLighting != null && seasonalBeatLightsEnabled() && seasonalSongService != null) {
             seasonalLighting.update(seasonalSongService.getPosition(), pSecondsElapsed * 1000f);
         }
 
@@ -1230,9 +1218,8 @@ public class MainScene implements IUpdateHandler {
                 // lazer's OsuLogoChristmas swaps both the heartbeat and the
                 // downbeat for the bell. Beat samples get +/-1% pitch variance;
                 // the downbeat keeps its original pitch.
-                BassSoundProvider beatSound = seasonalEffectsEnabled && heartbeatBellSound != null
-                        ? heartbeatBellSound
-                        : heartbeatSound;
+                BassSoundProvider beatSound = seasonalEffectsEnabled && seasonalTheme.usesBell()
+                        && heartbeatBellSound != null ? heartbeatBellSound : heartbeatSound;
                 if (beatSound != null) {
                     if (beatSound == heartbeatBellSound) {
                         boolean downbeat = currentTimingPoint != null
@@ -1664,7 +1651,7 @@ public class MainScene implements IUpdateHandler {
             return;
         }
 
-        if (!seasonalEffectsEnabled || beatmapInfo == null) {
+        if (!seasonalBeatLightsEnabled() || beatmapInfo == null) {
             seasonalLighting.clear();
             return;
         }
@@ -1676,7 +1663,7 @@ public class MainScene implements IUpdateHandler {
             try {
                 Beatmap beatmap = BeatmapCache.getBeatmap(info, true);
                 Execution.updateThread(() -> {
-                    if (seasonalLighting == null || !seasonalEffectsEnabled) {
+                    if (seasonalLighting == null || !seasonalBeatLightsEnabled()) {
                         return;
                     }
                     if (beatmapInfo != null && md5.equals(beatmapInfo.getMD5())) {
@@ -1689,21 +1676,24 @@ public class MainScene implements IUpdateHandler {
         });
     }
 
+    /** Beat lights are impossible in summer and with neutral colours. */
+    private boolean seasonalBeatLightsEnabled() {
+        return seasonalEffectsEnabled && seasonalTheme.usesBeatLights();
+    }
+
     /** Applies the seasonal palette, visibility and logo-visualiser tint. */
     private void updateSeasonalVisuals() {
+        final boolean beatLights = seasonalBeatLightsEnabled();
+
         if (seasonalLighting != null) {
             seasonalLighting.setTheme(seasonalTheme);
-            seasonalLighting.setVisible(seasonalEffectsEnabled);
+            seasonalLighting.setVisible(beatLights);
+            if (!beatLights) {
+                seasonalLighting.clear();
+            }
         }
 
-        if (seasonalEffectsEnabled && snowfall == null && scene != null && context != null
-                && Config.getBoolean("snowfallEnabled", true)) {
-            snowfall = addSnowfall(scene, context);
-        }
-        if (snowfall != null) {
-            snowfall.setVisible(seasonalEffectsEnabled
-                    && Config.getBoolean("snowfallEnabled", true));
-        }
+        syncSeasonalParticles();
 
         if (spectrum != null) {
             if (seasonalEffectsEnabled) {
@@ -1714,16 +1704,58 @@ public class MainScene implements IUpdateHandler {
             }
         }
 
+        // Side flashes stay active even with seasonal effects off; recolour an
+        // in-progress flash immediately so switching off never leaves a tinted
+        // flash behind.
         if (!seasonalEffectsEnabled) {
-            if (leftFlash != null) {
-                leftFlash.clearEntityModifiers();
-                leftFlash.setColor(1f, 1f, 1f, 0f);
+            if (leftFlash != null && leftFlash.getAlpha() > 0f) {
+                leftFlash.setColor(1f, 1f, 1f, leftFlash.getAlpha());
             }
-            if (rightFlash != null) {
-                rightFlash.clearEntityModifiers();
-                rightFlash.setColor(1f, 1f, 1f, 0f);
+            if (rightFlash != null && rightFlash.getAlpha() > 0f) {
+                rightFlash.setColor(1f, 1f, 1f, rightFlash.getAlpha());
             }
         }
+    }
+
+    /**
+     * Snow for winter, hearts for Valentine's Day, pink leaves for spring,
+     * pumpkins and ghosts for Halloween, orange leaves for autumn, and no
+     * falling particles in summer.
+     */
+    private void syncSeasonalParticles() {
+        if (scene == null || context == null) {
+            return;
+        }
+
+        final SeasonalTheme.FallingEffect desired = seasonalEffectsEnabled
+                ? seasonalTheme.getFallingEffect()
+                : SeasonalTheme.FallingEffect.NONE;
+
+        if (desired == activeFallingEffect) {
+            return;
+        }
+
+        if (snowfall != null) {
+            snowfall.setVisible(false);
+            scene.detachChild(snowfall);
+            snowfall = null;
+        }
+
+        activeFallingEffect = desired;
+        if (desired == SeasonalTheme.FallingEffect.NONE) {
+            return;
+        }
+
+        final Snowfall.Style style = switch (desired) {
+            case SNOW -> Snowfall.Style.SNOW;
+            case VALENTINE_HEARTS -> Snowfall.Style.VALENTINE_HEARTS;
+            case SPRING_LEAVES -> Snowfall.Style.SPRING_LEAVES;
+            case AUTUMN_LEAVES -> Snowfall.Style.AUTUMN_LEAVES;
+            case HALLOWEEN -> Snowfall.Style.HALLOWEEN;
+            case NONE -> Snowfall.Style.SNOW;
+        };
+
+        snowfall = addSnowfall(scene, context, style);
     }
 
     public void showExitDialog() {
